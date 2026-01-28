@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PQ Visualizer // RESPONSIVE</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --term-green: #33ff00;
+            --term-dim: #1a8000;
+            --term-alert: #ff3300; 
+            --font-stack: 'Courier New', 'VT323', monospace;
+            
+            /* Responsive spacing */
+            --spacing-xs: clamp(4px, 1vmin, 8px);
+            --spacing-sm: clamp(8px, 2vmin, 16px);
+            --spacing-md: clamp(16px, 3vmin, 24px);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg);
+            font-family: var(--font-stack);
+            color: var(--term-green);
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        /* --- CRT Effects --- */
+        #crt-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+            mix-blend-mode: hard-light;
+        }
+
+        #noise-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 90;
+            opacity: 0.12;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* --- Main Layout --- */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* Fill viewport */
+            width: 100vw;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Header & Footer: Fixed/Natural height, always visible */
+        header, footer {
+            flex-shrink: 0;
+            background: rgba(5, 5, 5, 0.95);
+            border-color: var(--term-dim);
+            border-style: solid;
+            padding: var(--spacing-sm);
+            z-index: 20;
+        }
+
+        header {
+            border-width: 0 0 2px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        footer {
+            border-width: 2px 0 0 0;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1.5fr;
+            gap: var(--spacing-md);
+            align-items: end;
+            min-height: 120px; /* Ensure space for controls */
+        }
+
+        /* Canvas Container: Takes remaining space */
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            /* Inner shadow for depth */
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- Typography & Components --- */
+        h1 {
+            margin: 0;
+            font-size: clamp(1.2rem, 4vmin, 2rem);
+            letter-spacing: 2px;
+            text-shadow: 0 0 8px var(--term-green);
+            white-space: nowrap;
+        }
+
+        .meta {
+            color: var(--term-dim);
+            font-size: 0.8em;
+            display: block;
+        }
+
+        button {
+            background: black;
+            border: 1px solid var(--term-green);
+            color: var(--term-green);
+            font-family: inherit;
+            font-size: clamp(0.8rem, 2vmin, 1rem);
+            padding: 0.5em 1.2em;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 2px 2px 0px var(--term-dim);
+            min-height: 44px; /* Touch target size */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        button.active {
+            background: var(--term-green);
+            color: black;
+        }
+
+        /* --- Footer Modules --- */
+        .log-panel {
+            font-size: clamp(0.7rem, 1.2vmin, 0.9rem);
+            height: 100%;
+            max-height: 100px;
+            overflow-y: hidden;
+            border-right: 1px solid var(--term-dim);
+            padding-right: var(--spacing-sm);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .log-entry { margin-bottom: 2px; opacity: 0.8; }
+        .log-entry:first-child { color: #fff; opacity: 1; text-shadow: 0 0 2px var(--term-green); }
+        .log-entry::before { content: "> "; color: var(--term-dim); }
+
+        .ram-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 4px;
+        }
+
+        .ram-bar-frame {
+            border: 1px solid var(--term-dim);
+            height: 20px;
+            padding: 2px;
+            width: 100%;
+        }
+
+        .ram-fill {
+            height: 100%;
+            width: 0%;
+            background: repeating-linear-gradient(45deg, var(--term-green), var(--term-green) 4px, var(--bg) 4px, var(--bg) 8px);
+            transition: width 0.5s ease-out;
+        }
+        .ram-fill.danger { background: var(--term-alert); }
+
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            gap: 8px;
+            font-size: 0.8em;
+        }
+
+        .slider-row {
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            accent-color: var(--term-green);
+            height: 20px;
+            cursor: pointer;
+        }
+
+        /* --- Responsive Queries --- */
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .header-controls {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 10px;
+            }
+            
+            footer {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                padding-bottom: 20px; /* Safe area */
+            }
+            
+            .log-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--term-dim);
+                padding-bottom: 8px;
+                max-height: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="crt-overlay"></div>
+    <div id="noise-overlay"></div>
+
+    <div id="app">
+        <!-- Header: Always visible, adapts to flex -->
+        <header>
+            <div>
+                <h1>PQ_VISUALIZER</h1>
+                <span class="meta">v2.0 RESPONSIVE // WINDOW_AGNOSTIC</span>
+            </div>
+            <div class="header-controls">
+                <button id="btn-prev">&lt;</button>
+                <div id="step-display" style="padding: 0 1em; display: flex; align-items: center; min-width: 100px; justify-content: center;">INIT</div>
+                <button id="btn-next">&gt;</button>
+                <button id="btn-auto" style="margin-left: 10px">AUTO</button>
+            </div>
+        </header>
+
+        <!-- Canvas Container: Fills the gap between Header and Footer -->
+        <div id="canvas-container">
+            <canvas id="stage"></canvas>
+        </div>
+
+        <!-- Footer: Controls and Status -->
+        <footer>
+            <div class="log-panel" id="log-console">
+                <div class="log-entry">System Ready.</div>
+            </div>
+
+            <div class="ram-panel">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8em;">
+                    <span>MEMORY_BUFFER</span>
+                    <span id="ram-val">0%</span>
+                </div>
+                <div class="ram-bar-frame">
+                    <div id="ram-bar" class="ram-fill"></div>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="slider-row">
+                    <label>SPLITS (M)</label>
+                    <input type="range" id="slider-m" min="2" max="8" value="4">
+                </div>
+                <div class="slider-row">
+                    <label>CODES (K)</label>
+                    <input type="range" id="slider-k" min="4" max="8" value="4">
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const THEME = {
+            fg: '#33ff00',
+            bg: '#050505',
+            dim: '#1a8000',
+            alert: '#ff3300'
+        };
+
+        /* --- Drawing Utilities --- */
+        const Draw = {
+            rect: (ctx, x, y, w, h, filled=false) => {
+                if(filled) {
+                    ctx.fillStyle = THEME.fg;
+                    ctx.fillRect(x, y, w, h);
+                }
+                ctx.strokeStyle = filled ? THEME.bg : THEME.fg;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
+            },
+            
+            hatch: (ctx, x, y, w, h, density=1) => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(x, y, w, h);
+                ctx.clip();
+                ctx.strokeStyle = THEME.fg;
+                ctx.lineWidth = 1;
+                const step = 6 * density;
+                for(let i = -h; i < w; i += step) {
+                    ctx.moveTo(x + i, y);
+                    ctx.lineTo(x + i + h, y + h);
+                }
+                ctx.stroke();
+                ctx.restore();
+                Draw.rect(ctx, x, y, w, h);
+            },
+
+            cross: (ctx, x, y, w, h, density=1) => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(x, y, w, h);
+                ctx.clip();
+                ctx.strokeStyle = THEME.fg;
+                ctx.lineWidth = 1;
+                const step = 8 * density;
+                for(let i = -h; i < w; i += step) {
+                    ctx.moveTo(x + i, y);
+                    ctx.lineTo(x + i + h, y + h);
+                }
+                for(let i = 0; i < w + h; i += step) {
+                    ctx.moveTo(x + i, y);
+                    ctx.lineTo(x + i - h, y + h);
+                }
+                ctx.stroke();
+                ctx.restore();
+                Draw.rect(ctx, x, y, w, h);
+            },
+
+            dots: (ctx, x, y, w, h, density=1) => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(x, y, w, h);
+                ctx.clip();
+                ctx.fillStyle = THEME.fg;
+                const step = 8 * density;
+                const size = 2 * density;
+                for(let ix = 0; ix < w; ix += step) {
+                    for(let iy = 0; iy < h; iy += step) {
+                        ctx.fillRect(x + ix + 2, y + iy + 2, size, size);
+                    }
+                }
+                ctx.restore();
+                Draw.rect(ctx, x, y, w, h);
+            },
+
+            shape: (ctx, type, x, y, size) => {
+                ctx.strokeStyle = THEME.dim;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                const r = size / 2;
+                if(type === 0) ctx.rect(x-r, y-r, size, size); // Square
+                else if(type === 1) { // Triangle
+                    ctx.moveTo(x, y-r);
+                    ctx.lineTo(x+r, y+r);
+                    ctx.lineTo(x-r, y+r);
+                    ctx.closePath();
+                } else if(type === 2) ctx.arc(x, y, r, 0, Math.PI*2); // Circle
+                else { // Diamond
+                    ctx.moveTo(x, y-r);
+                    ctx.lineTo(x+r, y);
+                    ctx.lineTo(x, y+r);
+                    ctx.lineTo(x-r, y);
+                    ctx.closePath();
+                }
+                ctx.stroke();
+            }
+        };
+
+        class Entity {
+            constructor() {
+                this.x = 0; this.y = 0; this.w = 0; this.h = 0;
+                this.tx = 0; this.ty = 0; this.tw = 0; this.th = 0;
+            }
+            update(dt) {
+                this.x += (this.tx - this.x) * 5 * dt;
+                this.y += (this.ty - this.y) * 5 * dt;
+                this.w += (this.tw - this.w) * 5 * dt;
+                this.h += (this.th - this.h) * 5 * dt;
+            }
+        }
+
+        class VectorChunk extends Entity {
+            constructor(id) {
+                super();
+                this.id = id;
+                this.matchId = Math.floor(Math.random() * 4); // Target centroid
+                this.encoded = false;
+            }
+
+            draw(ctx) {
+                if(this.w < 1) return;
+                
+                if(this.encoded) {
+                    // Draw digital code
+                    ctx.fillStyle = THEME.fg;
+                    ctx.fillRect(this.x, this.y, this.w, this.h);
+                    ctx.fillStyle = THEME.bg;
+                    const fs = Math.min(this.w * 0.8, this.h * 0.8);
+                    ctx.font = `bold ${fs}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.matchId, this.x + this.w/2, this.y + this.h/2);
+                } else {
+                    // Draw visual pattern
+                    const p = this.id % 4;
+                    const scale = Math.max(1, this.w / 50); // density scale
+                    if(p === 0) Draw.hatch(ctx, this.x, this.y, this.w, this.h, scale);
+                    else if(p === 1) Draw.cross(ctx, this.x, this.y, this.w, this.h, scale);
+                    else if(p === 2) Draw.dots(ctx, this.x, this.y, this.w, this.h, scale);
+                    else Draw.rect(ctx, this.x, this.y, this.w, this.h, true);
+                }
+            }
+        }
+
+        class Codebook {
+            constructor(k, mIdx) {
+                this.k = k;
+                this.mIdx = mIdx;
+                this.visible = false;
+                this.opacity = 0;
+                this.yOffset = 1000; // Animate in from bottom
+            }
+
+            update(dt, targetY) {
+                const dest = this.visible ? 0 : 500;
+                this.yOffset += (dest - this.yOffset) * 4 * dt;
+                this.opacity = 1 - Math.min(1, this.yOffset / 200);
+            }
+
+            draw(ctx, x, y, w, cellH) {
+                if(this.opacity <= 0.01) return;
+                
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.translate(0, this.yOffset); // Slide up effect
+
+                // Draw dashed connector
+                ctx.beginPath();
+                ctx.setLineDash([4, 4]);
+                ctx.moveTo(x + w/2, 0); // From top of screen? No, provided y is top of codebook
+                ctx.lineTo(x + w/2, y);
+                ctx.strokeStyle = THEME.dim;
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                for(let i=0; i<this.k; i++) {
+                    const cy = y + i * (cellH + 4);
+                    // Cell Frame
+                    ctx.strokeStyle = THEME.dim;
+                    ctx.strokeRect(x, cy, w, cellH);
+                    
+                    // Shape
+                    const shapeType = i % 4;
+                    Draw.shape(ctx, shapeType, x + w/2, cy + cellH/2, Math.min(w, cellH) * 0.6);
+                    
+                    // Index Label
+                    ctx.fillStyle = THEME.dim;
+                    ctx.font = `${Math.min(14, cellH/2)}px monospace`;
+                    ctx.fillText(i, x - 15, cy + cellH/2 + 4);
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        /* --- Main Engine --- */
+        class Engine {
+            constructor() {
+                this.container = document.getElementById('canvas-container');
+                this.canvas = document.getElementById('stage');
+                this.ctx = this.canvas.getContext('2d');
+                
+                this.state = {
+                    step: 0,
+                    m: 4,
+                    k: 4,
+                    auto: false
+                };
+
+                this.chunks = [];
+                this.codebooks = [];
+                
+                this.init();
+                
+                // Use ResizeObserver for robust layout detection
+                new ResizeObserver(() => this.resize()).observe(this.container);
+                
+                this.lastTime = 0;
+                requestAnimationFrame(t => this.loop(t));
+            }
+
+            init() {
+                this.chunks = Array.from({length: this.state.m}, (_, i) => new VectorChunk(i));
+                this.codebooks = Array.from({length: this.state.m}, (_, i) => new Codebook(this.state.k, i));
+                this.updateLayoutTargets(); // Initial set
+                this.uiUpdate();
+            }
+
+            resize() {
+                // Resize canvas to match the flex container exactly
+                this.canvas.width = this.container.clientWidth;
+                this.canvas.height = this.container.clientHeight;
+                this.updateLayoutTargets();
+            }
+
+            setStep(s) {
+                if(s < 0) s = 0;
+                if(s > 5) s = 5;
+                this.state.step = s;
+                this.updateLayoutTargets();
+                this.uiUpdate();
+            }
+
+            /* --- core layout logic --- */
+            updateLayoutTargets() {
+                const W = this.canvas.width;
+                const H = this.canvas.height;
+                const M = this.state.m;
+                const K = this.state.k;
+
+                // Layout Constants (Relative %)
+                const vecY = H * 0.15;      // Vector row Y
+                const cbY = H * 0.35;       // Codebook start Y
+                const vecH = Math.min(H * 0.12, 80); // Vector Height
+                const margin = W * 0.05;    // Side margins
+                
+                // Calculate Chunk Widths
+                const totalW = W - (margin * 2);
+                const gap = totalW * 0.01;
+                const chunkW = (totalW - (gap * (M-1))) / M;
+
+                // Step Logic
+                this.chunks.forEach((c, i) => {
+                    c.encoded = false;
+                    
+                    // X Position
+                    // Step 0: Joined | Step >0: Split
+                    if(this.state.step === 0) {
+                        c.tx = margin + i * (totalW / M);
+                        c.tw = totalW / M;
+                    } else {
+                        c.tx = margin + i * (chunkW + gap);
+                        c.tw = chunkW;
+                    }
+
+                    // Y Position
+                    c.ty = vecY;
+                    c.th = vecH;
+
+                    // Codebook Visibility
+                    if(this.codebooks[i]) this.codebooks[i].visible = (this.state.step >= 2 && this.state.step < 5);
+
+                    // Step 3: Match & Step 4: ID
+                    if(this.state.step === 3 || this.state.step === 4) {
+                        // Calculate height of a single codebook cell
+                        // Constraint: Must fit K cells in remaining height
+                        const availH = H - cbY - 20; 
+                        const cellH = Math.min(chunkW, availH / (K + 1));
+                        
+                        // Drop chunk to matching row
+                        c.ty = cbY + c.matchId * (cellH + 4);
+                        if(this.state.step === 4) c.encoded = true;
+                    }
+
+                    // Step 5: Compress
+                    if(this.state.step === 5) {
+                        c.encoded = true;
+                        // Center and shrink
+                        const compW = Math.max(100, W * 0.1); 
+                        const compChunkW = compW / M;
+                        const startX = (W - compW) / 2;
+                        
+                        c.tx = startX + i * compChunkW;
+                        c.tw = compChunkW;
+                        c.ty = vecY;
+                        c.th = vecH;
+                    }
+                });
+            }
+
+            loop(t) {
+                const dt = Math.min((t - this.lastTime) / 1000, 0.1);
+                this.lastTime = t;
+
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw Ghost in Step 5
+                if(this.state.step === 5) {
+                    const W = this.canvas.width;
+                    const H = this.canvas.height;
+                    const margin = W * 0.05;
+                    this.ctx.strokeStyle = '#1a3300';
+                    this.ctx.setLineDash([5, 5]);
+                    this.ctx.strokeRect(margin, H * 0.15, W - margin*2, Math.min(H * 0.12, 80));
+                    this.ctx.setLineDash([]);
+                    this.ctx.fillStyle = '#1a3300';
+                    this.ctx.fillText("RAW DATA GHOST", margin, H*0.15 - 5);
+                }
+
+                // Draw Codebooks (Background layer)
+                const cbY = this.canvas.height * 0.35;
+                const availH = this.canvas.height - cbY - 20;
+                // Determine responsive cell height based on space
+                // But lock it to match where the chunk falls
+                const chunkW = this.chunks[0]?.tw || 50; // Reference width
+                // The chunk logic used this formula:
+                const cellH = Math.min(chunkW, availH / (this.state.k + 1));
+
+                this.codebooks.forEach((cb, i) => {
+                    if(!this.chunks[i]) return;
+                    cb.update(dt);
+                    cb.draw(this.ctx, this.chunks[i].tx, cbY, this.chunks[i].tw, cellH);
+                });
+
+                // Draw Chunks (Foreground)
+                this.chunks.forEach(c => {
+                    c.update(dt);
+                    c.draw(this.ctx);
+                });
+
+                requestAnimationFrame(t => this.loop(t));
+            }
+
+            uiUpdate() {
+                const s = this.state.step;
+                document.getElementById('step-display').innerText = `STEP ${s}/5`;
+                
+                // Log logic
+                const logs = [
+                    "INPUT: High-Dim Float32 Vector",
+                    "SPLIT: Dividing into M subspaces",
+                    "REVEAL: Loading Quantization Codebooks",
+                    "MATCH: Finding nearest centroids",
+                    "ENCODE: Replacing Geometry with ID",
+                    "COMPRESSED: 32x Memory Reduction"
+                ];
+                
+                const logEl = document.getElementById('log-console');
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerText = logs[s];
+                logEl.prepend(entry);
+                if(logEl.children.length > 4) logEl.lastChild.remove();
+
+                // RAM Bar logic
+                const bar = document.getElementById('ram-bar');
+                const val = document.getElementById('ram-val');
+                
+                if(s === 0) {
+                    bar.style.width = '100%';
+                    bar.className = 'ram-fill danger';
+                    val.innerText = '100%';
+                    val.style.color = THEME.alert;
+                } else if(s === 5) {
+                    bar.style.width = '3%';
+                    bar.className = 'ram-fill';
+                    val.innerText = '3%';
+                    val.style.color = THEME.fg;
+                } else {
+                    bar.style.width = '50%';
+                    bar.className = 'ram-fill';
+                    val.innerText = 'PROCESSING...';
+                    val.style.color = THEME.fg;
+                }
+            }
+        }
+
+        /* --- Bindings --- */
+        const engine = new Engine();
+
+        document.getElementById('btn-next').onclick = () => engine.setStep(engine.state.step + 1);
+        document.getElementById('btn-prev').onclick = () => engine.setStep(engine.state.step - 1);
+        
+        document.getElementById('slider-m').oninput = (e) => {
+            engine.state.m = parseInt(e.target.value);
+            engine.init();
+        };
+        document.getElementById('slider-k').oninput = (e) => {
+            engine.state.k = parseInt(e.target.value);
+            engine.init(); // Rebuild for new K height calc
+        };
+
+        // Auto Run
+        let autoTimer = null;
+        document.getElementById('btn-auto').onclick = function() {
+            if(autoTimer) {
+                clearInterval(autoTimer);
+                autoTimer = null;
+                this.classList.remove('active');
+            } else {
+                this.classList.add('active');
+                autoTimer = setInterval(() => {
+                    let next = engine.state.step + 1;
+                    if(next > 5) next = 0;
+                    engine.setStep(next);
+                }, 2000);
+            }
+        };
+
+    </script>
+</body>
+</html>

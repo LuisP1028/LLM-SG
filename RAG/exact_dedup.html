@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hash Collision Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: crosshair;
+        }
+        canvas {
+            display: block;
+            image-rendering: pixelated; 
+            image-rendering: crisps-edges;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="display"></canvas>
+
+<script>
+/**
+ * EXACT DEDUPLICATION VISUALIZER v2
+ * Focus: Clear visualization of Hash Collisions vs. Unique Entries
+ * Style: Ditherpunk / Atkinson Dithering
+ */
+
+const canvas = document.getElementById('display');
+const ctx = canvas.getContext('2d');
+
+// CONFIGURATION
+const INTERNAL_WIDTH = 320; 
+const INTERNAL_HEIGHT = 180;
+const PALETTE_ON = [51, 255, 0];   // #33FF00 (Terminal Green)
+const PALETTE_OFF = [10, 10, 10];  // #0A0A0A (Dark Grey/Black)
+const SCROLL_SPEED = 1.0;
+
+// STATE
+let frames = 0;
+let packets = [];
+let indexStore = []; // Array of {hash, y_pos, label} for visual referencing
+let particles = []; 
+
+// Offscreen buffer
+const bufferCanvas = document.createElement('canvas');
+bufferCanvas.width = INTERNAL_WIDTH;
+bufferCanvas.height = INTERNAL_HEIGHT;
+const bctx = bufferCanvas.getContext('2d', { willReadFrequently: true });
+
+// DATA SEQUENCE
+// Designed to guarantee immediate collisions
+const DATA_SEQUENCE = [
+    { text: "USER_ID_1", id: 1 },
+    { text: "user_id_1", id: 1 }, // Collision
+    { text: "SESSION_A", id: 2 },
+    { text: "session_a", id: 2 }, // Collision
+    { text: "PAYLOAD_X", id: 3 },
+    { text: "payload_x", id: 3 }, // Collision
+];
+let sequenceIndex = 0;
+
+// -- CLASS: PACKET --
+class Packet {
+    constructor(template) {
+        this.x = -50;
+        this.y = INTERNAL_HEIGHT / 2 - 10;
+        this.w = 50;
+        this.h = 20;
+        
+        this.rawText = template.text;
+        this.currentText = template.text;
+        this.hash = null;
+        // Simple mock hash generation
+        this.pseudoHash = "0x" + (template.id * 99).toString(16).toUpperCase() + "F";
+        
+        this.state = 'new'; 
+        this.status = 'traveling'; 
+        this.pauseTimer = 0;
+        this.collisionTargetY = null; // Where in the DB did we collide?
+    }
+
+    update() {
+        // ZONE 1: NORMALIZATION (x=40)
+        if (this.x > 30 && this.state === 'new') {
+            this.state = 'normalized';
+            this.currentText = this.rawText.toLowerCase();
+            spawnParticles(this.x + this.w/2, this.y, 3);
+        }
+
+        // ZONE 2: HASHING (x=100)
+        if (this.x > 90 && this.state === 'normalized') {
+            this.state = 'hashed';
+            this.hash = this.pseudoHash;
+            spawnParticles(this.x + this.w/2, this.y + this.h, 3);
+        }
+
+        // ZONE 3: THE GATEKEEPER (x=170)
+        if (this.x > 160 && this.state === 'hashed') {
+            // PAUSE for dramatic effect (The Lookup)
+            if (this.pauseTimer < 40) {
+                this.pauseTimer++;
+                return; // Stop moving
+            }
+
+            this.state = 'verified';
+            
+            // Check Database
+            const existing = indexStore.find(item => item.hash === this.hash);
+            
+            if (existing) {
+                // !!! COLLISION DETECTED !!!
+                this.status = 'collision';
+                this.currentText = "[DUPLICATE]";
+                this.collisionTargetY = existing.y; // Save where the match is
+                
+                // Trigger flash on existing item
+                existing.flashTimer = 20;
+            } else {
+                // !!! UNIQUE !!!
+                this.status = 'unique';
+                this.currentText = "[UNIQUE]";
+                
+                // Add to DB visual
+                indexStore.push({
+                    hash: this.hash,
+                    y: 35 + (indexStore.length * 10),
+                    flashTimer: 20 // Flash the new entry
+                });
+            }
+        }
+
+        // MOVEMENT LOGIC
+        if (this.pauseTimer === 0 || this.pauseTimer >= 40) {
+            if (this.status === 'traveling') {
+                this.x += SCROLL_SPEED;
+            } 
+            else if (this.status === 'unique') {
+                // Move Right and UP
+                this.x += SCROLL_SPEED;
+                this.y -= 1.0; 
+                // Fade out eventually
+            } 
+            else if (this.status === 'collision') {
+                // Move Right and DROP DOWN hard
+                this.x += SCROLL_SPEED * 0.5;
+                this.y += 2.0;
+                if (Math.random() > 0.7) spawnParticles(this.x + this.w/2, this.y, 1);
+            }
+        }
+    }
+
+    draw(ctx) {
+        // DRAW LOOKUP LINE (During the pause)
+        if (this.pauseTimer > 0 && this.pauseTimer < 40) {
+            ctx.beginPath();
+            ctx.strokeStyle = '#3F0';
+            ctx.setLineDash([2, 2]);
+            ctx.moveTo(this.x + this.w, this.y + this.h/2);
+            
+            // If it's going to be a collision, aim at the specific existing hash
+            const existing = indexStore.find(item => item.hash === this.pseudoHash);
+            const targetY = existing ? existing.y : 35 + (indexStore.length * 10);
+            
+            ctx.lineTo(210, targetY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // DRAW PACKET BODY
+        if (this.status === 'collision') {
+            // INVERTED STYLE FOR COLLISION
+            ctx.fillStyle = '#3F0';
+            ctx.fillRect(Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+            ctx.fillStyle = '#000'; // Black Text
+            ctx.font = 'bold 8px monospace';
+        } else {
+            // OUTLINE STYLE FOR NORMAL/UNIQUE
+            ctx.fillStyle = '#000';
+            ctx.strokeStyle = '#3F0';
+            ctx.strokeRect(Math.floor(this.x), Math.floor(this.y), this.w, this.h);
+            ctx.fillRect(Math.floor(this.x)+1, Math.floor(this.y)+1, this.w-2, this.h-2);
+            ctx.fillStyle = '#3F0'; // Green Text
+            ctx.font = '8px monospace';
+        }
+
+        // TEXT
+        ctx.textAlign = 'center';
+        ctx.fillText(this.currentText, Math.floor(this.x + this.w/2), Math.floor(this.y + 8));
+
+        // HASH
+        if (this.hash) {
+            if (this.status === 'collision') ctx.fillStyle = '#000';
+            else ctx.fillStyle = '#3F0';
+            
+            ctx.font = '6px monospace';
+            ctx.fillText(this.hash, Math.floor(this.x + this.w/2), Math.floor(this.y + 15));
+        }
+    }
+}
+
+// -- PARTICLE SYSTEM --
+function spawnParticles(x, y, count) {
+    for(let i=0; i<count; i++) {
+        particles.push({
+            x: x, y: y,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            life: 1.0
+        });
+    }
+}
+
+function updateParticles() {
+    for(let i=particles.length-1; i>=0; i--) {
+        let p = particles[i];
+        p.life -= 0.05;
+        p.x += p.vx;
+        p.y += p.vy;
+        if(p.life <= 0) particles.splice(i, 1);
+    }
+}
+
+function drawParticles(ctx) {
+    ctx.fillStyle = '#3F0';
+    particles.forEach(p => {
+        if(Math.random() > 0.5) ctx.fillRect(Math.floor(p.x), Math.floor(p.y), 1, 1);
+    });
+}
+
+// -- CORE FUNCTIONS --
+
+function spawnPacket() {
+    const template = DATA_SEQUENCE[sequenceIndex];
+    packets.push(new Packet(template));
+    sequenceIndex = (sequenceIndex + 1) % DATA_SEQUENCE.length;
+}
+
+function drawUI(ctx) {
+    ctx.font = '8px monospace';
+    ctx.fillStyle = '#3F0';
+    ctx.strokeStyle = '#1a3300'; // Dark green structure
+    
+    // STRUCTURE LINES
+    ctx.beginPath();
+    ctx.moveTo(0, 120); ctx.lineTo(INTERNAL_WIDTH, 120); // Floor
+    ctx.stroke();
+
+    // LABELS
+    ctx.textAlign = 'center';
+    ctx.fillText("1. NORMALIZE", 50, 20);
+    ctx.fillText("2. HASH", 110, 20);
+    ctx.fillText("3. COMPARE", 170, 20);
+
+    // DATABASE BOX (Right Side)
+    ctx.fillStyle = '#0a1a00';
+    ctx.fillRect(210, 25, 80, 140);
+    ctx.strokeStyle = '#3F0';
+    ctx.strokeRect(210, 25, 80, 140);
+    
+    ctx.fillStyle = '#3F0';
+    ctx.textAlign = 'left';
+    ctx.fillText("HASH_INDEX", 215, 33);
+    ctx.beginPath(); ctx.moveTo(210, 35); ctx.lineTo(290, 35); ctx.stroke();
+
+    // RENDER HASH ENTRIES
+    indexStore.forEach(entry => {
+        // Flash effect for collisions/new entries
+        if (entry.flashTimer > 0) {
+            ctx.fillStyle = '#3F0';
+            ctx.fillRect(211, entry.y - 6, 78, 8);
+            ctx.fillStyle = '#000'; // Text becomes black on flash
+            entry.flashTimer--;
+        } else {
+            ctx.fillStyle = '#3F0';
+        }
+        ctx.fillText(entry.hash, 215, entry.y);
+    });
+
+    // TRASH BIN (Bottom Right)
+    ctx.fillStyle = '#3F0';
+    ctx.textAlign = 'center';
+    ctx.fillText("TRASH / REJECT", 250, 170);
+}
+
+// -- DITHERING ENGINE (Atkinson) --
+function applyDither() {
+    const imageData = bctx.getImageData(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+    const data = imageData.data;
+    const w = INTERNAL_WIDTH;
+
+    for (let y = 0; y < INTERNAL_HEIGHT; y++) {
+        for (let x = 0; x < INTERNAL_WIDTH; x++) {
+            const i = (y * w + x) * 4;
+            
+            const oldPixel = data[i+1]; // Green channel
+            const newPixel = oldPixel < 100 ? 0 : 255;
+            const quantError = oldPixel - newPixel;
+
+            data[i] = newPixel === 255 ? PALETTE_ON[0] : PALETTE_OFF[0];
+            data[i+1] = newPixel === 255 ? PALETTE_ON[1] : PALETTE_OFF[1];
+            data[i+2] = newPixel === 255 ? PALETTE_ON[2] : PALETTE_OFF[2];
+
+            // Atkinson Diffusion
+            if (x + 1 < w)           data[((y)*w + x+1)*4 + 1] += quantError * 0.125;
+            if (x + 2 < w)           data[((y)*w + x+2)*4 + 1] += quantError * 0.125;
+            if (y + 1 < INTERNAL_HEIGHT) {
+                if (x - 1 > 0)       data[((y+1)*w + x-1)*4 + 1] += quantError * 0.125;
+                                     data[((y+1)*w + x)*4 + 1]   += quantError * 0.125;
+                if (x + 1 < w)       data[((y+1)*w + x+1)*4 + 1] += quantError * 0.125;
+            }
+            if (y + 2 < INTERNAL_HEIGHT) {
+                                     data[((y+2)*w + x)*4 + 1]   += quantError * 0.125;
+            }
+        }
+    }
+    bctx.putImageData(imageData, 0, 0);
+}
+
+// -- LOOP --
+function loop() {
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.imageRendering = "pixelated";
+    }
+
+    // Clear
+    bctx.fillStyle = '#050505';
+    bctx.fillRect(0, 0, INTERNAL_WIDTH, INTERNAL_HEIGHT);
+
+    // Update
+    if (frames % 150 === 0) spawnPacket(); // Slower spawn rate
+    packets.forEach(p => p.update());
+    packets = packets.filter(p => p.x < INTERNAL_WIDTH + 50 && p.y > -50 && p.y < INTERNAL_HEIGHT + 50);
+    updateParticles();
+
+    // Draw
+    drawUI(bctx);
+    packets.forEach(p => p.draw(bctx));
+    drawParticles(bctx);
+
+    // Post-Process
+    applyDither();
+
+    // Upscale
+    ctx.drawImage(bufferCanvas, 0, 0, canvas.width, canvas.height);
+
+    frames++;
+    requestAnimationFrame(loop);
+}
+
+loop();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LLM.int8() VISUALIZER // RESPONSIVE</title>
+    <style>
+        :root {
+            --term-green: #00FF41;
+            --term-dim: #003B00;
+            --term-bg: #0D0D0D;
+            --scan-line: rgba(0, 255, 65, 0.05);
+            --header-height: clamp(50px, 8vh, 80px);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--term-bg);
+            color: var(--term-green);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden; /* Prevent scroll on mobile */
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- CRT EFFECT LAYERS --- */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        .glow {
+            text-shadow: 0 0 5px var(--term-green);
+        }
+
+        /* --- UI LAYOUT --- */
+        header {
+            flex: 0 0 auto;
+            padding: 0 20px;
+            height: var(--header-height);
+            border-bottom: 2px solid var(--term-green);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: bold;
+            font-size: clamp(0.8rem, 2vw, 1.2rem);
+            white-space: nowrap;
+        }
+
+        .status-badge {
+            background: var(--term-green);
+            color: var(--term-bg);
+            padding: 0.4em 0.8em;
+            font-size: 0.8em;
+            border-radius: 2px;
+        }
+
+        main {
+            flex: 1 1 auto; /* Fill remaining space */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: clamp(10px, 2vh, 20px);
+            box-sizing: border-box;
+            gap: clamp(10px, 2vh, 20px);
+            min-height: 0; /* Critical for flex child overflow */
+        }
+
+        .controls {
+            flex: 0 0 auto;
+            display: flex;
+            flex-wrap: wrap; /* Stack on mobile */
+            gap: 10px;
+            align-items: center;
+            border: 1px solid var(--term-dim);
+            padding: 10px;
+            background: rgba(0, 59, 0, 0.2);
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+        }
+
+        /* Mobile Layout: Stack buttons, slider full width */
+        @media (max-width: 600px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+
+        button {
+            flex: 1 1 auto;
+            background: transparent;
+            border: 1px solid var(--term-green);
+            color: var(--term-green);
+            font-family: inherit;
+            padding: 0.8em;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            font-size: inherit;
+            min-width: 120px;
+        }
+
+        button:hover, button.active {
+            background: var(--term-green);
+            color: var(--term-bg);
+            box-shadow: 0 0 10px var(--term-green);
+        }
+
+        .slider-container {
+            flex: 2 1 200px; /* Take up more space */
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 150px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: clamp(16px, 3vh, 24px); /* Larger touch target */
+            width: clamp(12px, 2vw, 16px);
+            background: var(--term-green);
+            cursor: pointer;
+            margin-top: -6px; /* Align vertical center */
+            box-shadow: 0 0 5px var(--term-green);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            background: var(--term-dim);
+        }
+
+        /* --- CANVAS CONTAINER --- */
+        #viz-container {
+            flex: 1 1 auto; /* Fill all remaining vertical space */
+            position: relative;
+            border: 1px solid var(--term-dim);
+            background: #000;
+            overflow: hidden;
+            min-height: 200px; /* Minimum height for usability */
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .legend {
+            flex: 0 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            font-size: clamp(0.6rem, 1.5vw, 0.8rem);
+            color: rgba(0, 255, 65, 0.7);
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <header class="glow">
+        <span>sys.quantizer.v9</span>
+        <span class="status-badge" id="mode-badge">NAÏVE MODE</span>
+    </header>
+
+    <main>
+        <div class="controls">
+            <button id="btn-naive" class="active">NAÏVE (FAIL)</button>
+            <button id="btn-mixed">LLM.INT8() (MIXED)</button>
+            
+            <div class="slider-container">
+                <label for="threshold">OUTLIER THRESHOLD (α): <span id="val-disp">6.0</span></label>
+                <input type="range" id="threshold" min="1.0" max="9.0" step="0.1" value="6.0">
+            </div>
+        </div>
+
+        <div id="viz-container">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+        
+        <div class="legend">
+            <span>[▀] OUTLIER (>α)</span>
+            <span>[·] NORMAL WEIGHT (≤α)</span>
+            <span>:: DITHERING: ATKINSON</span>
+        </div>
+    </main>
+
+<script>
+/**
+ * DITHERPUNK QUANTIZATION VISUALIZER - RESPONSIVE CORE
+ */
+
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('viz-container');
+
+// State
+let width, height;
+let mode = 'naive'; 
+let threshold = 6.0;
+
+// Data Generation
+const WEIGHT_COUNT = 250; // Reduced slightly for clearer mobile density
+const weights = [];
+
+function initData() {
+    weights.length = 0;
+    // 1. The massive outlier
+    weights.push({ val: 10.0, isOutlier: true });
+    
+    // 2. The normal distribution
+    for(let i=1; i<WEIGHT_COUNT; i++) {
+        const val = (Math.random() - 0.5); 
+        weights.push({ val: val, isOutlier: false });
+    }
+}
+
+// Resizing Logic - Calculates DPR and Layout
+function resize() {
+    width = container.clientWidth;
+    height = container.clientHeight;
+    
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    
+    // Normalize coordinate system so we can draw using CSS pixels
+    ctx.scale(dpr, dpr);
+}
+
+function calculateLayout() {
+    let currentMax = 0;
+    if (mode === 'naive') {
+        currentMax = 10.0; 
+    } else {
+        currentMax = 0.6; 
+    }
+    const scaleFactor = 127 / currentMax;
+    return { scaleFactor };
+}
+
+function drawGrid() {
+    ctx.strokeStyle = 'rgba(0, 59, 0, 0.5)';
+    ctx.lineWidth = 1;
+    
+    const midY = height / 2;
+    
+    // Zero Line
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(width, midY);
+    ctx.strokeStyle = '#00FF41';
+    ctx.stroke();
+
+    // Dynamic Font Sizing
+    const fontSize = Math.max(10, Math.min(16, height * 0.02)); 
+    ctx.font = `${fontSize}px Courier New`;
+    ctx.fillStyle = 'rgba(0, 255, 65, 0.5)';
+    
+    // Labels
+    ctx.fillText("INT8: 0", 10, midY - 6);
+    ctx.fillText("INT8: +127", 10, fontSize + 10);
+    ctx.fillText("INT8: -128", 10, height - 10);
+}
+
+function draw() {
+    // Clear background
+    ctx.fillStyle = '#0D0D0D';
+    ctx.fillRect(0, 0, width, height);
+
+    drawGrid();
+
+    const { scaleFactor } = calculateLayout();
+    const midY = height / 2;
+    const padding = height * 0.1; // 10% vertical padding
+    const laneHeight = (height / 2) - padding; 
+
+    // Dynamic Dot Sizing based on screen width
+    // Larger dots on desktop, readable dots on mobile
+    const baseDotSize = Math.max(3, width * 0.006); 
+    const outlierDotSize = baseDotSize * 2.5;
+    
+    const fp16LaneY = padding; 
+
+    weights.forEach((w, index) => {
+        // Distribute across width with margins
+        const margin = width * 0.05;
+        const availableWidth = width - (margin * 2);
+        let x = (index / WEIGHT_COUNT) * availableWidth + margin;
+        
+        let y = midY;
+        let color = '#00FF41';
+        let isHighPrecision = false;
+
+        const isActuallyOutlier = Math.abs(w.val) > threshold;
+
+        if (mode === 'mixed' && isActuallyOutlier) {
+            // FP16 Lane
+            y = fp16LaneY; 
+            color = '#FF3333';
+            isHighPrecision = true;
+            
+            // Connector Line
+            ctx.beginPath();
+            ctx.moveTo(x, midY);
+            ctx.lineTo(x, y + (outlierDotSize/2));
+            ctx.strokeStyle = 'rgba(255, 51, 51, 0.3)';
+            ctx.setLineDash([2, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+        } else {
+            // INT8 Lane
+            let quantizedInt = Math.round(w.val * scaleFactor);
+            quantizedInt = Math.max(-127, Math.min(127, quantizedInt));
+
+            const pixelOffset = (quantizedInt / 127) * laneHeight; 
+            y = midY - pixelOffset;
+
+            if (quantizedInt === 0) color = '#005500';
+        }
+
+        // Dither Effect
+        if (!isHighPrecision) {
+           if (Math.random() > 0.8) ctx.fillStyle = 'rgba(0, 255, 65, 0.5)';
+           else ctx.fillStyle = color;
+        } else {
+            ctx.fillStyle = color;
+        }
+
+        // Draw Dot
+        const size = isHighPrecision ? outlierDotSize : baseDotSize;
+        ctx.fillRect(x, y - (size/2), size, size);
+        
+        // Draw Outlier Label
+        if (w.isOutlier) {
+            ctx.fillStyle = '#fff';
+            // Offset text to not overlap edge
+            const textX = x + 10 > width ? x - 40 : x + 10; 
+            ctx.fillText(w.val.toFixed(1), textX, y);
+        }
+    });
+
+    // Draw Stats (Responsive Positioning)
+    const fontSize = Math.max(10, Math.min(14, width * 0.02));
+    ctx.font = `${fontSize}px Courier New`;
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'right';
+    
+    // Position top-right, adaptive
+    ctx.fillText(`SCALE: ${scaleFactor.toFixed(1)}`, width - 10, 30);
+    ctx.fillText(mode === 'naive' ? "LOSS: CRITICAL" : "LOSS: NONE", width - 10, 30 + fontSize * 1.5);
+    ctx.textAlign = 'left';
+}
+
+// Interaction
+const btnNaive = document.getElementById('btn-naive');
+const btnMixed = document.getElementById('btn-mixed');
+const slider = document.getElementById('threshold');
+const valDisp = document.getElementById('val-disp');
+const badge = document.getElementById('mode-badge');
+
+function setMode(newMode) {
+    mode = newMode;
+    if (mode === 'naive') {
+        btnNaive.classList.add('active');
+        btnMixed.classList.remove('active');
+        badge.innerText = "NAÏVE";
+        badge.style.background = "#FF3333";
+    } else {
+        btnMixed.classList.add('active');
+        btnNaive.classList.remove('active');
+        badge.innerText = "MIXED";
+        badge.style.background = "#00FF41";
+    }
+    requestAnimationFrame(draw);
+}
+
+btnNaive.addEventListener('click', () => setMode('naive'));
+btnMixed.addEventListener('click', () => setMode('mixed'));
+
+slider.addEventListener('input', (e) => {
+    threshold = parseFloat(e.target.value);
+    valDisp.innerText = threshold.toFixed(1);
+    if(mode === 'mixed') requestAnimationFrame(draw);
+});
+
+// Resize Observer for smoother layout changes
+const resizeObserver = new ResizeObserver(() => {
+    resize();
+    draw();
+});
+resizeObserver.observe(container);
+
+// Init
+initData();
+resize();
+draw();
+
+let lastTime = 0;
+function animate(time) {
+    if (time - lastTime > 100) {
+        draw();
+        lastTime = time;
+    }
+    requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+</script>
+</body>
+</html>

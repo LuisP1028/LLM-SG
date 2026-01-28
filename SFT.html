@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Part IV: Supervised Fine-Tuning // Study Guide</title> <style> /* --- STYLE CONFIGURATION --- (Identical to Main Shell) */ :root { --bg-color: #000000; --text-color: #00ff41; --accent-color: #00ff41; --dim-color: #003b00; --border-color: #00ff41; --font-main: 'Courier New', Courier, monospace; --font-header: 'Arial Black', Impact, sans-serif; }
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+
+.dither-layer {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1;
+    background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
+    background-size: 4px 4px;
+    opacity: 0.4;
+}
+
+.scanlines {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
+    background-size: 100% 4px;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.container {
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 40px 20px;
+    border-left: 2px dashed var(--dim-color);
+    border-right: 2px dashed var(--dim-color);
+    background-color: rgba(0, 10, 0, 0.9);
+    min-height: 100vh;
+}
+
+h1 {
+    font-family: var(--font-header);
+    text-transform: uppercase;
+    font-size: 2.5rem;
+    border-bottom: 5px solid var(--accent-color);
+    margin-bottom: 40px;
+    color: var(--accent-color);
+    text-align: center;
+}
+
+strong { color: var(--accent-color); text-decoration: underline; }
+em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
+
+/* ACCORDION STYLES */
+details.section {
+    margin-bottom: 15px;
+    border: 1px solid var(--dim-color);
+    background: #050505;
+}
+
+details.section > summary {
+    font-family: var(--font-main);
+    font-weight: bold;
+    padding: 12px;
+    background: #0a0a0a;
+    color: var(--text-color);
+    cursor: pointer;
+    list-style: none;
+    border-bottom: 1px solid transparent;
+    text-transform: uppercase;
+    font-size: 1.1rem;
+}
+
+details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
+details.section[open] > summary {
+    border-bottom: 1px solid var(--dim-color);
+    background: #0f0f0f;
+    color: var(--accent-color);
+    text-shadow: 0px 0px 5px var(--accent-color);
+}
+
+.section-content { padding: 20px; }
+
+.subsection {
+    margin-bottom: 25px;
+    border-left: 4px solid var(--dim-color);
+    padding-left: 15px;
+}
+
+.subsection-title {
+    background: var(--dim-color);
+    color: var(--accent-color);
+    padding: 2px 6px;
+    font-weight: bold;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
+ul { padding-left: 20px; margin-bottom: 15px; }
+li { margin-bottom: 5px; }
+
+.code-block {
+    background: #020a02;
+    border: 1px dashed var(--dim-color);
+    padding: 10px;
+    margin: 10px 0;
+    font-family: 'Courier New', monospace;
+    color: var(--accent-color);
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
+</style> </head> <body>
+
+<div class="dither-layer"></div> <div class="scanlines"></div>
+
+<div class="container"> <h1>Part IV: Supervised Fine-Tuning</h1>
+
+<div class="part-content">
+    
+    <details class="section">
+        <summary>1. Preparations for SFT & Data Curation</summary>
+        <div class="section-content">
+            [cite_start]<p>Refines the model’s capabilities using carefully curated pairs of instructions and corresponding answers[cite: 263].</p>
+            
+            <div class="subsection">
+                <span class="subsection-title">Essential Dimensions</span>
+                <ul>
+                    [cite_start]<li><strong>Accuracy:</strong> Accuracy ensures that the data is factually correct and directly answers the user's specific instruction[cite: 264]. [cite_start]It is crucial for building trust, as the model must learn to provide reliable, true information rather than incorrect facts or irrelevant responses[cite: 265].</li>
+                    [cite_start]<li><strong>Diversity:</strong> Diversity means the dataset must cover a wide variety of topics, writing styles, and lengths[cite: 266]. [cite_start]It should represent the many different ways people will actually use the model[cite: 267]. [cite_start]This variety helps the AI become flexible enough to handle new situations and valid requests[cite: 268].</li>
+                    [cite_start]<li><strong>Complexity:</strong> Complexity avoids easy or trivial examples that do not challenge the model[cite: 269]. [cite_start]Instead, the data should include difficult tasks and multi-step reasoning problems[cite: 270]. [cite_start]Training on harder material pushes the AI to develop the logic needed to solve real-world problems[cite: 271].</li>
+                    [cite_start]<li><strong>Data Quantity:</strong> The Hugging Face Hub contains numerous instruction datasets, which can be general-purpose or designed for particular tasks or domains[cite: 272].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Task vs. Domain Specific Models</span>
+                [cite_start]<p><strong>Task-specific</strong> models focus on performing a single action, such as translation or summarization, often requiring less data and smaller model sizes[cite: 273]. [cite_start]For task specific models, data curation often involves collecting examples of the desired task from existing datasets or creating new ones[cite: 274].</p>
+                [cite_start]<p><strong>Domain-specific</strong> models, however, focus on mastering a specific industry, like law or medicine[cite: 275]. [cite_start]They prioritize specialized knowledge and vocabulary, with data needs varying based on the field's complexity[cite: 276]. [cite_start]Domains that are well-represented in the original training data may require less fine-tuning, while those that are more specialized or underrepresented may need more extensive datasets[cite: 277].</p>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Data Curation</span>
+                [cite_start]<p><strong>Rule-based filtering</strong> is a quality control method that uses explicit, pre-set rules to automatically keep or remove data samples[cite: 278]. [cite_start]It aims to maintain high standards by strictly enforcing specific criteria[cite: 279]. [cite_start]Its speed and efficiency allow for rapid application to large volumes of data, making it highly scalable[cite: 280].</p>
+                <ul>
+                    [cite_start]<li><strong>Length filtering:</strong> This rule manages data quality by setting minimum and maximum size limits[cite: 281]. [cite_start]It removes responses that are too short to be meaningful or too long and repetitive, though the specific limits depend on the task (e.g., a summary vs. a detailed explanation)[cite: 282].</li>
+                    <li><strong>Keyword exclusion:</strong> This rule filters data based on specific content. [cite_start]It scans for and removes samples containing banned words—such as profanity, spam, or slang—to ensure the data matches the intended tone and creates a safe environment[cite: 283].</li>
+                    <li><strong>Format checking:</strong> This rule validates the structure of the data. [cite_start]It ensures that samples, particularly technical ones like computer code or JSON, follow specific formatting requirements so they remain consistent and usable[cite: 284].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Data Deduplication</span>
+                [cite_start]<p><strong>Exact Deduplication:</strong> Exact deduplication removes identical entries by normalizing data and comparing unique hash codes (e.g., SHA-256)[cite: 285]. If hashes match, data is duplicated. [cite_start]While precise, this method only catches exact copies and misses slightly modified or semantically similar content[cite: 286].</p>
+                <p><strong>Fuzzy Deduplication:</strong> Fuzzy deduplication detects near-duplicates using MinHash. [cite_start]It breaks data into shingle fingerprints and checks Jaccard similarity to efficiently spot matches[cite: 287]. [cite_start] Shingles are overlapping subsequences (often n-grams of words or characters) used to convert a text document into a mathematical set[cite: 288]. [cite_start]For example, "red car" might become the set {"red", "ed ", " ca", "car"}[cite: 289]. [cite_start]Jaccard similarity measures the resemblance between two such sets[cite: 291]. [cite_start]It is calculated by dividing the size of the intersection (shared shingles) by the size of the union (total unique shingles)[cite: 292]. [cite_start]A score of 1.0 indicates identical sets, while 0.0 means no overlap[cite: 293].</p>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Data Decontamination</span>
+                [cite_start]<p>Applies the tools from data deduplication with a specific boundary: it ensures no material from the test/evaluation set exists within the training set[cite: 293]. [cite_start]Adapting these methods changes the target: compare training data against the test set to find overlaps[cite: 294].</p>
+                <ul>
+                    [cite_start]<li><strong>Exact:</strong> Compute hashes (e.g., SHA-256) for both sets[cite: 294]. [cite_start]If a training hash matches a test hash, delete the training sample[cite: 295].</li>
+                    [cite_start]<li><strong>Fuzzy:</strong> Use MinHash or N-grams to find training samples similar to test samples[cite: 295]. [cite_start]If similarity exceeds a threshold, remove the training data to prevent leakage[cite: 296].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Data Quality Evaluation</span>
+                [cite_start]<p>Data quality evaluation measures attributes like accuracy, diversity, and complexity to ensure datasets are fit for training models[cite: 297]. [cite_start]To avoid the high cost of human annotation, developers increasingly use LLM-as-a-judge workflows to automate this assessment[cite: 298].</p>
+                [cite_start]<p><strong>LLM-as-a-judge</strong> strategy involves prompting LLMs to evaluate the quality of each sample[cite: 299]:</p>
+                <ul>
+                    [cite_start]<li><strong>Domain Specificity:</strong> For specialized fields (e.g., medicine), a model trained on that niche often evaluates technical context better than a "smarter," general-purpose model[cite: 299].</li>
+                    [cite_start]<li><strong>Scoring Method:</strong> Comparative assessment (ranking "A is better than B") is more reliable than absolute scoring (rating 1–5)[cite: 300]. [cite_start]Models find it easier to distinguish relative quality than to adhere to an arbitrary numeric standard[cite: 301].</li>
+                </ul>
+                [cite_start]<p><strong>Biases of LLM-as-a-judge:</strong> Position Bias (Favoring the first answer), Verbosity Bias (Preferring longer responses), and Self-Preference (Rating their own model family higher)[cite: 302]. [cite_start]Counter these by randomizing order, length normalization, and using diverse judges[cite: 303].</p>
+                [cite_start]<p><strong>Reward Models:</strong> Choose a reward model when evaluating massive datasets where inference latency and cost are critical constraints[cite: 304]. [cite_start]A reward model is structurally modified: it replaces the text-generating layer with a linear head to directly output a raw numerical scalar score[cite: 305]. [cite_start]One narrates quality; the other calculates it[cite: 306]. [cite_start]LLM-as-a-judge uses standard text generation; it is prompted to "speak" the result (e.g., generating the token "5")[cite: 306, 307]. [cite_start]Use LLM-as-a-judge for explainability or zero-shot tasks; use Reward Models for ranking pipelines (like RLHF) that need a stable, continuous signal[cite: 308, 309].</p>
+                [cite_start]<p><strong>Encoder Only Models:</strong> Encoder-only models (like BERT) are optimized to convert text into embeddings, making them ideal for rapid classification[cite: 310].</p>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Data Exploration & Generation</span>
+                [cite_start]<p><strong>Data Exploration:</strong> Statistical analysis uses NLP libraries like NLTK and spaCy to scan text for vocabulary diversity and bias via tokenization[cite: 311]. [cite_start]Tools like Matplotlib and Seaborn visualize this data[cite: 312]. [cite_start]Topic clustering automatically groups similar documents to uncover hidden themes and trends within large datasets[cite: 313]. It converts text into numerical embeddings using sentence transformers. [cite_start]Algorithms like DBSCAN then group these vectors based on their proximity in this mathematical space[cite: 314].</p>
+                [cite_start]<p><strong>Data Generation:</strong> When the available instruction datasets are not sufficient, creating custom data becomes necessary[cite: 315]. [cite_start]Synthetic data pipelines generate and validate training sets[cite: 316]. [cite_start]They tune attributes to fill gaps but need oversight to stop inherited errors and ensure diversity[cite: 317].</p>
+                [cite_start]<p>Data generation builds custom datasets starting with a <strong>taxonomy</strong>[cite: 318]. [cite_start]Taxonomy refers to both the organized map of skills—breaking a broad domain into specific sub-capabilities to ensure full coverage—and the specific seed instructions used to prompt the model[cite: 318]. Taxonomy is the <em>what</em> (the list of skills/topics). [cite_start]Seed is the <em>how</em> (the prompt template used to generate the data)[cite: 319].</p>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Data Augmentation</span>
+                [cite_start]<p>In this context, data augmentation refers to the process of increasing both the quantity and the quality of data samples[cite: 320]. Generation creates data from scratch. [cite_start]Augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors[cite: 321].</p>
+                <p><strong>Evol-Instruct:</strong></p>
+                <ul>
+                    [cite_start]<li><strong>In-Depth Evolving (Making it Harder):</strong> This increases the difficulty of a specific prompt to force the model to think harder[cite: 322]. [cite_start]Techniques include Constraints, Deepening, Concretizing [cite: 323][cite_start], Reasoning Steps, and Complicating Input[cite: 324].</li>
+                    [cite_start]<li><strong>In-Breadth Evolving (Making it Diverse):</strong> This increases variety[cite: 324]. [cite_start]It generates completely new, unique instructions inspired by the original ones, focusing on rare or niche topics to prevent the dataset from being repetitive[cite: 325].</li>
+                </ul>
+                [cite_start]<p><strong>UltraFeedback:</strong> Evol-Instruct upgrades the Question (Input)[cite: 326]. [cite_start]UltraFeedback upgrades the Answer (Output)[cite: 326]. [cite_start]It keeps the prompt the same but generates multiple responses from different models[cite: 327]. [cite_start]An LLM AS A JUDGE then rates these responses, adhering to your constraints, to select the highest-quality answer for training[cite: 328]. [cite_start]One builds better prompts; the other curates better answers[cite: 328].</p>
+                [cite_start]<p><strong>Example:</strong> The Inputs: You generate 4 different answers for one question using different models[cite: 329]. [cite_start]The Rubric: You give a "Judge" LLM a specific scorecard[cite: 330]. [cite_start]The Selection: The Judge reads the text, scores it based on that rubric, and keeps only the highest-scoring answer[cite: 331].</p>
+            </div>
+        </div>
+    </details>
+
+    <details class="section">
+        <summary>2. Evol Instruct Examples</summary>
+        <div class="section-content">
+            <div class="subsection">
+                <span class="subsection-title">Infrastructure</span>
+                <ul>
+                    <li><strong>Base Instruction:</strong> Inspect the bridge for damage.</li>
+                    [cite_start]<li><strong>In-Depth (Constraint):</strong> Inspect the bridge for micro-fractures in the support pylons using thermal imaging data, citing specific ISO safety standards for load-bearing capacity[cite: 332].</li>
+                    [cite_start]<li><strong>In-Breadth (New Topic):</strong> Develop a predictive maintenance schedule for an aging underground sewer network based on soil acidity levels[cite: 333].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Defense</span>
+                <ul>
+                    <li><strong>Base Instruction:</strong> Analyze satellite imagery.</li>
+                    [cite_start]<li><strong>In-Depth (Complicating Input):</strong> Analyze the provided raw JSON telemetry from a surveillance drone to identify camouflaged vehicle heat signatures, ignoring background radiation noise[cite: 334].</li>
+                    [cite_start]<li><strong>In-Breadth (New Topic):</strong> Formulate a jamming protocol to disrupt enemy communication channels during a high-altitude paratrooper insertion[cite: 335].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Healthcare</span>
+                <ul>
+                    <li><strong>Base Instruction:</strong> Diagnose the patient's fever.</li>
+                    [cite_start]<li><strong>In-Depth (Reasoning):</strong> Diagnose the fever in a post-transplant patient exhibiting rejection signs, differentiating it from a bacterial infection using the provided blood panel results[cite: 336].</li>
+                    [cite_start]<li><strong>In-Breadth (New Topic):</strong> Outline a triage procedure for a mass-casualty event involving exposure to a rare neurotoxin in a metropolitan area[cite: 337].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Aerospace</span>
+                <ul>
+                    <li><strong>Base Instruction:</strong> Check the landing gear.</li>
+                    [cite_start]<li><strong>In-Depth (Constraint):</strong> Troubleshoot the landing gear hydraulic failure occurring specifically at -40°C, proposing a fix that adds no more than 5kg of weight to the assembly[cite: 338].</li>
+                    [cite_start]<li><strong>In-Breadth (New Topic):</strong> Calculate the trajectory correction burn required for a probe entering a polar orbit around Europa[cite: 339].</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <details class="section">
+        <summary>3. Creating an Instruction Dataset</summary>
+        <div class="section-content">
+            
+            <div class="subsection">
+                <span class="subsection-title">Instruction Dataset Formats</span>
+                [cite_start]<p>Instruction datasets organize text for AI training[cite: 340].</p>
+                <ul>
+                    [cite_start]<li><strong>Alpaca:</strong> format is designed for single-turn tasks (one prompt, one reply)[cite: 341].</li>
+                    [cite_start]<li><strong>ShareGPT or OpenAI:</strong> for multi-turn conversations are superior because they track dialogue history using lists of messages[cite: 342].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Chat Templates</span>
+                [cite_start]<p>Chat templates are formatting schemas that use special tokens to structure dialogue so the model understands who is speaking (e.g., User vs. Assistant)[cite: 343]. [cite_start]Their usage depends on the model type[cite: 344]:</p>
+                <ul>
+                    [cite_start]<li><strong>Base Model:</strong> A raw model trained only to predict the next word in a sequence[cite: 344]. [cite_start]It has no inherent conversation structure, so you can choose any template (like ChatML) when preparing it for training[cite: 345].</li>
+                    <li><strong>Instruct Model:</strong> A base model that has been "fine-tuned" to follow instructions. [cite_start]This training process bakes in a specific template[cite: 346]. [cite_start]You must reuse that exact template, or the model will lose the context of the conversation[cite: 347].</li>
+                </ul>
+                [cite_start]<p>Chat templates rigorously structure text into three roles: system, user, and assistant[cite: 348].</p>
+            </div>
+        </div>
+    </details>
+
+    <details class="section">
+        <summary>4. Fine Tuning Methods (LoRA & QLoRA)</summary>
+        <div class="section-content">
+            
+            <div class="subsection">
+                <span class="subsection-title">LoRA - Low Rank Adaptation</span>
+                [cite_start]<p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen[cite: 348]. </p>
+                
+                <p><strong>1. [cite_start]Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory[cite: 349]. At this stage, the model is standard. [cite_start]You must "freeze" the model, ensuring no original parameters will be updated during training[cite: 350]. [cite_start]The PEFT library handles this freezing automatically when you apply the configuration[cite: 351].</p>
+                
+                <p><strong>2. [cite_start]Configuration (The Ontology):</strong> You must define a LoraConfig object to dictate how the adaptation works[cite: 352].</p>
+                <ul>
+                    [cite_start]<li><strong>r (Rank):</strong> Set the dimension of the low-rank matrices ($A$ and $B$)[cite: 353]. [cite_start]Start with 8 or 16. Higher ranks (e.g., 64) allow for more complex learning but increase VRAM usage[cite: 354].</li>
+                    <li><strong>lora_alpha (Alpha):</strong> Set the scaling factor. [cite_start]A standard heuristic is $\alpha = 2 \times r$ (e.g., if rank is 16, set alpha to 32)[cite: 355]. [cite_start]This ensures the update is strong enough to influence the model[cite: 356].</li>
+                    [cite_start]<li><strong>target_modules:</strong> List the specific layers to attach LoRA to[cite: 357]. [cite_start]For Style/Format: Target ["q_proj", "v_proj"] (Attention Query/Value)[cite: 357]. [cite_start]For Reasoning/Facts: Target ["gate_proj", "up_proj", "down_proj"] (MLP layers) in addition to attention[cite: 358].</li>
+                    [cite_start]<li>Matrix $A$ compresses the input down to the small rank (r)[cite: 359]. [cite_start]Matrix $B$ expands it back up to the original size[cite: 360].</li>
+                </ul>
+                
+                <p><strong>3. Model Injection:</strong> Apply the configuration to create the parallel adapter structure. [cite_start]Result: This attaches small, trainable matrices ($A$ and $B$) to the frozen layers[cite: 361]. [cite_start]Initially representing zero change, $A$ and $B$ are updated during backpropagation to learn the delta ($\Delta W$)—the precise mathematical offset required to steer the model's output[cite: 362]. [cite_start]Because $A$ and $B$ are structurally small (low-rank), they capture this task-specific adjustment using only a fraction of the total parameters[cite: 363].</p>
+                
+                <p><strong>4. [cite_start]Training (Fine-Tuning):</strong> Run your standard training loop (e.g., using Hugging Face Trainer)[cite: 364]. [cite_start]During backpropagation, the optimizer ignores the frozen base weights and only updates the specific LoRA matrices you injected[cite: 365]. [cite_start]This prevents "catastrophic forgetting" of the base model's knowledge[cite: 366].</p>
+                
+                <p><strong>5. [cite_start]Merging & Inference:</strong> Save only the Adapter (the LoRA weights), which is small (usually <100MB)[cite: 366]. [cite_start]To use the model, load the Base Model again and strictly "merge" the saved Adapter weights into it[cite: 367]. [cite_start]The math is: $W_{final} = W_{base} + (B \times A \times \alpha/r)$[cite: 368]. We add the results together because LoRA is an additive modification rather than a replacement. [cite_start]In the Transformer architecture, the original weights ($W$) represent the model's vast, general knowledge[cite: 369]. [cite_start]When you fine-tune for a specific task, you don't want to discard that foundation; you want to nudge it[cite: 370].</p>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">QLoRA</span>
+                [cite_start]<p>Think of QLoRA as LoRA with a world-class packing strategy[cite: 371]. [cite_start]It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware[cite: 372].</p>
+                [cite_start]<p><strong>Quantization</strong> is the process of reducing the precision of a model’s numerical values to save memory and speed up processing[cite: 373]. In computing, numbers are stored with a specific "bit-depth." [cite_start]High precision (32-bit) uses a massive range of decimals for extreme accuracy[cite: 374]. [cite_start]Reducing precision means shortening those numbers—moving from long decimals to smaller ones or integers (like 8-bit or 4-bit)[cite: 375]. </p>
+                
+                <p><strong>1. [cite_start]Base Model Preparation (4-bit Quantization):</strong> Load the base model using 4-bit NormalFloat (NF4)[cite: 376]. [cite_start]Unlike standard LoRA, which often uses 16-bit or 8-bit, QLoRA compresses the frozen weights ($W$) into a specialized 4-bit format[cite: 377]. [cite_start]This NF4 data type is mathematically optimized for normally distributed weights, ensuring minimal information loss while slashing VRAM requirements by up to 75% compared to full-precision tuning[cite: 378].</p>
+                
+                <p><strong>2. [cite_start]Configuration (The Ontology):</strong> The LoraConfig remains largely the same, but with two critical QLoRA-specific additions handled via BitsAndBytesConfig: Double Quantization (This quantizes the quantization constants themselves, saving ~0.37 bits per parameter)[cite: 379, 380]. [cite_start]Paged Optimizers (This acts as a "safety valve." If you hit a memory spike, QLoRA offloads the optimizer states to the CPU RAM to prevent "Out of Memory" crashes)[cite: 380, 381].</p>
+                
+                <p><strong>3. Matrix Injection & The Adapter:</strong> Inject the trainable matrices $A$ and $B$ alongside the frozen model. [cite_start]The base model remains in its 4-bit "frozen" state[cite: 382]. The adapters ($A$ and $B$) are created in high-resolution Bfloat. [cite_start]During the forward pass, the model performs a "temporary inflation": it dequantizes 4-bit weights into 16-bit just long enough to perform math with the adapters, then "deflates" them back to 4-bit storage[cite: 383].</p>
+                
+                <p><strong>4. [cite_start]Training (The Computational Trade-off):</strong> During backpropagation, only the high-precision adapters are updated[cite: 384]. The base model acts like a static, low-resolution anchor. [cite_start]Because the system has to constantly inflate (dequantize) and deflate (re-quantize) the base weights for every calculation, it takes about 30% longer than standard LoRA[cite: 385]. [cite_start]You are essentially sacrificing processing speed to ensure the model fits on a smaller GPU[cite: 386].</p>
+                
+                <p><strong>5. [cite_start]Merging & Inference:</strong> You still only save the tiny Adapter weights (<100MB)[cite: 387]. [cite_start]$W_{final} = Dequantize(W_{4bit}) + (B \times A \times \alpha/r)$[cite: 388]. [cite_start]Because the base model is quantized, you typically do not “hard merge” the weights into a single 4-bit file for production if you want to maintain maximum precision[cite: 388]. [cite_start]Instead, you load the base 4-bit model and the adapter separately at runtime[cite: 389].</p>
+            </div>
+        </div>
+    </details>
+
+    <details class="section">
+        <summary>5. Preference Alignment (DPO)</summary>
+        <div class="section-content">
+            [cite_start]<p>Preference alignment addresses the shortcomings of SFT by incorporating direct human or AI feedback into the training process[cite: 390]. [cite_start]If SFT is the foundation of competence (getting the answer right), preference data is the layer of alignment (getting the answer right for the specific user, context, or value system)[cite: 391].</p>
+            
+            <div class="subsection">
+                <span class="subsection-title">Direct Preference Optimization (DPO)</span>
+                <p>Maximize the accuracy, diversity, and complexity of our samples. [cite_start]The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response[cite: 392]. [cite_start]The goal is to maximize the margin between the two[cite: 393]. [cite_start]The model learns not just "what to say," but specifically "what not to say" in the context of what it should say[cite: 394]. </p>
+                
+                [cite_start]<p><strong>Data Quantity:</strong> DPO is sample-efficient, meaning it requires significantly less data than SFT to fundamentally change a model’s behavior[cite: 395].</p>
+                <ul>
+                    [cite_start]<li><strong>General-Purpose (The Giants):</strong> Industry leaders use millions of pairs (often synthetic) to push the limits of reasoning and global safety[cite: 396].</li>
+                    [cite_start]<li><strong>Open-Source Standard:</strong> 10k–100k samples are typically used to boost benchmark scores or "heal" a model’s logic after it has been merged or pruned[cite: 397].</li>
+                    [cite_start]<li><strong>Task-Specific (The Sniper):</strong> Narrow objectives—like changing a model's persona or enforcing a specific writing style—can be achieved with as few as 100–10,000 pairs[cite: 398].</li>
+                </ul>
+            </div>
+
+            <div class="subsection">
+                <span class="subsection-title">Generating Preferences</span>
+                <ul>
+                    <li><strong>LLM-Human:</strong> AI generates options, humans rank them. [cite_start]This is a high-value hybrid; it is easier for humans to judge quality than to create it from scratch, ensuring efficiency and accuracy[cite: 399, 400].</li>
+                    <li><strong>LLM-LLM (Synthetic):</strong> Fully automated. [cite_start]It is the most scalable and cheapest option but requires strict oversight to avoid amplifying model biases[cite: 401].</li>
+                </ul>
+                [cite_start]<p><strong>Model Contrasting:</strong> You prompt two models with one input: a "teacher" (e.g., GPT-4) and a smaller model[cite: 402]. The teacher’s output is labeled chosen and the smaller one rejected. [cite_start]This creates a clear signal of high-quality reasoning versus mediocre attempts, teaching the target model to recognize the specific "delta" in quality, logic, and formatting[cite: 403].</p>
+                [cite_start]<p><strong>Human-AI Benchmarking in Practice:</strong> In practice, you take a "gold standard" response written by a human and pair it with a draft from your model[cite: 404]. [cite_start]You label the human version as preferred and the AI version as rejected[cite: 405]. [cite_start]It is useful for Authenticity (forcing the model to move past generic "AI-speak"), Edge Cases (nuanced tasks like humor), and Style Mimicry (sounding like a specific brand) [cite: 406-408].</p>
+            </div>
+        </div>
+    </details>
+
+</div>
+</div>
+
+</body> </html>

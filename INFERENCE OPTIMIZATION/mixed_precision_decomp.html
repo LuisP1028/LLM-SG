@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Quantization: Decomposition Visualization</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        
+        canvas {
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #39ff14;
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 0 0 5px #39ff14;
+        }
+
+        h1 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
+            background: #001100;
+            padding: 8px;
+            border: 1px solid #39ff14;
+            display: inline-block;
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
+        }
+
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 99;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>System: Mixed-Precision Decomposition</h1>
+        <div id="status" style="margin-top:10px; font-size: 12px; line-height: 1.5;">Initializing...</div>
+    </div>
+    <div class="crt-overlay"></div>
+    <canvas id="mainCanvas"></canvas>
+
+<script>
+/**
+ * DITHERPUNK VISUALIZER v2 - LLM QUANTIZATION
+ * Update: Text is now rendered on a crisp upper layer for readability.
+ */
+
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const statusDiv = document.getElementById('status');
+
+// Offscreen buffer for drawing the PARTICLES (Sim Layer)
+const bufferCanvas = document.createElement('canvas');
+const bCtx = bufferCanvas.getContext('2d');
+
+let width, height;
+let frame = 0;
+
+// CONFIG
+const GRID_SIZE = 4; // Size of dither pixels (Maintains the retro look for particles)
+const TERMINAL_GREEN = [57, 255, 20]; 
+
+// DATA OBJECTS
+let particles = [];
+
+// Bayer Matrix for Ordered Dithering (4x4)
+const bayerMatrix = [
+    [ 1,  9,  3, 11],
+    [13,  5, 15,  7],
+    [ 4, 12,  2, 10],
+    [16,  8, 14,  6]
+];
+
+class Particle {
+    constructor() {
+        this.reset();
+        this.x = Math.random() * width; 
+    }
+
+    reset() {
+        this.x = -50;
+        this.y = height / 2 + (Math.random() - 0.5) * (height * 0.2); // Start in middle lane
+        this.size = 15 + Math.random() * 15;
+        this.speed = 2 + Math.random() * 1;
+        
+        // 10% chance to be an outlier
+        this.isOutlier = Math.random() < 0.10;
+        
+        // Visual properties
+        this.val = this.isOutlier ? 1.0 : 0.4; // Brightness
+        this.state = 'input'; 
+    }
+
+    update() {
+        this.x += this.speed;
+
+        // X-Position Triggers (Relative to screen width)
+        const splitStart = width * 0.25;
+        const mergeStart = width * 0.75;
+        const exit = width + 50;
+
+        // STATE: SPLIT logic
+        if (this.x > splitStart && this.x < mergeStart) {
+            let targetY;
+            if (this.isOutlier) {
+                targetY = height * 0.25; // Top Lane (FP16)
+                this.state = 'fp16';
+            } else {
+                targetY = height * 0.75; // Bottom Lane (INT8)
+                this.state = 'int8';
+            }
+            this.y += (targetY - this.y) * 0.05;
+        }
+
+        // STATE: MERGE logic
+        if (this.x > mergeStart) {
+            this.y += ((height / 2) - this.y) * 0.05;
+            this.state = 'output';
+        }
+
+        // Reset if off screen
+        if (this.x > exit) {
+            this.reset();
+        }
+    }
+
+    draw(ctx) {
+        // Draw to the buffer
+        let brightness = Math.floor(this.val * 255);
+        
+        if (this.state === 'int8') {
+            // QUANTIZATION VISUALIZATION (Blocky Grid Snap)
+            let snap = 20; 
+            let sx = Math.floor(this.x / snap) * snap;
+            let sy = Math.floor(this.y / snap) * snap;
+            
+            ctx.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+            ctx.fillRect(sx, sy, this.size, this.size);
+            
+            // Artificial Noise
+            if (Math.random() > 0.95) ctx.fillRect(sx + 5, sy + 5, 2, 2); 
+        } else {
+            // FP16 VISUALIZATION (Smooth)
+            ctx.fillStyle = `rgb(${brightness}, ${brightness}, ${brightness})`;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            
+            if (this.isOutlier) {
+                ctx.strokeStyle = '#FFF';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(this.x - 2, this.y - 2, this.size + 4, this.size + 4);
+            }
+        }
+    }
+}
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    
+    // Buffer is small (for dither effect)
+    bufferCanvas.width = width / GRID_SIZE;
+    bufferCanvas.height = height / GRID_SIZE;
+    
+    // Main canvas is full res (for crisp text)
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Re-initialize particles
+    particles = [];
+    for(let i=0; i < 40; i++) {
+        particles.push(new Particle());
+    }
+}
+
+function drawCrispInterface(ctx) {
+    // This function draws DIRECTLY to the main canvas, bypassing the dither filter
+    
+    // 1. Divider Lines
+    ctx.strokeStyle = '#1a331a'; // Dark green
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]); // Dashed technical look
+
+    let splitX = width * 0.25;
+    let mergeX = width * 0.75;
+
+    ctx.beginPath();
+    ctx.moveTo(splitX, 0); ctx.lineTo(splitX, height);
+    ctx.moveTo(mergeX, 0); ctx.lineTo(mergeX, height);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset
+
+    // 2. Text Labels
+    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.fillStyle = '#39ff14';
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = '#39ff14'; // CRT Glow effect
+    ctx.textAlign = 'left';
+
+    // Label Placement
+    const topLaneY = height * 0.25;
+    const bottomLaneY = height * 0.75;
+
+    // Section 1: Scan
+    ctx.fillText(">> INPUT STREAM: SCANNING", 20, height/2 - 50);
+
+    // Section 2: Split
+    ctx.fillText(">> HIGH PRECISION LANE (FP16)", splitX + 10, topLaneY - 30);
+    ctx.fillText("   [Outliers Isolated]", splitX + 10, topLaneY - 15);
+
+    ctx.fillText(">> QUANTIZED LANE (INT8)", splitX + 10, bottomLaneY - 30);
+    ctx.fillText("   [Bulk Compressed]", splitX + 10, bottomLaneY - 15);
+
+    // Section 3: Merge
+    ctx.fillText(">> RECOMBINATION", mergeX + 10, height/2 - 30);
+}
+
+function render() {
+    // 1. Clear Low-Res Buffer
+    bCtx.fillStyle = '#000';
+    bCtx.fillRect(0, 0, bufferCanvas.width, bufferCanvas.height);
+
+    // 2. Update and Draw Particles to Low-Res Buffer
+    bCtx.save();
+    bCtx.scale(1/GRID_SIZE, 1/GRID_SIZE);
+    
+    particles.forEach(p => {
+        p.update();
+        p.draw(bCtx);
+    });
+    bCtx.restore();
+
+    // 3. Get Pixel Data from Buffer
+    const imageData = bCtx.getImageData(0, 0, bufferCanvas.width, bufferCanvas.height);
+    const data = imageData.data;
+    
+    // 4. Create target image for Main Canvas
+    const targetImage = ctx.createImageData(width, height);
+    const targetData = targetImage.data;
+
+    // 5. Apply Bayer Dithering & Upscale (The Graphics Pass)
+    for (let y = 0; y < bufferCanvas.height; y++) {
+        for (let x = 0; x < bufferCanvas.width; x++) {
+            
+            let index = (y * bufferCanvas.width + x) * 4;
+            let brightness = data[index]; 
+            
+            let mapValue = bayerMatrix[y % 4][x % 4];
+            let threshold = (mapValue / 17) * 255;
+            let pixelOn = brightness > threshold;
+            
+            if (pixelOn) {
+                // Upscale pixel to GRID_SIZE on main canvas
+                for (let dy = 0; dy < GRID_SIZE; dy++) {
+                    for (let dx = 0; dx < GRID_SIZE; dx++) {
+                        let tx = (x * GRID_SIZE) + dx;
+                        let ty = (y * GRID_SIZE) + dy;
+                        if (tx < width && ty < height) {
+                            let tIndex = (ty * width + tx) * 4;
+                            targetData[tIndex] = TERMINAL_GREEN[0];
+                            targetData[tIndex + 1] = TERMINAL_GREEN[1];
+                            targetData[tIndex + 2] = TERMINAL_GREEN[2];
+                            targetData[tIndex + 3] = 255;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 6. Paint the Dithered Graphics
+    ctx.putImageData(targetImage, 0, 0);
+
+    // 7. Paint the Crisp UI (The Interface Pass)
+    drawCrispInterface(ctx);
+    
+    // 8. Dynamic DOM Status
+    if (frame % 30 === 0) {
+        let outliers = particles.filter(p => p.isOutlier && p.state === 'fp16').length;
+        statusDiv.innerHTML = `
+            CYCLE: ${frame} <br>
+            ACTIVE THREADS: ${particles.length} <br>
+            OUTLIERS EXTRACTED: ${outliers} <br>
+            PRECISION MODE: HYBRID
+        `;
+    }
+
+    frame++;
+    requestAnimationFrame(render);
+}
+
+// Init
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(render);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRANSFORMER_SELF_ATTENTION // Q_K_V_VISUALIZER</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --term-green: #33ff00;
+            --term-dim: #1a8000;
+            --scanline-color: rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--term-green);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+        }
+
+        /* CRT Overlay Effects */
+        #crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+        }
+
+        #scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(51, 255, 0, 0.1) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 10s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+
+        /* Layout */
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 80%;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Terminal Log Area */
+        #terminal {
+            height: 20%;
+            width: 100%;
+            border-top: 2px solid var(--term-green);
+            background: #000;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            font-size: 14px;
+            text-shadow: 0 0 5px var(--term-green);
+            z-index: 5;
+            position: relative;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            opacity: 0.8;
+        }
+        .log-entry.highlight {
+            color: #fff;
+            background: var(--term-dim);
+            font-weight: bold;
+        }
+        .timestamp {
+            color: var(--term-dim);
+            margin-right: 10px;
+        }
+
+        /* Controls */
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 20;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            background: #000;
+            border: 1px solid var(--term-green);
+            color: var(--term-green);
+            padding: 8px 16px;
+            font-family: inherit;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 2px 2px 0px var(--term-dim);
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        button:hover {
+            background: var(--term-dim);
+            color: #000;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="crt-overlay"></div>
+    <div id="scanline"></div>
+
+    <div id="controls">
+        <button id="btn-reset">Reset</button>
+        <button id="btn-pause">Pause/Play</button>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="mainCanvas"></canvas>
+    </div>
+
+    <div id="terminal" id="log-container">
+        <div class="log-entry">
+            <span class="timestamp">SYS.INIT</span> SYSTEM READY. WAITING FOR INPUT SEQUENCE...
+        </div>
+    </div>
+
+<script>
+/**
+ * DITHERPUNK VISUALIZER LOGIC
+ * ---------------------------
+ * Implements the Transformer Attention Mechanism (Q, K, V)
+ * using HTML5 Canvas and procedurally generated dither patterns.
+ */
+
+// --- CONFIGURATION ---
+const TEXT_SENTENCE = "The animal didn't cross the street because it was too tired";
+const TOKENS = TEXT_SENTENCE.split(" ");
+const TARGET_INDEX = 6; // "it"
+const ATTENTION_SCORES = {
+    "animal": 0.85, // "it" refers to animal
+    "street": 0.05,
+    "The": 0.01,
+    "didn't": 0.02,
+    "cross": 0.02,
+    "because": 0.01,
+    "it": 0.03,
+    "was": 0.00,
+    "too": 0.00,
+    "tired": 0.01
+};
+
+// --- GLOBALS ---
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+const term = document.getElementById('terminal');
+
+let width, height;
+let frames = 0;
+let isPaused = false;
+
+// Animation State Machine
+const PHASES = {
+    IDLE: 0,
+    PROJECTION: 1, // Growing Q, K, V
+    SCANNING: 2,   // Q moving across K
+    WEIGHTS: 3,    // Showing Attention Scores
+    AGGREGATION: 4,// Pulling V
+    COMPLETE: 5
+};
+
+let currentState = {
+    phase: PHASES.PROJECTION,
+    progress: 0,          // 0.0 to 1.0 for current phase
+    scanIndex: 0,         // Which token we are currently comparing against
+    activeToken: null,    // The "it" object
+    tokens: []            // Array of Token objects
+};
+
+// --- DITHER PATTERN GENERATORS ---
+// Create small off-screen canvases to use as fill patterns
+function createPattern(type, color = '#33ff00') {
+    const pCanvas = document.createElement('canvas');
+    const pCtx = pCanvas.getContext('2d');
+    pCanvas.width = 8;
+    pCanvas.height = 8;
+    
+    pCtx.fillStyle = color;
+
+    if (type === 'solid') {
+        pCtx.fillRect(0,0,8,8);
+    } else if (type === 'stripe') {
+        // Horizontal scanlines
+        pCtx.fillRect(0, 0, 8, 2);
+        pCtx.fillRect(0, 4, 8, 2);
+    } else if (type === 'grid') {
+        // Checkerboard / Dither
+        pCtx.fillRect(0, 0, 2, 2);
+        pCtx.fillRect(4, 0, 2, 2);
+        pCtx.fillRect(2, 2, 2, 2);
+        pCtx.fillRect(6, 2, 2, 2);
+        pCtx.fillRect(0, 4, 2, 2);
+        pCtx.fillRect(4, 4, 2, 2);
+        pCtx.fillRect(2, 6, 2, 2);
+        pCtx.fillRect(6, 6, 2, 2);
+    } else if (type === 'sparse') {
+        // Very light dither
+        pCtx.fillRect(2, 2, 1, 1);
+        pCtx.fillRect(6, 6, 1, 1);
+    }
+
+    return ctx.createPattern(pCanvas, 'repeat');
+}
+
+const PATTERNS = {
+    solid: null, // initialized in resize
+    stripe: null,
+    grid: null,
+    sparse: null
+};
+
+// --- CLASS DEFINITIONS ---
+
+class Token {
+    constructor(text, index, total) {
+        this.text = text;
+        this.index = index;
+        this.total = total;
+        
+        // Layout metrics (calculated in updateLayout)
+        this.x = 0;
+        this.y = 0;
+        this.w = 0;
+        
+        // Vectors
+        this.qHeight = 0;
+        this.kHeight = 0;
+        this.vHeight = 0;
+        
+        // Logic
+        this.isSeeker = (index === TARGET_INDEX);
+        this.score = ATTENTION_SCORES[text] || 0;
+    }
+
+    updateLayout(cw, ch) {
+        const margin = cw * 0.05;
+        const availableWidth = cw - (margin * 2);
+        this.w = availableWidth / this.total;
+        this.x = margin + (this.index * this.w);
+        this.y = ch * 0.85; // Text baseline
+        
+        this.maxVecHeight = ch * 0.25;
+    }
+
+    draw(ctx) {
+        // Draw Text Box
+        ctx.strokeStyle = '#1a8000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x + 2, this.y, this.w - 4, 30);
+        
+        ctx.fillStyle = this.isSeeker ? '#33ff00' : '#1a8000';
+        ctx.font = 'bold 16px "Courier New"';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, this.x + (this.w/2), this.y + 20);
+
+        if (this.isSeeker) {
+            // Draw highlight under seeker
+            ctx.fillStyle = PATTERNS.sparse;
+            ctx.fillRect(this.x + 2, this.y + 32, this.w - 4, 5);
+        }
+    }
+    
+    drawVectors(ctx, phase, progress) {
+        const gap = 2;
+        const barW = (this.w - 10) / 3;
+        const baseX = this.x + 5;
+        const baseY = this.y; // growing upwards
+
+        // Determine target heights based on phase
+        let qT = this.isSeeker ? 1 : 0; // Only seeker has active Q
+        let kT = 1;
+        let vT = 1;
+        
+        // In projection phase, animate growth
+        let scale = (phase === PHASES.PROJECTION) ? progress : 1;
+
+        // Q Vector (Only relevant for "it")
+        if (this.isSeeker && phase >= PHASES.PROJECTION) {
+            const h = this.maxVecHeight * scale;
+            // If in Scanning phase, Q detaches, so we don't draw it here, 
+            // we draw it in the global scanning logic.
+            // Unless we are just starting projection.
+            if (phase === PHASES.PROJECTION) {
+                ctx.fillStyle = PATTERNS.solid; // Q is Solid
+                ctx.fillRect(baseX, baseY - h, barW, h);
+                // Label
+                if (progress > 0.8) this.drawLabel(ctx, "Q", baseX, baseY - h - 10);
+            }
+        }
+
+        // K Vector (Keys) - All tokens have this
+        if (phase >= PHASES.PROJECTION) {
+            const h = this.maxVecHeight * scale;
+            ctx.fillStyle = PATTERNS.stripe; // K is Striped
+            ctx.fillRect(baseX + barW + gap, baseY - h, barW, h);
+            if (phase === PHASES.PROJECTION && progress > 0.8) 
+                this.drawLabel(ctx, "K", baseX + barW + gap, baseY - h - 10);
+        }
+
+        // V Vector (Values) - All tokens have this
+        if (phase >= PHASES.PROJECTION) {
+            const h = this.maxVecHeight * scale;
+            ctx.fillStyle = PATTERNS.grid; // V is Grid/Dithered
+            ctx.fillRect(baseX + (barW + gap)*2, baseY - h, barW, h);
+             if (phase === PHASES.PROJECTION && progress > 0.8) 
+                this.drawLabel(ctx, "V", baseX + (barW + gap)*2, baseY - h - 10);
+        }
+    }
+
+    drawLabel(ctx, txt, x, y) {
+        ctx.fillStyle = '#33ff00';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(txt, x, y);
+    }
+}
+
+// --- INITIALIZATION ---
+function init() {
+    TOKENS.forEach((t, i) => {
+        currentState.tokens.push(new Token(t, i, TOKENS.length));
+    });
+    currentState.activeToken = currentState.tokens[TARGET_INDEX];
+    
+    resize();
+    window.addEventListener('resize', resize);
+    
+    // Init patterns
+    PATTERNS.solid = createPattern('solid');
+    PATTERNS.stripe = createPattern('stripe');
+    PATTERNS.grid = createPattern('grid');
+    PATTERNS.sparse = createPattern('sparse');
+
+    log("VISUALIZATION ENGINE STARTED.");
+    log("LOADING WEIGHTS FOR TOKEN ID: [it]...");
+    
+    requestAnimationFrame(loop);
+}
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight; // Keep canvas inside container
+    
+    const container = document.getElementById('canvas-container');
+    canvas.width = container.offsetWidth;
+    canvas.height = container.offsetHeight;
+
+    currentState.tokens.forEach(t => t.updateLayout(canvas.width, canvas.height));
+}
+
+function log(msg, highlight=false) {
+    const div = document.createElement('div');
+    div.className = 'log-entry' + (highlight ? ' highlight' : '');
+    const time = new Date().toISOString().split('T')[1].split('.')[0];
+    div.innerHTML = `<span class="timestamp">[${time}]</span> ${msg}`;
+    term.prepend(div);
+    // Limit log size
+    if (term.children.length > 20) term.removeChild(term.lastChild);
+}
+
+// --- DRAWING LOGIC ---
+
+function drawBackground() {
+    // Fill Black
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Add Random noise for ditherpunk feel
+    ctx.fillStyle = '#33ff00';
+    for(let i=0; i<50; i++) {
+        const rx = Math.random() * canvas.width;
+        const ry = Math.random() * canvas.height;
+        ctx.fillRect(rx, ry, 1, 1);
+    }
+}
+
+function drawScanningPhase() {
+    const p = currentState.progress; // 0 to 1
+    const seeker = currentState.activeToken;
+    const tokens = currentState.tokens;
+    
+    // We scan one token at a time based on progress
+    // Map progress 0..1 to index 0..length
+    const totalScanTime = tokens.length;
+    const currentIndexRaw = p * totalScanTime;
+    const currentIndex = Math.floor(currentIndexRaw);
+    
+    // Just changed index?
+    if (currentIndex !== currentState.scanIndex && currentIndex < tokens.length) {
+        currentState.scanIndex = currentIndex;
+        const t = tokens[currentIndex];
+        const score = t.score.toFixed(3);
+        const intensity = t.score > 0.1 ? "HIGH" : "LOW";
+        log(`> DOT_PRODUCT( Q(it), K(${t.text}) ) = ${score} [${intensity}]`, t.score > 0.1);
+    }
+
+    if (currentIndex >= tokens.length) return;
+
+    const target = tokens[currentIndex];
+
+    // Draw Floating Q Block
+    // It stays above the current target being scanned
+    const barW = (seeker.w - 10) / 3;
+    const floatY = seeker.y - seeker.maxVecHeight - 80; // Scanning lane height
+    
+    // Interpolate X position smoothly
+    const startX = seeker.x + 5; 
+    const targetX = target.x + 5 + barW + 2; // Above the K vector of target
+    
+    // Determine current visual X of the Q-Head
+    const currentQX = targetX; // Snap to target for clear step visualization
+    
+    // Draw The Seeker (Q)
+    ctx.fillStyle = PATTERNS.solid;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = '#33ff00';
+    ctx.fillRect(currentQX, floatY, barW, seeker.maxVecHeight);
+    ctx.shadowBlur = 0;
+    
+    ctx.fillStyle = '#fff';
+    ctx.fillText("Q:it", currentQX, floatY - 5);
+
+    // Draw Laser Line to K
+    const kTopX = target.x + 5 + barW + 2 + (barW/2);
+    const kTopY = target.y - target.maxVecHeight;
+    
+    ctx.beginPath();
+    ctx.moveTo(currentQX + (barW/2), floatY + seeker.maxVecHeight);
+    ctx.lineTo(kTopX, kTopY);
+    
+    // Line style depends on score match
+    const match = target.score;
+    if (match > 0.1) {
+        ctx.strokeStyle = '#33ff00';
+        ctx.lineWidth = 3 + (Math.random() * 2); // Flicker
+    } else {
+        ctx.strokeStyle = '#1a4000';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+}
+
+function drawAggregationPhase() {
+    const p = currentState.progress;
+    const seeker = currentState.activeToken;
+    
+    // Draw the accumulation point above "it"
+    const destX = seeker.x + 5 + (seeker.w/3)*2;
+    const destY = seeker.y - seeker.maxVecHeight * 2.5;
+    
+    // Draw "Ghost" container
+    ctx.strokeStyle = '#33ff00';
+    ctx.strokeRect(destX, destY, (seeker.w-10)/3, seeker.maxVecHeight);
+    
+    // Particles flowing from High-Attention words
+    currentState.tokens.forEach(t => {
+        if (t.score < 0.05) return; // Ignore low relevance
+        
+        // Source V vector top
+        const barW = (t.w - 10) / 3;
+        const srcX = t.x + 5 + (barW + 2)*2;
+        const srcY = t.y - t.maxVecHeight;
+        
+        // Lerp position
+        const curX = srcX + (destX - srcX) * p;
+        const curY = srcY + (destY - srcY) * p;
+        
+        // Draw Chunk
+        const size = t.score * 20; // Size based on relevance
+        ctx.fillStyle = PATTERNS.grid;
+        ctx.fillRect(curX, curY, barW, size);
+        
+        // Draw Connecting Stream
+        ctx.beginPath();
+        ctx.moveTo(srcX + barW/2, srcY);
+        ctx.lineTo(curX + barW/2, curY + size);
+        ctx.strokeStyle = `rgba(51, 255, 0, ${1-p})`;
+        ctx.stroke();
+    });
+
+    // Fill the bucket
+    if (p > 0.5) {
+        const fillH = seeker.maxVecHeight * ((p - 0.5) * 2);
+        ctx.fillStyle = PATTERNS.solid;
+        ctx.fillRect(destX, destY + seeker.maxVecHeight - fillH, (seeker.w-10)/3, fillH);
+        
+        ctx.fillStyle = '#fff';
+        ctx.fillText("NEW_CONTEXT", destX, destY - 10);
+    }
+}
+
+// --- MAIN LOOP ---
+
+function loop() {
+    if (isPaused) {
+        requestAnimationFrame(loop);
+        return;
+    }
+
+    frames++;
+    drawBackground();
+
+    // 1. Draw Static Elements (Text base)
+    currentState.tokens.forEach(t => t.draw(ctx));
+
+    // 2. Draw Rising Vectors (Base state for all phases)
+    // If we are past projection, draw them fully rose
+    currentState.tokens.forEach(t => t.drawVectors(ctx, currentState.phase, currentState.progress));
+
+    // 3. Handle Phase Logic
+    if (currentState.phase === PHASES.PROJECTION) {
+        currentState.progress += 0.01;
+        if (currentState.progress >= 1) {
+            currentState.phase = PHASES.SCANNING;
+            currentState.progress = 0;
+            log("VECTORS PROJECTED. INITIATING SEARCH SEQUENCE...");
+        }
+    } 
+    else if (currentState.phase === PHASES.SCANNING) {
+        drawScanningPhase();
+        currentState.progress += 0.005; // Slow scan
+        if (currentState.progress >= 1) {
+            currentState.phase = PHASES.AGGREGATION;
+            currentState.progress = 0;
+            log("ATTENTION WEIGHTS COMPUTED. AGGREGATING VALUES...");
+        }
+    }
+    else if (currentState.phase === PHASES.AGGREGATION) {
+        drawAggregationPhase();
+        currentState.progress += 0.01;
+        if (currentState.progress >= 1) {
+            currentState.phase = PHASES.COMPLETE;
+            log("CONTEXT INTEGRATION COMPLETE. TOKEN 'it' UPDATED.");
+        }
+    }
+    else if (currentState.phase === PHASES.COMPLETE) {
+        // Draw final state indefinitely
+        drawAggregationPhase(); // Keep showing the result
+        
+        // Auto Reset after delay
+        if (frames % 300 === 0) {
+            reset();
+        }
+    }
+
+    requestAnimationFrame(loop);
+}
+
+function reset() {
+    currentState.phase = PHASES.PROJECTION;
+    currentState.progress = 0;
+    currentState.scanIndex = -1;
+    log("--------------------------------");
+    log("SYSTEM RESET. RESTARTING LOOP.");
+}
+
+// --- EVENTS ---
+document.getElementById('btn-reset').addEventListener('click', reset);
+document.getElementById('btn-pause').addEventListener('click', () => {
+    isPaused = !isPaused;
+    log(isPaused ? "SYSTEM PAUSED." : "SYSTEM RESUMED.");
+});
+
+// Start
+init();
+
+</script>
+</body>
+</html>

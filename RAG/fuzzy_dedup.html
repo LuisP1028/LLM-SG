@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FUZZY_DEDUP // DITHER_LAB</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --fg: #39ff14;
+            --dim: #1a4d1a;
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg);
+            color: var(--fg);
+            font-family: var(--font-main);
+            overflow: hidden; /* Canvas handles scroll if needed, but we keep it fixed */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- UI LAYOUT --- */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass to canvas if needed, though mostly inputs need pointer */
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            z-index: 10;
+        }
+
+        /* HEADER & INPUTS */
+        .controls-area {
+            pointer-events: auto;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0,0,0,0.9),
+                rgba(0,0,0,0.9) 2px,
+                var(--bg) 4px
+            );
+            border-bottom: 2px solid var(--fg);
+            padding: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: bold;
+            background: var(--fg);
+            color: var(--bg);
+            padding: 2px 5px;
+            display: inline-block;
+            width: fit-content;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        textarea {
+            background: black;
+            color: var(--fg);
+            border: 1px solid var(--fg);
+            font-family: var(--font-main);
+            height: 60px;
+            resize: none;
+            padding: 5px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        textarea:focus {
+            box-shadow: 0 0 10px var(--fg);
+        }
+
+        .settings-bar {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            border-top: 1px dashed var(--dim);
+            padding-top: 10px;
+            margin-top: 5px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            background: transparent;
+            border: 1px solid var(--fg);
+            height: 15px;
+            width: 150px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 15px;
+            width: 15px;
+            background: var(--fg);
+            cursor: pointer;
+        }
+
+        button.toggle-btn {
+            background: black;
+            color: var(--fg);
+            border: 1px solid var(--fg);
+            padding: 5px 10px;
+            font-family: var(--font-main);
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        button.toggle-btn:hover {
+            background: var(--fg);
+            color: black;
+        }
+        button.toggle-btn.active {
+            background: var(--fg);
+            color: black;
+        }
+
+        /* STATS FOOTER */
+        .stats-footer {
+            pointer-events: auto;
+            border-top: 2px solid var(--fg);
+            padding: 15px;
+            background: black;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.2rem;
+        }
+
+        .jaccard-display {
+            font-weight: bold;
+        }
+
+        .bar-container {
+            width: 200px;
+            height: 20px;
+            border: 1px solid var(--fg);
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                var(--fg),
+                var(--fg) 2px,
+                black 2px,
+                black 4px
+            );
+            width: 0%;
+            transition: width 0.3s cubic-bezier(0, 1.5, 0.5, 1);
+        }
+
+        /* CANVAS */
+        #viz-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            /* The Retro Magic: Upscale pixelated */
+            image-rendering: pixelated; 
+        }
+
+        /* CRT SCANLINE OVERLAY */
+        .crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 20;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%,
+                rgba(0, 0, 0, 0.25) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="viz-canvas"></canvas>
+
+    <div class="crt-overlay"></div>
+
+    <div class="ui-layer">
+        
+        <div class="controls-area">
+            <div class="input-group">
+                <label>DOC_A :: SOURCE</label>
+                <textarea id="inputA" spellcheck="false">The quick brown fox jumps over the lazy dog</textarea>
+            </div>
+            <div class="input-group">
+                <label>DOC_B :: TARGET</label>
+                <textarea id="inputB" spellcheck="false">The quick brown box jumps over the lazy dog</textarea>
+            </div>
+
+            <div class="settings-bar">
+                <div class="slider-container">
+                    <span>N-GRAM SIZE [<span id="nVal">3</span>]:</span>
+                    <input type="range" id="nSlider" min="2" max="6" value="3">
+                </div>
+                <button id="modeBtn" class="toggle-btn active">WORD MODE</button>
+            </div>
+        </div>
+
+        <div style="flex:1;"></div>
+
+        <div class="stats-footer">
+            <div id="math-log" style="font-size: 0.8rem; line-height: 1.2;">
+                > INTERSECTION: 0<br>
+                > UNION: 0
+            </div>
+            <div style="text-align: right;">
+                <div class="jaccard-display">SIMILARITY: <span id="scoreVal">0.00</span></div>
+                <div class="bar-container">
+                    <div id="scoreBar" class="bar-fill"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ENGINE CONFIGURATION
+         * --------------------
+         * We render to a smaller canvas (internalWidth/Height) to make the
+         * dither effect chunky and performant, then CSS upscales it.
+         */
+        const CANVAS_SCALE = 0.5; // Render at 50% resolution
+        const canvas = document.getElementById('viz-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // UI Elements
+        const inputA = document.getElementById('inputA');
+        const inputB = document.getElementById('inputB');
+        const nSlider = document.getElementById('nSlider');
+        const nVal = document.getElementById('nVal');
+        const modeBtn = document.getElementById('modeBtn');
+        const scoreVal = document.getElementById('scoreVal');
+        const scoreBar = document.getElementById('scoreBar');
+        const mathLog = document.getElementById('math-log');
+
+        // State
+        let state = {
+            width: 0,
+            height: 0,
+            shingleMode: 'word', // 'word' or 'char'
+            nSize: 3,
+            shinglesA: new Set(),
+            shinglesB: new Set(),
+            intersection: new Set(),
+            union: new Set(),
+            jaccard: 0,
+            particles: []
+        };
+
+        // Resize Handler
+        function resize() {
+            state.width = Math.floor(window.innerWidth * CANVAS_SCALE);
+            state.height = Math.floor(window.innerHeight * CANVAS_SCALE);
+            canvas.width = state.width;
+            canvas.height = state.height;
+            recalculate(); // Re-run logic on resize
+        }
+        window.addEventListener('resize', resize);
+
+        // --- LOGIC CORE ---
+
+        function getShingles(text, n, mode) {
+            const set = new Set();
+            if (!text) return set;
+            
+            // Clean text
+            const clean = text.trim().replace(/\s+/g, ' ');
+            
+            if (mode === 'word') {
+                const words = clean.split(' ');
+                if (words.length < n) {
+                    set.add(clean); // Fallback for short text
+                    return set;
+                }
+                for (let i = 0; i <= words.length - n; i++) {
+                    set.add(words.slice(i, i + n).join(' '));
+                }
+            } else {
+                // Char mode
+                if (clean.length < n) {
+                    set.add(clean);
+                    return set;
+                }
+                for (let i = 0; i <= clean.length - n; i++) {
+                    set.add(clean.substring(i, i + n));
+                }
+            }
+            return set;
+        }
+
+        // Simple non-crypto hash for visuals (DJB2)
+        function visualHash(str) {
+            let hash = 5381;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) + hash) + str.charCodeAt(i);
+            }
+            return Math.abs(hash);
+        }
+
+        function recalculate() {
+            state.nSize = parseInt(nSlider.value);
+            nVal.innerText = state.nSize;
+
+            state.shinglesA = getShingles(inputA.value, state.nSize, state.shingleMode);
+            state.shinglesB = getShingles(inputB.value, state.nSize, state.shingleMode);
+
+            // Calculate Math
+            state.intersection = new Set([...state.shinglesA].filter(x => state.shinglesB.has(x)));
+            state.union = new Set([...state.shinglesA, ...state.shinglesB]);
+            
+            const iSize = state.intersection.size;
+            const uSize = state.union.size;
+            state.jaccard = uSize === 0 ? 0 : iSize / uSize;
+
+            // Update UI Stats
+            scoreVal.innerText = state.jaccard.toFixed(2);
+            scoreBar.style.width = `${state.jaccard * 100}%`;
+            mathLog.innerHTML = `> INTERSECTION: ${iSize} BLOCKS<br>> UNION: ${uSize} BLOCKS`;
+
+            spawnParticles();
+        }
+
+        // --- PARTICLE SYSTEM ---
+
+        class ShingleParticle {
+            constructor(text, originX, originY, type) {
+                this.text = text;
+                this.hash = visualHash(text);
+                
+                // Position
+                this.x = originX;
+                this.y = originY;
+                
+                // Type: 0 = A only, 1 = B only, 2 = Intersection
+                this.type = type; 
+                
+                // Target in Venn Diagram
+                // Center of screen X, Bottom 3rd Y
+                const cx = state.width / 2;
+                const cy = state.height * 0.65;
+                const radius = Math.min(state.width, state.height) * 0.25;
+
+                // Venn Targets
+                if (this.type === 0) { // Unique A (Left)
+                    this.tx = cx - radius/1.5 + (Math.random() * 40 - 20);
+                    this.ty = cy + (Math.random() * 40 - 20);
+                } else if (this.type === 1) { // Unique B (Right)
+                    this.tx = cx + radius/1.5 + (Math.random() * 40 - 20);
+                    this.ty = cy + (Math.random() * 40 - 20);
+                } else { // Intersection (Center)
+                    this.tx = cx + (Math.random() * 20 - 10);
+                    this.ty = cy + (Math.random() * 20 - 10);
+                }
+
+                // Random speed variance
+                this.speed = 0.02 + Math.random() * 0.03;
+                this.phase = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                // Lerp towards target
+                this.x += (this.tx - this.x) * this.speed;
+                this.y += (this.ty - this.y) * this.speed;
+            }
+
+            draw(ctx) {
+                // Visualize as a barcode strip
+                const h = 4 + (this.hash % 8); // Height varies by hash
+                const w = 3;
+                
+                // Draw logic is handled in the main loop to batch for dithering
+                // But we define shape here
+                ctx.fillRect(Math.floor(this.x), Math.floor(this.y), w, h);
+            }
+        }
+
+        function spawnParticles() {
+            state.particles = [];
+            
+            // Limit particles for performance if sets are huge
+            const maxParticles = 100;
+            let count = 0;
+
+            const startY = state.height * 0.2; // Spawn below inputs
+
+            // Helper to add
+            const addP = (set, originX, type) => {
+                set.forEach(txt => {
+                    if (count > maxParticles) return;
+                    
+                    // Determine true type based on intersection
+                    let finalType = type;
+                    if (state.intersection.has(txt)) finalType = 2; // Override to intersection
+                    else if (type === 0 && state.shinglesB.has(txt)) finalType = 2; // Check safety
+                    
+                    // Deduplicate visual particles: 
+                    // If it's intersection, only spawn one merged particle or two that merge?
+                    // Let's spawn from source. 
+                    
+                    // Special logic: If intersection, we spawn from the source side, 
+                    // but it flows to center.
+                    
+                    state.particles.push(new ShingleParticle(txt, originX, startY, finalType));
+                    count++;
+                });
+            };
+
+            // Spawn A (Left side)
+            addP(state.shinglesA, state.width * 0.25, 0);
+            
+            // Spawn B (Right side)
+            // Note: We don't double spawn intersection items to keep visual clean, 
+            // OR we spawn them and they merge. Let's spawn unique B's + Intersection from B
+            // Actually, simplest visual: Spawn everything from A, Spawn everything from B.
+            // If they are type 2 (intersection), they will converge to center.
+            
+            // Re-logic:
+            state.particles = [];
+            
+            // Process A
+            state.shinglesA.forEach(txt => {
+                const isMatch = state.intersection.has(txt);
+                state.particles.push(new ShingleParticle(txt, state.width * 0.25, startY, isMatch ? 2 : 0));
+            });
+
+            // Process B
+            state.shinglesB.forEach(txt => {
+                const isMatch = state.intersection.has(txt);
+                // Offset Y slightly for B so they don't perfectly overlap if identical
+                state.particles.push(new ShingleParticle(txt, state.width * 0.75, startY + 5, isMatch ? 2 : 1));
+            });
+        }
+
+        // --- RENDERING & DITHERING ---
+
+        // Atkinson Dithering Kernel
+        // We will manually manipulate pixel data.
+        function ditherFrame() {
+            const imageData = ctx.getImageData(0, 0, state.width, state.height);
+            const data = imageData.data;
+            const w = state.width;
+
+            for (let y = 0; y < state.height; y++) {
+                for (let x = 0; x < w; x++) {
+                    const i = (y * w + x) * 4;
+                    
+                    // Convert to grayscale (green channel dominance)
+                    const oldPixel = data[i + 1]; // Green channel
+                    const newPixel = oldPixel > 100 ? 255 : 0; // Threshold
+                    const error = oldPixel - newPixel;
+
+                    // Write binary color (Green or Black)
+                    // R and B are 0, G is 255 or 0. Alpha 255.
+                    // Actually, let's use the CSS variable colors.
+                    // Black: 0,0,0. Green: 57, 255, 20 (#39ff14)
+                    
+                    if (newPixel === 255) {
+                        data[i] = 57;
+                        data[i+1] = 255;
+                        data[i+2] = 20;
+                    } else {
+                        data[i] = 5;
+                        data[i+1] = 5;
+                        data[i+2] = 5; // Very dark grey instead of pure black for softness
+                    }
+
+                    // Distribute Error (Atkinson)
+                    //       X   1/8   1/8
+                    // 1/8  1/8  1/8
+                    //      1/8
+
+                    if (x + 1 < w)           data[((y) * w + x + 1) * 4 + 1] += error >> 3;
+                    if (x + 2 < w)           data[((y) * w + x + 2) * 4 + 1] += error >> 3;
+                    if (y + 1 < state.height) {
+                        if (x - 1 > 0)       data[((y + 1) * w + x - 1) * 4 + 1] += error >> 3;
+                                             data[((y + 1) * w + x) * 4 + 1]     += error >> 3;
+                        if (x + 1 < w)       data[((y + 1) * w + x + 1) * 4 + 1] += error >> 3;
+                    }
+                    if (y + 2 < state.height) {
+                                             data[((y + 2) * w + x) * 4 + 1]     += error >> 3;
+                    }
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function drawVennBackground() {
+            // We draw "Gray" shapes. The dither filter will turn lighter gray into scattered pixels
+            // and white into solid pixels.
+            
+            const cx = state.width / 2;
+            const cy = state.height * 0.65;
+            const r = Math.min(state.width, state.height) * 0.25;
+
+            // Circle A (Left) - Dim Gray
+            ctx.beginPath();
+            ctx.arc(cx - r/1.5, cy, r, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(0, 255, 0, 0.15)"; // Low intensity green = scattered dither
+            ctx.fill();
+            ctx.strokeStyle = "rgba(0, 255, 0, 0.5)";
+            ctx.stroke();
+
+            // Circle B (Right) - Dim Gray
+            ctx.beginPath();
+            ctx.arc(cx + r/1.5, cy, r, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(0, 255, 0, 0.15)";
+            ctx.fill();
+            ctx.strokeStyle = "rgba(0, 255, 0, 0.5)";
+            ctx.stroke();
+
+            // Intersection Highlight
+            // We can't use blend modes easily with the manual dither approach unless we render logic first.
+            // Logic: Draw Intersection Zone manually?
+            // Easier: Draw a circle in the center that represents the intersection visual
+            // But mathematically, let's just let the particles define the density.
+            
+            // Labels
+            ctx.fillStyle = "#39ff14";
+            ctx.font = "10px monospace";
+            ctx.fillText("SET_A", cx - r - 20, cy - r);
+            ctx.fillText("SET_B", cx + r - 10, cy - r);
+        }
+
+        function loop() {
+            // 1. Clear Screen (Dark Gray background for noise floor)
+            ctx.fillStyle = "#111"; 
+            ctx.fillRect(0, 0, state.width, state.height);
+
+            // 2. Draw Pipes/UI Lines in canvas
+            ctx.strokeStyle = "#444";
+            ctx.lineWidth = 1;
+            
+            // Pipes from inputs
+            ctx.beginPath();
+            ctx.moveTo(state.width * 0.25, 0);
+            ctx.lineTo(state.width * 0.25, state.height * 0.2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(state.width * 0.75, 0);
+            ctx.lineTo(state.width * 0.75, state.height * 0.2);
+            ctx.stroke();
+
+            // 3. Draw Venn Background
+            drawVennBackground();
+
+            // 4. Update & Draw Particles
+            ctx.fillStyle = "#fff"; // Particles are bright (solid in dither)
+            state.particles.forEach(p => {
+                p.update();
+                p.draw(ctx);
+            });
+
+            // 5. Apply Dither Effect
+            ditherFrame();
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- EVENTS ---
+
+        // Input Listeners
+        inputA.addEventListener('input', recalculate);
+        inputB.addEventListener('input', recalculate);
+        nSlider.addEventListener('input', recalculate);
+        
+        modeBtn.addEventListener('click', () => {
+            state.shingleMode = state.shingleMode === 'word' ? 'char' : 'word';
+            modeBtn.innerText = state.shingleMode === 'word' ? 'WORD MODE' : 'CHAR MODE';
+            modeBtn.classList.toggle('active');
+            recalculate();
+        });
+
+        // Init
+        resize();
+        recalculate();
+        loop();
+
+    </script>
+</body>
+</html>

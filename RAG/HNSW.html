@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HNSW Ditherpunk Visualizer (Responsive)</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --fg-color: #00FF41;
+            --dim-color: #003B00;
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+            overflow: hidden;
+            font-family: var(--font-main);
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+            -webkit-font-smoothing: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            /* Ensures the low-res buffer scales up with hard edges */
+            image-rendering: pixelated; 
+            image-rendering: crisp-edges;
+        }
+
+        /* CRT Scanline Overlay */
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* HUD Layout - Flexbox & Relative Units */
+        #hud {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            box-sizing: border-box;
+            padding: clamp(10px, 2vw, 20px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 5;
+            text-shadow: 0 0 5px var(--fg-color);
+        }
+
+        .hud-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        /* Component Styling */
+        .hud-box {
+            background: rgba(0, 0, 0, 0.85);
+            padding: clamp(4px, 1vw, 8px) clamp(8px, 1.5vw, 12px);
+            border: 1px solid var(--fg-color);
+            text-transform: uppercase;
+            font-size: clamp(10px, 2.5vw, 14px);
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* Speed Control Styling */
+        .controls-container {
+            pointer-events: auto; /* Re-enable clicking for slider */
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none; 
+            width: clamp(80px, 20vw, 150px); 
+            background: transparent;
+        }
+
+        input[type=range]:focus { outline: none; }
+
+        /* Slider Track */
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: var(--dim-color);
+            border: 1px solid var(--fg-color);
+        }
+        
+        /* Slider Thumb */
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 8px;
+            background: var(--fg-color);
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px; /* offset for alignment */
+            box-shadow: 0 0 5px var(--fg-color);
+        }
+
+        /* Firefox specific slider styles */
+        input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: var(--dim-color);
+            border: 1px solid var(--fg-color);
+        }
+        input[type=range]::-moz-range-thumb {
+            height: 16px;
+            width: 8px;
+            border: none;
+            background: var(--fg-color);
+            cursor: pointer;
+        }
+
+        .blink { animation: blinker 1s steps(1) infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+        
+        /* Mobile adjustment for bottom row overlap */
+        @media (max-width: 480px) {
+            .hud-row.bottom {
+                flex-direction: column-reverse;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    
+    <div id="hud">
+        <!-- Top Row -->
+        <div class="hud-row">
+            <div class="hud-box">HNSW VISUALIZER <span class="blink">_</span></div>
+            <div class="hud-box" id="status-text">SYSTEM READY</div>
+        </div>
+
+        <!-- Bottom Row -->
+        <div class="hud-row bottom">
+            <div class="controls-container hud-box">
+                <label for="speedRange">SPEED:</label>
+                <input type="range" id="speedRange" min="1" max="100" value="30">
+            </div>
+            
+            <div style="display:flex; gap:10px;">
+                <div class="hud-box" id="layer-text">LYR: --</div>
+                <div class="hud-box" id="dist-text">DST: --</div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="mainCanvas"></canvas>
+
+<script>
+/**
+ * 1. MATH & UTILITIES
+ */
+class Vec3 {
+    constructor(x, y, z) { this.x = x; this.y = y; this.z = z; }
+    add(v) { return new Vec3(this.x + v.x, this.y + v.y, this.z + v.z); }
+    sub(v) { return new Vec3(this.x - v.x, this.y - v.y, this.z - v.z); }
+    mult(s) { return new Vec3(this.x * s, this.y * s, this.z * s); }
+    dist(v) { return Math.sqrt((this.x - v.x)**2 + (this.z - v.z)**2); }
+}
+
+/**
+ * 2. GRAPH DATA STRUCTURE
+ */
+class Node {
+    constructor(id, x, z) {
+        this.id = id;
+        this.pos = new Vec3(x, 0, z);
+        this.layers = [];
+        this.neighbors = {};
+    }
+}
+
+class HNSW {
+    constructor() {
+        this.layers = [0, 1, 2];
+        this.nodes = [];
+        this.entryPoint = null;
+        this.layerY = [250, 0, -250];
+        this.bounds = { w: 600, h: 600 };
+    }
+
+    init(count = 70) {
+        this.nodes = [];
+        for (let i = 0; i < count; i++) {
+            let x = (Math.random() - 0.5) * this.bounds.w;
+            let z = (Math.random() - 0.5) * this.bounds.h;
+            let node = new Node(i, x, z);
+            
+            // Probabilistic hierarchy
+            let level = 0;
+            let r = Math.random();
+            if (r < 0.3) level = 1;
+            if (r < 0.08) level = 2;
+
+            for (let l = 0; l <= level; l++) {
+                node.layers.push(l);
+                if (!node.neighbors[l]) node.neighbors[l] = [];
+            }
+            this.nodes.push(node);
+        }
+
+        // Guarantee entry point
+        let topNodes = this.nodes.filter(n => n.layers.includes(2));
+        if (topNodes.length === 0) {
+            this.nodes[0].layers = [0,1,2];
+            this.nodes[0].neighbors = {0:[], 1:[], 2:[]};
+            topNodes = [this.nodes[0]];
+        }
+        this.entryPoint = topNodes[Math.floor(Math.random() * topNodes.length)];
+
+        // Generate edges
+        this.layers.forEach(l => {
+            let layerNodes = this.nodes.filter(n => n.layers.includes(l));
+            layerNodes.forEach(n1 => {
+                let others = layerNodes.filter(n => n !== n1)
+                    .map(n2 => ({n: n2, d: n1.pos.dist(n2.pos)}))
+                    .sort((a,b) => a.d - b.d)
+                    .slice(0, 3 + l);
+                n1.neighbors[l] = others.map(o => o.n);
+            });
+        });
+    }
+}
+
+/**
+ * 3. RENDERER (Responsive & Dithered)
+ */
+class Renderer {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+        this.bufferCanvas = document.createElement('canvas');
+        this.bCtx = this.bufferCanvas.getContext('2d');
+        
+        this.camPos = new Vec3(0, -200, -200);
+        this.targetCamPos = new Vec3(0, -200, -200);
+        this.zoom = 1.0;
+        
+        // This factor controls the "chunkiness" of the pixels
+        // 3 = 1 canvas pixel represents 3 screen pixels
+        this.pixelScale = 3; 
+        
+        this.handleResize();
+        window.addEventListener('resize', () => this.handleResize());
+    }
+
+    handleResize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // Set internal resolution based on scale
+        this.width = Math.ceil(w / this.pixelScale);
+        this.height = Math.ceil(h / this.pixelScale);
+
+        // Update actual canvas size
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        
+        // Update buffer size
+        this.bufferCanvas.width = this.width;
+        this.bufferCanvas.height = this.height;
+
+        // Mobile adjustment: Zoom out if screen is narrow
+        if (w < 600) {
+            this.zoom = 0.6;
+        } else {
+            this.zoom = 1.0;
+        }
+    }
+
+    project(v, layerY) {
+        let scale = 0.4 * this.zoom;
+        
+        let x = v.x - this.camPos.x;
+        let y = (v.y + layerY) - this.camPos.y;
+        let z = v.z - this.camPos.z;
+
+        // Isometric projection
+        let px = (x - z) * Math.cos(0.523) * scale;
+        let py = (x + z) * Math.sin(0.523) * scale - y * scale;
+
+        // Center on screen
+        return {
+            x: px + this.width / 2,
+            y: py + this.height / 2
+        };
+    }
+
+    clear() {
+        this.bCtx.fillStyle = '#000000';
+        this.bCtx.fillRect(0, 0, this.width, this.height);
+    }
+
+    drawLine(p1, p2, brightness = 1.0, dashed = false) {
+        this.bCtx.beginPath();
+        let gray = Math.floor(brightness * 255);
+        this.bCtx.strokeStyle = `rgb(${gray},${gray},${gray})`;
+        this.bCtx.lineWidth = 1;
+        if (dashed) this.bCtx.setLineDash([2, 2]);
+        else this.bCtx.setLineDash([]);
+        this.bCtx.moveTo(p1.x, p1.y);
+        this.bCtx.lineTo(p2.x, p2.y);
+        this.bCtx.stroke();
+        this.bCtx.setLineDash([]);
+    }
+
+    drawPoint(p, radius, brightness = 1.0, fill = true) {
+        this.bCtx.beginPath();
+        let gray = Math.floor(brightness * 255);
+        this.bCtx.fillStyle = `rgb(${gray},${gray},${gray})`;
+        this.bCtx.strokeStyle = `rgb(${gray},${gray},${gray})`;
+        this.bCtx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        if (fill) this.bCtx.fill();
+        else this.bCtx.stroke();
+    }
+
+    drawDiamond(p, size, brightness = 1.0) {
+        this.bCtx.beginPath();
+        let gray = Math.floor(brightness * 255);
+        this.bCtx.fillStyle = `rgb(${gray},${gray},${gray})`;
+        this.bCtx.moveTo(p.x, p.y - size);
+        this.bCtx.lineTo(p.x + size, p.y);
+        this.bCtx.lineTo(p.x, p.y + size);
+        this.bCtx.lineTo(p.x - size, p.y);
+        this.bCtx.closePath();
+        this.bCtx.fill();
+    }
+
+    dither() {
+        let imageData = this.bCtx.getImageData(0, 0, this.width, this.height);
+        let data = imageData.data;
+        let w = this.width;
+
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < w; x++) {
+                let i = (y * w + x) * 4;
+                let oldPixel = data[i];
+                // Thresholding
+                let newPixel = oldPixel > 110 ? 255 : 0; 
+                let err = (oldPixel - newPixel) >> 3; 
+
+                // Color mapping (Green or Black)
+                if (newPixel === 255) {
+                    data[i] = 0; data[i+1] = 255; data[i+2] = 65; data[i+3] = 255;
+                } else {
+                    data[i] = 0; data[i+1] = 0; data[i+2] = 0; data[i+3] = 255;
+                }
+
+                // Atkinson Dithering Error Diffusion
+                if (x + 1 < w)           data[i + 4] += err;
+                if (x + 2 < w)           data[i + 8] += err;
+                if (y + 1 < this.height) {
+                    if (x > 0)           data[i + (w - 1) * 4] += err;
+                    data[i + w * 4] += err;
+                    if (x + 1 < w)       data[i + (w + 1) * 4] += err;
+                    if (y + 2 < this.height) data[i + w * 8] += err;
+                }
+            }
+        }
+        this.ctx.putImageData(imageData, 0, 0);
+    }
+}
+
+/**
+ * 4. SEARCH AGENT (State Machine + Speed Control)
+ */
+class SearchAgent {
+    constructor(hnsw, renderer) {
+        this.hnsw = hnsw;
+        this.rend = renderer;
+        
+        this.queryPos = new Vec3(0,0,0);
+        this.currentBest = null;
+        this.currentLayer = 2;
+        this.state = 'INIT';
+        
+        this.timer = 0;
+        this.comparedNode = null;
+        this.history = []; 
+        
+        // Speed Control
+        this.speedInput = document.getElementById('speedRange');
+        this.baseThreshold = 60; // Base frames per action (slowest)
+    }
+
+    getThreshold() {
+        // Invert: Slider High = Low Threshold (Fast), Slider Low = High Threshold (Slow)
+        // Slider value 1-100
+        const val = parseInt(this.speedInput.value);
+        // If val is 100, factor is 0.1. If val is 1, factor is 3.0.
+        // Let's map 1->100 to a divider
+        const speedFactor = 0.2 + (val / 15); 
+        return Math.max(1, this.baseThreshold / speedFactor);
+    }
+
+    startQuery() {
+        this.queryPos = new Vec3(
+            (Math.random() - 0.5) * 500,
+            0,
+            (Math.random() - 0.5) * 500
+        );
+        this.currentBest = this.hnsw.entryPoint;
+        this.currentLayer = 2;
+        this.history = [];
+        this.state = 'INIT';
+        this.timer = 0;
+        
+        this.updateStatus("NEW SEARCH INITIATED", "#00FF41");
+    }
+
+    updateStatus(text, color) {
+        const el = document.getElementById('status-text');
+        el.innerText = text;
+        el.style.color = color || "#00FF41";
+    }
+
+    update() {
+        // Camera smooth follow
+        if (this.currentBest) {
+            let targetY = this.hnsw.layerY[this.currentLayer];
+            this.rend.targetCamPos = new Vec3(
+                this.currentBest.pos.x * 0.5, 
+                targetY - 100, 
+                this.currentBest.pos.z * 0.5 + 200
+            );
+        }
+        
+        let lerp = 0.05;
+        this.rend.camPos = this.rend.camPos.add(
+            this.rend.targetCamPos.sub(this.rend.camPos).mult(lerp)
+        );
+
+        // State Machine
+        this.timer++;
+        const threshold = this.getThreshold();
+
+        switch (this.state) {
+            case 'INIT':
+                if (this.timer > threshold) {
+                    this.state = 'SCAN';
+                    this.timer = 0;
+                }
+                break;
+
+            case 'SCAN':
+                let neighbors = this.currentBest.neighbors[this.currentLayer] || [];
+                let bestDist = this.currentBest.pos.dist(this.queryPos);
+                let bestNeighbor = null;
+
+                // Determine which neighbor to look at based on time
+                // We want to visualize checking them one by one
+                // checkDuration controls how long we look at one neighbor
+                let checkDuration = Math.ceil(threshold / 3); 
+                let checkIndex = Math.floor(this.timer / checkDuration);
+                
+                if (checkIndex < neighbors.length) {
+                    this.comparedNode = neighbors[checkIndex];
+                    this.updateStatus(`EVAL NEIGHBOR ${checkIndex+1}/${neighbors.length}`);
+                } else {
+                    // Finished checking all neighbors
+                    for (let n of neighbors) {
+                        let d = n.pos.dist(this.queryPos);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            bestNeighbor = n;
+                        }
+                    }
+
+                    this.comparedNode = null; // Reset visual comparison
+
+                    if (bestNeighbor) {
+                        this.history.push({
+                            from: this.currentBest, 
+                            to: bestNeighbor, 
+                            layer: this.currentLayer
+                        });
+                        this.currentBest = bestNeighbor;
+                        this.state = 'MOVE';
+                        this.timer = 0;
+                        this.updateStatus("ADVANCING >", "#FFF");
+                    } else {
+                        this.state = 'DROP';
+                        this.timer = 0;
+                        this.updateStatus("LOCAL MINIMUM", "#FFFF00");
+                    }
+                }
+                break;
+
+            case 'MOVE':
+                if (this.timer > threshold * 0.8) {
+                    this.state = 'SCAN';
+                    this.timer = 0;
+                }
+                break;
+
+            case 'DROP':
+                if (this.timer > threshold) {
+                    if (this.currentLayer > 0) {
+                        this.currentLayer--;
+                        this.state = 'SCAN';
+                        this.timer = 0;
+                        this.updateStatus("DRILLING DOWN v", "#00FFFF");
+                    } else {
+                        this.state = 'DONE';
+                        this.timer = 0;
+                        this.updateStatus("TARGET ACQUIRED", "#00FF41");
+                    }
+                }
+                break;
+
+            case 'DONE':
+                if (this.timer > threshold * 4) {
+                    this.startQuery();
+                }
+                break;
+        }
+
+        // HUD Updates
+        document.getElementById('layer-text').innerText = `LYR: ${this.currentLayer}`;
+        let d = this.currentBest ? this.currentBest.pos.dist(this.queryPos).toFixed(1) : "--";
+        document.getElementById('dist-text').innerText = `DST: ${d}`;
+    }
+
+    draw() {
+        this.rend.clear();
+
+        // Draw Layers
+        for (let l = 0; l < 3; l++) {
+            let ly = this.hnsw.layerY[l];
+            let isCurrentLayer = (l === this.currentLayer);
+            let baseBrightness = isCurrentLayer ? 0.7 : 0.2;
+
+            // Frame
+            let corners = [
+                new Vec3(-300, 0, -300), new Vec3(300, 0, -300),
+                new Vec3(300, 0, 300), new Vec3(-300, 0, 300)
+            ];
+            let pCorners = corners.map(v => this.rend.project(v, ly));
+            
+            this.rend.bCtx.strokeStyle = isCurrentLayer ? '#555' : '#222';
+            this.rend.bCtx.beginPath();
+            this.rend.bCtx.moveTo(pCorners[0].x, pCorners[0].y);
+            for(let i=1; i<4; i++) this.rend.bCtx.lineTo(pCorners[i].x, pCorners[i].y);
+            this.rend.bCtx.lineTo(pCorners[0].x, pCorners[0].y);
+            this.rend.bCtx.stroke();
+
+            // Edges
+            let layerNodes = this.hnsw.nodes.filter(n => n.layers.includes(l));
+            layerNodes.forEach(n => {
+                let p1 = this.rend.project(n.pos, ly);
+                let neighbors = n.neighbors[l] || [];
+                neighbors.forEach(nbr => {
+                    let p2 = this.rend.project(nbr.pos, ly);
+                    this.rend.drawLine(p1, p2, baseBrightness * 0.4); 
+                });
+            });
+
+            // Nodes
+            layerNodes.forEach(n => {
+                let p = this.rend.project(n.pos, ly);
+                let isCurr = (n === this.currentBest && isCurrentLayer);
+                let isComp = (n === this.comparedNode && isCurrentLayer);
+                
+                let size = isCurr ? 4 : (isComp ? 3 : 2);
+                let bright = isCurr ? 1.0 : (isComp ? 0.9 : baseBrightness);
+                
+                this.rend.drawPoint(p, size, bright);
+
+                // Hierarchy Links
+                if (l < 2 && n.layers.includes(l+1)) {
+                    let pAbove = this.rend.project(n.pos, this.hnsw.layerY[l+1]);
+                    this.rend.drawLine(p, pAbove, 0.15, true);
+                }
+            });
+
+            // Query Ghost
+            let pq = this.rend.project(this.queryPos, ly);
+            this.rend.drawDiamond(pq, 3, isCurrentLayer ? 0.6 : 0.2);
+        }
+
+        // Active Elements
+        if (this.currentBest) {
+            let ly = this.hnsw.layerY[this.currentLayer];
+            let pc = this.rend.project(this.currentBest.pos, ly);
+            let pq = this.rend.project(this.queryPos, ly);
+
+            // Vector to target
+            this.rend.drawLine(pc, pq, 0.3, true);
+
+            // History
+            this.history.forEach(h => {
+                if (h.layer === this.currentLayer) {
+                    let p1 = this.rend.project(h.from.pos, ly);
+                    let p2 = this.rend.project(h.to.pos, ly);
+                    this.rend.drawLine(p1, p2, 0.8);
+                }
+            });
+            
+            // Scanning Line
+            if (this.comparedNode && this.state === 'SCAN') {
+                 let pn = this.rend.project(this.comparedNode.pos, ly);
+                 this.rend.drawLine(pc, pn, 1.0); 
+            }
+
+            // Drop Beam
+            if (this.state === 'DROP' && this.currentLayer > 0) {
+                let nextLy = this.hnsw.layerY[this.currentLayer - 1];
+                let pNext = this.rend.project(this.currentBest.pos, nextLy);
+                this.rend.drawLine(pc, pNext, 1.0);
+                this.rend.drawPoint(pc, 6, 1.0, false);
+            }
+            
+            // Success
+            if (this.state === 'DONE') {
+                 let radius = 5 + Math.sin(this.timer * 0.2) * 3;
+                 this.rend.drawPoint(pc, radius, 1.0, false);
+                 this.rend.drawLine(pc, pq, 1.0);
+            }
+        }
+
+        this.rend.dither();
+    }
+}
+
+/**
+ * 5. MAIN LOOP
+ */
+const hnsw = new HNSW();
+hnsw.init(80);
+
+const renderer = new Renderer('mainCanvas');
+const agent = new SearchAgent(hnsw, renderer);
+
+agent.startQuery();
+
+function loop() {
+    agent.update();
+    agent.draw();
+    requestAnimationFrame(loop);
+}
+loop();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LLM EVAL PIPELINE // DITHERPUNK</title>
+    <style>
+        /* --- GLOBAL & FONTS --- */
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        :root {
+            --color-bg: #050505;
+            --color-fg: #00FF41;
+            --color-fg-dim: #008F24;
+            --color-alert: #FF3333;
+            --font-main: 'VT323', 'Courier New', monospace;
+            
+            /* Responsive sizes */
+            --header-height: clamp(50px, 8vh, 70px);
+            --footer-height: clamp(30px, 5vh, 40px);
+            --nav-padding: clamp(10px, 2vw, 20px);
+            --border-width: clamp(1px, 0.2vw, 2px);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: var(--color-fg);
+            font-family: var(--font-main);
+            overflow: hidden;
+            height: 100dvh; /* Dynamic viewport height for mobile browsers */
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- CRT CONTAINER & FX --- */
+        #crt-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: var(--color-bg);
+            display: grid;
+            grid-template-rows: auto 1fr auto; /* Header, Content, Footer */
+            overflow: hidden;
+            text-shadow: 0 0 4px var(--color-fg-dim);
+        }
+
+        /* Scanlines Overlay */
+        #crt-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 999;
+            box-shadow: inset 0 0 10vw rgba(0,0,0,0.7);
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.95; }
+            100% { opacity: 1; }
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            height: var(--header-height);
+            border-bottom: var(--border-width) solid var(--color-fg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--nav-padding);
+            z-index: 10;
+            background: var(--color-bg);
+            gap: 20px;
+        }
+
+        .nav-title {
+            font-size: clamp(1.2rem, 3vw, 1.8rem);
+            font-weight: bold;
+            letter-spacing: 2px;
+            white-space: nowrap;
+        }
+
+        /* Responsive Scrollable Nav Steps */
+        .pipeline-steps {
+            display: flex;
+            gap: clamp(5px, 1vw, 20px);
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex-grow: 1;
+            /* Hide scrollbar */
+            scrollbar-width: none; 
+            -ms-overflow-style: none;
+            padding-bottom: 2px; /* Prevent border clipping */
+        }
+        .pipeline-steps::-webkit-scrollbar { display: none; }
+
+        .step-btn {
+            background: none;
+            border: var(--border-width) solid var(--color-fg-dim);
+            color: var(--color-fg-dim);
+            padding: 5px clamp(5px, 1vw, 15px);
+            font-family: var(--font-main);
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            white-space: nowrap;
+            flex-shrink: 0; /* Prevent squishing */
+        }
+
+        .step-btn:hover, .step-btn.active {
+            background: var(--color-fg);
+            color: var(--color-bg);
+            border-color: var(--color-fg);
+            box-shadow: 0 0 10px var(--color-fg);
+        }
+
+        /* Toggle Button */
+        #methodology-toggle {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            border: var(--border-width) solid var(--color-fg);
+            padding: 5px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+        }
+        
+        /* Mobile adjustment for Toggle */
+        @media (max-width: 600px) {
+            #methodology-toggle span:last-child { display: none; } /* Hide label on tiny screens */
+        }
+
+        /* --- MAIN STAGE --- */
+        #stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            padding: var(--nav-padding);
+            overflow-y: auto; /* Allow scrolling if content gets too tall on mobile */
+            overflow-x: hidden;
+        }
+
+        /* Responsive Grid Helpers */
+        .scene-grid-basic {
+            display: grid;
+            gap: var(--nav-padding);
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Canvas Wrapper */
+        .overlay-ui {
+            border: var(--border-width) solid var(--color-fg);
+            padding: 10px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background: rgba(5,5,5,0.8);
+            min-height: 200px; /* Minimum height for readability on mobile */
+        }
+
+        .overlay-ui h3 {
+            margin: 0 0 10px 0;
+            background: var(--color-fg);
+            color: var(--color-bg);
+            display: inline-block;
+            padding: 0 5px;
+            font-size: clamp(1rem, 2vw, 1.2rem);
+            flex-shrink: 0;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        canvas {
+            flex-grow: 1;
+            width: 100%;
+            height: 100%; /* Important: Canvas fills the flex/grid item */
+            display: block;
+            image-rendering: pixelated; 
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            height: var(--footer-height);
+            padding: 0 var(--nav-padding);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: var(--border-width) solid var(--color-fg);
+            font-size: clamp(0.8rem, 2vw, 1rem);
+            background: var(--color-bg);
+            z-index: 10;
+        }
+
+        /* --- SCENE SPECIFICS --- */
+        
+        /* Scene 1: Engine Room (Responsive Grid) */
+        .scene-1-layout {
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
+            grid-template-rows: auto;
+        }
+        /* Make the first graph span 2 cols on wide screens */
+        @media (min-width: 1024px) {
+            .scene-1-layout .graph-container { grid-column: span 2; }
+        }
+
+        /* Scene 1: Slot Machine */
+        .slot-machine-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-grow: 1;
+            font-size: clamp(2rem, 5vw, 4rem);
+        }
+        .reel { 
+            border: 2px solid var(--color-fg); 
+            padding: 5px; 
+            width: clamp(40px, 10vw, 80px); 
+            text-align: center; 
+        }
+
+        /* Scene 3: Workshop */
+        .workshop-grid {
+            display: grid;
+            gap: 15px;
+            height: 100%;
+            /* Mobile First: Stacked */
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr auto;
+        }
+        /* Desktop: Side by Side */
+        @media (min-width: 768px) {
+            .workshop-grid {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr auto;
+            }
+            .gaia-footer { grid-column: span 2; }
+        }
+
+        .constraint-item { 
+            font-size: clamp(0.8rem, 1.5vw, 1.2rem); 
+            padding: 2px 5px;
+            white-space: nowrap;
+        }
+        .constraint-pass { background: var(--color-fg); color: var(--color-bg); }
+        .constraint-fail { border: 1px solid var(--color-fg); color: var(--color-fg); }
+
+        /* Scene 4: Domain Carousel */
+        .domain-layout {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .domain-tabs {
+            display: flex;
+            border-top: var(--border-width) solid var(--color-fg);
+            min-height: 50px; /* Touch target */
+        }
+        .domain-tab {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-right: var(--border-width) solid var(--color-fg-dim);
+            font-size: clamp(1rem, 2vw, 1.5rem);
+            transition: background 0.2s;
+        }
+        .domain-tab:last-child { border-right: none; }
+        .domain-tab.active { background: var(--color-fg); color: var(--color-bg); }
+
+        /* Scene 5: Metrics */
+        .metrics-grid {
+            display: grid;
+            gap: 20px;
+            height: 100%;
+            /* Mobile: Stacked */
+            grid-template-columns: 1fr; 
+            grid-template-rows: 1fr 1fr;
+        }
+        /* Desktop: Side by Side */
+        @media (min-width: 768px) {
+            .metrics-grid {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr;
+            }
+            .metrics-right-col {
+                display: grid;
+                grid-template-rows: 1fr 1fr;
+                gap: 20px;
+            }
+        }
+
+        .rouge-text { 
+            font-size: clamp(0.9rem, 1.2vw, 1.1rem); 
+            line-height: 1.5; 
+            word-break: break-word; 
+        }
+        .highlight { background: var(--color-fg); color: var(--color-bg); padding: 0 2px; }
+        .dim { opacity: 0.5; }
+
+        /* Tooltip */
+        #tooltip {
+            position: absolute;
+            background: var(--color-bg);
+            border: 1px solid var(--color-fg);
+            padding: 8px;
+            display: none;
+            pointer-events: none;
+            z-index: 1000;
+            box-shadow: 4px 4px 0 var(--color-fg);
+            font-size: 0.9rem;
+            max-width: 200px;
+        }
+
+        /* Utility */
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+        .full-h { height: 100%; }
+
+    </style>
+</head>
+<body>
+
+<div id="crt-container">
+    <div id="crt-overlay"></div>
+    
+    <!-- HEADER -->
+    <nav>
+        <div class="nav-title">EVAL_OS</div>
+        <div class="pipeline-steps">
+            <button class="step-btn active" onclick="sceneManager.loadScene(0)">1.PreTrain</button>
+            <button class="step-btn" onclick="sceneManager.loadScene(1)">2.BaseEval</button>
+            <button class="step-btn" onclick="sceneManager.loadScene(2)">3.FineTune</button>
+            <button class="step-btn" onclick="sceneManager.loadScene(3)">4.Domain</button>
+            <button class="step-btn" onclick="sceneManager.loadScene(4)">5.Metrics</button>
+        </div>
+        <div id="methodology-toggle" onclick="toggleMethodology()">
+            <span id="method-icon">[ T ]</span>
+            <span id="method-label">GEN</span>
+        </div>
+    </nav>
+
+    <!-- MAIN STAGE -->
+    <main id="stage"></main>
+
+    <!-- FOOTER/STATUS -->
+    <footer>
+        <span>SYS.STATUS: ONLINE</span>
+        <span id="fps-counter" style="display:none;">FPS: 60</span> <!-- Hidden on mobile for space -->
+        <span>MEM: 64K</span>
+    </footer>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+/**
+ * DITHERPUNK RESPONSIVE VISUALIZATION
+ * -----------------------------------
+ * Fully agnostic to window size using ResizeObserver and Relative Units.
+ */
+
+const colors = {
+    bg: '#050505',
+    fg: '#00FF41',
+    fgDim: '#004411',
+    alert: '#FF3333'
+};
+
+let currentMethodology = 'GEN';
+const stage = document.getElementById('stage');
+const tooltip = document.getElementById('tooltip');
+
+function toggleMethodology() {
+    currentMethodology = currentMethodology === 'GEN' ? 'LOG' : 'GEN';
+    const icon = document.getElementById('method-icon');
+    const label = document.getElementById('method-label');
+    
+    if(currentMethodology === 'GEN') {
+        icon.innerText = "[ T ]";
+        label.innerText = "GEN";
+        icon.title = "Regex Validation Mode";
+    } else {
+        icon.innerText = "[ % ]";
+        label.innerText = "PROB";
+        icon.title = "Logits / Perplexity Mode";
+    }
+}
+
+// --- UTILS: RESPONSIVE CANVAS ---
+// Resizes canvas buffer to match display size for crisp pixels
+function resizeCanvasToDisplaySize(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    // Using floor to align with pixels
+    const width = Math.floor(rect.width);
+    const height = Math.floor(rect.height);
+
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        return true; // Size changed
+    }
+    return false;
+}
+
+// --- SCENE MANAGER ---
+const sceneManager = {
+    currentId: -1,
+    animationFrame: null,
+    
+    loadScene: function(id) {
+        if(this.animationFrame) cancelAnimationFrame(this.animationFrame);
+        this.currentId = id;
+        
+        // UI State Update
+        document.querySelectorAll('.step-btn').forEach((b, i) => {
+            b.classList.toggle('active', i === id);
+        });
+
+        // Clear Stage
+        stage.innerHTML = '';
+        stage.className = ''; // Clear grid classes
+
+        switch(id) {
+            case 0: this.initPreTrain(); break;
+            case 1: this.initBaseEval(); break;
+            case 2: this.initFineTune(); break;
+            case 3: this.initDomain(); break;
+            case 4: this.initMetrics(); break;
+        }
+    },
+
+    // --- SCENE 1: PRE-TRAIN ---
+    initPreTrain: function() {
+        // Container Setup
+        const container = document.createElement('div');
+        container.className = 'scene-grid-basic scene-1-layout';
+        stage.appendChild(container);
+
+        // Elements
+        const createModule = (title, id, extraClass='') => {
+            const d = document.createElement('div');
+            d.className = `overlay-ui ${extraClass}`;
+            d.innerHTML = `<h3>${title}</h3><canvas id="${id}"></canvas>`;
+            return d;
+        };
+
+        const graphBox = createModule('LOSS_LANDSCAPE', 'cvs-loss', 'graph-container');
+        const speedBox = createModule('GRADIENT_NORM', 'cvs-speed');
+        
+        const slotBox = document.createElement('div');
+        slotBox.className = 'overlay-ui';
+        slotBox.innerHTML = `
+            <h3>PERPLEXITY</h3>
+            <div id="ppl-display" style="height:100%; display:flex; flex-direction:column; justify-content:center; text-align:center;"></div>
+        `;
+
+        container.append(graphBox, speedBox, slotBox);
+
+        const cvsLoss = document.getElementById('cvs-loss');
+        const cvsSpeed = document.getElementById('cvs-speed');
+        const ctxLoss = cvsLoss.getContext('2d');
+        const ctxSpeed = cvsSpeed.getContext('2d');
+
+        // Logic
+        let time = 0;
+        let lossData = []; 
+        let valData = [];
+        const maxPoints = 100;
+
+        const loop = () => {
+            resizeCanvasToDisplaySize(cvsLoss);
+            resizeCanvasToDisplaySize(cvsSpeed);
+            
+            const wL = cvsLoss.width; const hL = cvsLoss.height;
+            const wS = cvsSpeed.width; const hS = cvsSpeed.height;
+
+            time++;
+
+            // Data Sim
+            if(time % 5 === 0) {
+                const decay = Math.exp(-time * 0.005);
+                lossData.push(50 + 150 * decay + Math.random() * 5);
+                valData.push(60 + 140 * decay + (time > 500 ? (time-500)*0.1 : 0) + Math.random() * 5);
+                if(lossData.length > maxPoints) { lossData.shift(); valData.shift(); }
+            }
+
+            // Draw Loss
+            ctxLoss.fillStyle = colors.bg; ctxLoss.fillRect(0,0,wL,hL);
+            
+            // Grid
+            ctxLoss.strokeStyle = colors.fgDim; ctxLoss.lineWidth = 1;
+            ctxLoss.beginPath();
+            const stepX = wL / 10;
+            const stepY = hL / 6;
+            for(let x=stepX; x<wL; x+=stepX) { ctxLoss.moveTo(x,0); ctxLoss.lineTo(x,hL); }
+            for(let y=stepY; y<hL; y+=stepY) { ctxLoss.moveTo(0,y); ctxLoss.lineTo(wL,y); }
+            ctxLoss.stroke();
+
+            // Lines
+            const drawLine = (data, dash) => {
+                ctxLoss.beginPath();
+                ctxLoss.strokeStyle = colors.fg;
+                if(dash) ctxLoss.setLineDash([5, 5]); else ctxLoss.setLineDash([]);
+                for(let i=0; i<data.length; i++) {
+                    const x = (i / (maxPoints-1)) * wL;
+                    // Normalize data (0-250 range assumed) to canvas height
+                    const y = hL - (data[i] / 250 * hL * 0.8) - 10; 
+                    if(i===0) ctxLoss.moveTo(x,y); else ctxLoss.lineTo(x,y);
+                }
+                ctxLoss.stroke();
+            };
+            drawLine(lossData, false);
+            drawLine(valData, true);
+
+            // Draw Speedometer
+            ctxSpeed.fillStyle = colors.bg; ctxSpeed.fillRect(0,0,wS,hS);
+            const cx = wS/2; 
+            const cy = hS - (hS*0.2); // 20% from bottom
+            const rad = Math.min(wS, hS) * 0.7; // Responsive radius
+            
+            ctxSpeed.beginPath(); ctxSpeed.arc(cx, cy, rad, Math.PI, 0);
+            ctxSpeed.lineWidth = rad * 0.1; ctxSpeed.strokeStyle = colors.fgDim; ctxSpeed.stroke();
+
+            const needleAngle = Math.PI + (Math.sin(time * 0.1) * 0.5 + 0.5) * Math.PI;
+            const nx = cx + Math.cos(needleAngle) * (rad-5);
+            const ny = cy + Math.sin(needleAngle) * (rad-5);
+            
+            ctxSpeed.beginPath(); ctxSpeed.moveTo(cx, cy); ctxSpeed.lineTo(nx, ny);
+            ctxSpeed.strokeStyle = colors.fg; ctxSpeed.lineWidth = 3; ctxSpeed.stroke();
+            
+            // Text updates (DOM)
+            if(time % 10 === 0) {
+                const ppl = (Math.exp(3 - (time * 0.001)) + Math.random()).toFixed(2);
+                const symbols = ["∑", "∫", "∂", "∇", "∀", "∃"];
+                const r1 = symbols[Math.floor(Math.random()*symbols.length)];
+                const r2 = symbols[Math.floor(Math.random()*symbols.length)];
+                const r3 = symbols[Math.floor(Math.random()*symbols.length)];
+                
+                document.getElementById('ppl-display').innerHTML = `
+                    <div class="slot-machine-container">
+                        <div class="reel">${r1}</div>
+                        <div class="reel">${r2}</div>
+                        <div class="reel">${r3}</div>
+                    </div>
+                    <div style="font-size:clamp(1rem, 2vw, 1.5rem); margin-top:10px;">PPL: ${ppl}</div>
+                    <div style="font-size:clamp(0.7rem, 1.2vw, 0.9rem); color:${colors.fgDim}">$PP(P) = e^{H(P)}$</div>
+                `;
+            }
+
+            this.animationFrame = requestAnimationFrame(loop);
+        };
+        loop();
+    },
+
+    // --- SCENE 2: RADAR ---
+    initBaseEval: function() {
+        const div = document.createElement('div');
+        div.className = 'overlay-ui full-h';
+        div.innerHTML = '<h3>SOTA_COMPARISON</h3><canvas id="cvs-radar"></canvas>';
+        stage.appendChild(div);
+
+        const cvs = div.querySelector('canvas');
+        const ctx = cvs.getContext('2d');
+        const labels = ["MMLU", "HellaSwag", "GSM8K", "HumanEval", "ARC-C"];
+        const statsSota = [0.8, 0.9, 0.7, 0.6, 0.85];
+        const statsStu = [0.6, 0.75, 0.5, 0.4, 0.65];
+        
+        const loop = () => {
+            resizeCanvasToDisplaySize(cvs);
+            const w = cvs.width; const h = cvs.height;
+            const cx = w/2; const cy = h/2;
+            const rad = Math.min(w,h) * 0.35; // Responsive radius, leave room for text
+
+            ctx.fillStyle = colors.bg; ctx.fillRect(0,0,w,h);
+
+            // Web
+            ctx.strokeStyle = colors.fgDim;
+            ctx.lineWidth = 1;
+            for(let r=0; r<5; r++) {
+                ctx.beginPath();
+                const tr = rad * ((r+1)/5);
+                for(let i=0; i<5; i++) {
+                    const ang = (Math.PI*2 * i / 5) - Math.PI/2;
+                    const x = cx + Math.cos(ang) * tr;
+                    const y = cy + Math.sin(ang) * tr;
+                    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+
+            const drawPoly = (stats, color, fill) => {
+                ctx.beginPath();
+                stats.forEach((v, i) => {
+                    const val = v + (Math.sin(Date.now()*0.005 + i)*0.01);
+                    const ang = (Math.PI*2 * i / 5) - Math.PI/2;
+                    const x = cx + Math.cos(ang) * (rad * val);
+                    const y = cy + Math.sin(ang) * (rad * val);
+                    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                });
+                ctx.closePath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                if(fill) {
+                    ctx.globalAlpha = 0.2;
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0;
+                    
+                    // Simple Pattern Fill
+                    ctx.save();
+                    ctx.clip();
+                    ctx.fillStyle = color;
+                    for(let i=0; i<w; i+=4) {
+                        ctx.fillRect(i, 0, 1, h);
+                    }
+                    ctx.restore();
+                }
+            };
+
+            drawPoly(statsSota, colors.fgDim, false);
+            drawPoly(statsStu, colors.fg, true);
+
+            // Labels
+            ctx.font = `clamp(10px, 1.5vw, 16px) ${getComputedStyle(document.body).fontFamily}`;
+            ctx.fillStyle = colors.fg;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            labels.forEach((l, i) => {
+                const ang = (Math.PI*2 * i / 5) - Math.PI/2;
+                const dist = rad + Math.min(w,h)*0.08; // Offset based on size
+                const x = cx + Math.cos(ang) * dist;
+                const y = cy + Math.sin(ang) * dist;
+                ctx.fillText(l, x, y);
+            });
+
+            this.animationFrame = requestAnimationFrame(loop);
+        };
+        
+        // Interaction
+        cvs.addEventListener('mousemove', (e) => {
+            const rect = cvs.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            // Need to match internal resolution
+            const rx = mx * (cvs.width / rect.width);
+            const ry = my * (cvs.height / rect.height);
+            
+            const cx = cvs.width/2; const cy = cvs.height/2;
+            const rad = Math.min(cvs.width, cvs.height) * 0.35;
+            
+            let hit = false;
+            labels.forEach((l, i) => {
+                const ang = (Math.PI*2 * i / 5) - Math.PI/2;
+                const x = cx + Math.cos(ang) * rad;
+                const y = cy + Math.sin(ang) * rad;
+                const dist = Math.sqrt((rx-x)**2 + (ry-y)**2);
+                
+                if(dist < rad * 0.2) { // Generous hit area
+                    hit = true;
+                    tooltip.style.display = 'block';
+                    // Ensure tooltip stays on screen
+                    const tW = 150; 
+                    const lPos = Math.min(e.pageX + 15, window.innerWidth - tW);
+                    tooltip.style.left = lPos + 'px';
+                    tooltip.style.top = e.pageY + 'px';
+                    tooltip.innerHTML = `<strong>${l}</strong><br>SCORE: ${(statsStu[i]*100).toFixed(1)}%`;
+                }
+            });
+            if(!hit) tooltip.style.display = 'none';
+        });
+
+        loop();
+    },
+
+    // --- SCENE 3: FINE-TUNE ---
+    initFineTune: function() {
+        const div = document.createElement('div');
+        div.className = 'workshop-grid';
+        div.innerHTML = `
+            <div class="overlay-ui" id="ifeval-box">
+                <h3>IFEVAL_CONSTRAINTS</h3>
+                <div id="rain-container" style="position:relative; height:100%; overflow:hidden; width:100%;"></div>
+            </div>
+            <div class="overlay-ui">
+                <h3>CHATBOT_ARENA</h3>
+                <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                    <pre id="arena-visual" style="font-size: clamp(8px, 1.5vw, 16px); line-height: 1; text-align: center; white-space: pre;"></pre>
+                    <div style="margin-top:15px; width:80%; text-align:center;">
+                        WIN_RATE: <span id="win-rate">50%</span>
+                        <div style="width:100%; margin:5px auto; height:10px; border:1px solid #00FF41; position:relative;">
+                            <div id="win-bar" style="width:50%; background:#00FF41; height:100%; transition: width 0.2s;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="overlay-ui gaia-footer" style="min-height:80px; display:flex; flex-direction:row; align-items:center; justify-content:space-between; padding:0 15px;">
+                <div style="font-size:clamp(0.8rem, 1.5vw, 1.2rem);">GAIA_TEST</div>
+                <div id="robotic-arm-container" style="flex-grow:1; height: 100%; position:relative; margin: 0 15px; overflow:hidden;">
+                    <div id="arm-segment" style="width:50px; height:6px; background:#00FF41; position:absolute; bottom:10px; left:0; transition:all 0.5s;"></div>
+                    <div id="arm-target" style="width:15px; height:15px; border:2px solid #00FF41; position:absolute; bottom:5px; right:0;"></div>
+                </div>
+                <div style="text-align:right;">ACT:<br><span id="gaia-action">IDLE</span></div>
+            </div>
+        `;
+        stage.appendChild(div);
+
+        // Rain
+        const rainContainer = document.getElementById('rain-container');
+        const constraints = ["No JSON", "2 Paras", "Markdown", "No Neg", "Start: Hi"];
+        
+        // Use a timer cleanup
+        this.timers = [];
+        const spawnRain = () => {
+            if(document.hidden) return;
+            const el = document.createElement('div');
+            el.className = 'constraint-item';
+            el.innerText = constraints[Math.floor(Math.random() * constraints.length)];
+            el.style.position = 'absolute';
+            el.style.left = Math.random() * 80 + '%';
+            el.style.top = '-20px';
+            rainContainer.appendChild(el);
+
+            let top = -20;
+            // Use AnimationFrame for smoother fall, but setInterval is simpler for DOM nodes here
+            const fall = setInterval(() => {
+                if(!el.parentNode) { clearInterval(fall); return; }
+                top += 2; // Pixel speed
+                el.style.top = top + 'px';
+                
+                const boxH = rainContainer.clientHeight;
+                if (top > boxH * 0.4 && !el.classList.contains('checked')) {
+                    el.classList.add('checked');
+                    if (Math.random() > 0.3) el.classList.add('constraint-pass');
+                    else el.classList.add('constraint-fail');
+                }
+                if (top > boxH) {
+                    clearInterval(fall);
+                    el.remove();
+                }
+            }, 30);
+            this.timers.push(fall);
+        };
+        this.timers.push(setInterval(spawnRain, 800));
+
+        // Arena
+        const arenaEl = document.getElementById('arena-visual');
+        const fighter1 = "  O  \n /|\\ \n / \\ ";
+        const fighter2 = "  O  \n /|\\ \n / \\ ";
+        
+        let frame = 0;
+        const arenaLoop = () => {
+            frame++;
+            const shift = Math.floor(Math.sin(frame * 0.1) * 3);
+            let spaces = " ".repeat(5 + shift);
+            arenaEl.innerText = `${spaces}${fighter1.replace(/\n/g, '\n'+spaces)}     VS     ${fighter2.replace(/\n/g, '\n')}`;
+            
+            if(frame % 60 === 0) {
+                const wr = 40 + Math.random() * 20;
+                document.getElementById('win-rate').innerText = wr.toFixed(1) + "%";
+                document.getElementById('win-bar').style.width = wr + "%";
+            }
+            if(frame % 100 === 0) {
+                const arm = document.getElementById('arm-segment');
+                const actions = ["CALC", "BROWSE", "CODE"];
+                document.getElementById('gaia-action').innerText = actions[Math.floor(Math.random()*3)];
+                const containerW = document.getElementById('robotic-arm-container').clientWidth;
+                arm.style.left = (Math.random() * (containerW - 50)) + 'px';
+                arm.style.width = (30 + Math.random() * 40) + 'px';
+            }
+            this.animationFrame = requestAnimationFrame(arenaLoop);
+        };
+        arenaLoop();
+    },
+
+    // --- SCENE 4: DOMAIN ---
+    initDomain: function() {
+        const div = document.createElement('div');
+        div.className = 'overlay-ui domain-layout';
+        div.style.padding = '0';
+        div.innerHTML = `
+            <div style="padding:10px; border-bottom:1px solid var(--color-fg); flex-shrink:0;">
+                <h3 id="domain-header" style="margin:0;">DOMAIN: HEALTHCARE</h3>
+            </div>
+            <div style="flex-grow:1; position:relative;">
+                <canvas id="cvs-domain"></canvas>
+            </div>
+            <div class="domain-tabs">
+                <div class="domain-tab active" onclick="sceneManager.setDomainMode('MED')">MED</div>
+                <div class="domain-tab" onclick="sceneManager.setDomainMode('CYBER')">SEC</div>
+                <div class="domain-tab" onclick="sceneManager.setDomainMode('SPACE')">SPACE</div>
+            </div>
+        `;
+        stage.appendChild(div);
+        
+        this.domainMode = 'MED';
+        const cvs = div.querySelector('canvas');
+        const ctx = cvs.getContext('2d');
+        
+        let cubeVerts = [
+            {x:-1, y:-1, z:-1}, {x:1, y:-1, z:-1}, {x:1, y:1, z:-1}, {x:-1, y:1, z:-1},
+            {x:-1, y:-1, z:1}, {x:1, y:-1, z:1}, {x:1, y:1, z:1}, {x:-1, y:1, z:1}
+        ];
+        const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+        let t = 0;
+
+        const loop = () => {
+            resizeCanvasToDisplaySize(cvs);
+            const w = cvs.width; const h = cvs.height;
+            
+            ctx.fillStyle = colors.bg; ctx.fillRect(0,0,w,h);
+            ctx.strokeStyle = colors.fg;
+            ctx.fillStyle = colors.fg;
+            t++;
+
+            if(this.domainMode === 'MED') {
+                ctx.beginPath();
+                const midY = h/2;
+                for(let x=0; x<w; x++) {
+                    let y = midY;
+                    const phase = (x + t*3) % w;
+                    // Draw pulse
+                    if(phase > w*0.4 && phase < w*0.6) {
+                        y -= Math.sin((phase - w*0.4)/(w*0.2) * Math.PI * 2) * (h*0.3);
+                    }
+                    if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+                }
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Grid
+                ctx.strokeStyle = colors.fgDim; ctx.lineWidth = 0.5;
+                const gridSize = 40;
+                for(let i=0; i<w; i+=gridSize) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,h); ctx.stroke(); }
+                
+            } else if(this.domainMode === 'CYBER') {
+                ctx.font = "clamp(12px, 1.5vw, 14px) monospace";
+                const cols = Math.floor(w/35);
+                const rows = Math.floor(h/20);
+                for(let r=0; r<rows; r++) {
+                    for(let c=0; c<cols; c++) {
+                        if(Math.random() > 0.95) ctx.fillStyle = colors.fg;
+                        else ctx.fillStyle = colors.fgDim;
+                        const hex = Math.floor(Math.random()*255).toString(16).toUpperCase().padStart(2,'0');
+                        ctx.fillText(hex, c*35 + 10, r*20 + 20);
+                    }
+                }
+            } else if(this.domainMode === 'SPACE') {
+                const cx = w/2; const cy = h/2;
+                const scale = Math.min(w,h)/3.5;
+                
+                const rotate = (v, ax, ay) => {
+                    let y = v.y * Math.cos(ax) - v.z * Math.sin(ax);
+                    let z = v.y * Math.sin(ax) + v.z * Math.cos(ax);
+                    let x = v.x * Math.cos(ay) + z * Math.sin(ay);
+                    z = -v.x * Math.sin(ay) + z * Math.cos(ay);
+                    return {x, y, z};
+                };
+
+                const proj = [];
+                cubeVerts.forEach(v => {
+                    const r = rotate(v, t*0.02, t*0.01);
+                    const p = 1 / (3 - r.z); 
+                    proj.push({ x: cx + r.x * scale, y: cy + r.y * scale });
+                });
+
+                ctx.beginPath();
+                edges.forEach(e => {
+                    ctx.moveTo(proj[e[0]].x, proj[e[0]].y);
+                    ctx.lineTo(proj[e[1]].x, proj[e[1]].y);
+                });
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Planet
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = colors.fgDim;
+                ctx.beginPath(); ctx.arc(cx+w*0.2, cy-h*0.2, scale*0.5, 0, Math.PI*2); ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            this.animationFrame = requestAnimationFrame(loop);
+        };
+        loop();
+    },
+
+    setDomainMode: function(mode) {
+        this.domainMode = mode;
+        const map = {'MED': 'HEALTHCARE', 'CYBER': 'SECURITY', 'SPACE': 'AEROSPACE'};
+        document.getElementById('domain-header').innerText = `DOMAIN: ${map[mode]}`;
+        document.querySelectorAll('.domain-tab').forEach(t => {
+            t.classList.toggle('active', t.innerText === mode);
+        });
+    },
+
+    // --- SCENE 5: METRICS ---
+    initMetrics: function() {
+        const div = document.createElement('div');
+        div.className = 'metrics-grid';
+        div.innerHTML = `
+            <div class="overlay-ui">
+                <h3>CONFUSION_MATRIX</h3>
+                <canvas id="cvs-matrix"></canvas>
+            </div>
+            <div class="metrics-right-col">
+                <div class="overlay-ui" style="display:flex; flex-direction:column;">
+                    <h3>F1_BALANCE</h3>
+                    <canvas id="cvs-beam"></canvas>
+                </div>
+                <div class="overlay-ui" style="overflow-y:auto; flex-grow:1;">
+                    <h3>ROUGE_N_GRAMS</h3>
+                    <div id="rouge-box" class="rouge-text" style="padding-top:10px;"></div>
+                </div>
+            </div>
+        `;
+        stage.appendChild(div);
+
+        // Need to wait for DOM insertion to find elements inside grid
+        // but since we are synchronous, it works.
+        const cvsM = document.getElementById('cvs-matrix');
+        const cvsB = document.getElementById('cvs-beam');
+        const ctxM = cvsM.getContext('2d');
+        const ctxB = cvsB.getContext('2d');
+        
+        // Setup Logic
+        const particles = [];
+        for(let i=0; i<40; i++) particles.push({
+            x: Math.random()*100, y: -20, 
+            vx: 0, vy: 1+Math.random()*2,
+            dest: Math.floor(Math.random()*4) 
+        });
+
+        // Rouge Text
+        const refText = "The quick brown fox jumps over the lazy dog";
+        const genText = "The quick green fox jumps over a lazy dog";
+        const rBox = document.getElementById('rouge-box');
+        let html = "";
+        genText.split(' ').forEach(w => {
+            if(refText.includes(w)) html += `<span class="highlight">${w}</span> `;
+            else html += `<span class="dim">${w}</span> `;
+        });
+        rBox.innerHTML = `REF: ${refText}<br><br>GEN: ${html}`;
+
+        let t = 0;
+        const loop = () => {
+            t++;
+            resizeCanvasToDisplaySize(cvsM);
+            resizeCanvasToDisplaySize(cvsB);
+            
+            const wM = cvsM.width; const hM = cvsM.height;
+            const wB = cvsB.width; const hB = cvsB.height;
+
+            // Matrix
+            ctxM.fillStyle = colors.bg; ctxM.fillRect(0,0,wM,hM);
+            ctxM.strokeStyle = colors.fg; ctxM.lineWidth = 1;
+            ctxM.beginPath(); ctxM.moveTo(wM/2, 0); ctxM.lineTo(wM/2, hM); ctxM.stroke();
+            ctxM.beginPath(); ctxM.moveTo(0, hM/2); ctxM.lineTo(wM, hM/2); ctxM.stroke();
+            
+            ctxM.font = "clamp(12px, 2vw, 20px) monospace";
+            ctxM.fillStyle = colors.fgDim; 
+            ctxM.fillText("TP", 10, 20); ctxM.fillText("FP", wM/2+10, 20);
+            ctxM.fillText("FN", 10, hM/2+20); ctxM.fillText("TN", wM/2+10, hM/2+20);
+
+            ctxM.fillStyle = colors.fg;
+            particles.forEach(p => {
+                p.y += p.vy;
+                const targetX = (p.dest % 2 === 0) ? wM*0.25 : wM*0.75;
+                if(p.y > 0) p.x += (targetX - p.x) * 0.05;
+                if(p.y > hM) { p.y = -10; p.x = Math.random()*wM; p.dest = Math.floor(Math.random()*4); }
+                ctxM.fillRect(p.x, p.y, 3, 3);
+            });
+
+            // Beam
+            ctxB.fillStyle = colors.bg; ctxB.fillRect(0,0,wB,hB);
+            const cx = wB/2; const cy = hB/2 + 10;
+            const tilt = Math.sin(t*0.05) * 0.15;
+            const beamW = Math.min(wB, 200);
+
+            ctxB.save();
+            ctxB.translate(cx, cy);
+            ctxB.rotate(tilt);
+            
+            ctxB.fillStyle = colors.fg;
+            ctxB.fillRect(-beamW/2, -4, beamW, 8);
+            
+            // Weights
+            ctxB.fillStyle = colors.fgDim;
+            const boxSize = beamW * 0.15;
+            ctxB.fillRect(-beamW/2 + 5, -boxSize-4, boxSize, boxSize); 
+            ctxB.fillRect(beamW/2 - 5 - boxSize, -boxSize-4, boxSize, boxSize);
+            ctxB.restore();
+
+            // Fulcrum
+            ctxB.beginPath(); ctxB.moveTo(cx, cy+4); ctxB.lineTo(cx-10, cy+20); ctxB.lineTo(cx+10, cy+20); ctxB.fill();
+            
+            ctxB.font = "clamp(12px, 1.5vw, 16px) monospace";
+            ctxB.textAlign = "center";
+            ctxB.fillText(`F1: ${(0.5 + tilt).toFixed(2)}`, cx, 15);
+
+            this.animationFrame = requestAnimationFrame(loop);
+        };
+        loop();
+    }
+};
+
+// --- INIT ---
+window.onload = () => {
+    sceneManager.loadScene(0);
+    // Cleanup on scene switch already handled, but timers need clearing
+};
+
+</script>
+</body>
+</html>

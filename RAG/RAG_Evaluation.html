@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG QUALITY INSPECTOR // RESPONSIVE</title>
+    <style>
+        /* --- 1. CORE VARIABLES & RESET --- */
+        :root {
+            --c-bg: #050505;
+            --c-fg: #00FF00;
+            --c-dim: #003300;
+            --c-grid: #001100;
+            
+            /* Fluid Typography: Scales between 12px and 16px based on viewport */
+            --font-mono: 'Courier New', Courier, monospace;
+            --fs-base: clamp(12px, 2vw, 16px);
+            --fs-lg: clamp(14px, 3vw, 24px);
+            
+            /* Scanline & Dither Effects */
+            --scanline-grad: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            --dither-pattern: radial-gradient(var(--c-fg) 1px, transparent 1px);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--c-bg);
+            color: var(--c-fg);
+            font-family: var(--font-mono);
+            font-size: var(--fs-base);
+            width: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 2. GLOBAL EFFECTS --- */
+        .crt-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--scanline-grad);
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.6;
+        }
+
+        .glow { text-shadow: 0 0 0.4em var(--c-fg); }
+        
+        .border-box { 
+            border: 2px solid var(--c-fg); 
+            box-shadow: 4px 4px 0px var(--c-dim); 
+            background: var(--c-bg);
+        }
+
+        /* --- 3. RESPONSIVE LAYOUT GRID --- */
+        .pipeline-container {
+            display: grid;
+            /* Default Desktop: 3 Columns */
+            grid-template-columns: 1fr 1.5fr 1fr;
+            gap: clamp(20px, 4vw, 50px);
+            padding: clamp(20px, 4vw, 40px);
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            flex-grow: 1;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Vertical Zones */
+        .zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+            min-height: 300px; /* Ensure space for animations */
+        }
+
+        .zone-label {
+            font-size: var(--fs-lg);
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 2px solid var(--c-fg);
+            margin-bottom: 2rem;
+            padding: 0.5rem 1rem;
+            background: var(--c-bg);
+            z-index: 5;
+            letter-spacing: 0.1em;
+        }
+
+        /* --- 4. PHASE I: CARD STACK --- */
+        .stack-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            /* Perspective container */
+            perspective: 1000px;
+        }
+
+        .stack-container {
+            /* Responsive Width */
+            width: clamp(140px, 15vw, 220px);
+            height: 100px; /* Base height for stack origin */
+            position: relative;
+        }
+
+        .doc-card {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            position: absolute;
+            background: var(--c-bg);
+            border: 1px solid var(--c-fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            text-align: center;
+            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 2px 2px 0px var(--c-dim);
+            backface-visibility: hidden;
+        }
+
+        .doc-card.golden { background: var(--c-dim); color: var(--c-fg); font-weight: bold; border-color: #fff; }
+        
+        .doc-card.noise {
+            background-image: var(--dither-pattern);
+            background-size: 3px 3px; 
+            opacity: 0.7;
+        }
+
+        /* Precision Meter */
+        .precision-gauge {
+            position: absolute;
+            left: -20px;
+            top: 0;
+            bottom: 0;
+            width: 10px;
+            border: 1px solid var(--c-fg);
+            display: flex;
+            flex-direction: column-reverse;
+        }
+        .gauge-fill { width: 100%; background: var(--c-fg); transition: height 0.5s; }
+
+        /* --- 5. PHASE II: TERMINAL --- */
+        .terminal-box {
+            width: 100%;
+            max-width: 600px;
+            padding: clamp(1rem, 2vw, 2rem);
+            line-height: 1.8;
+            position: relative;
+        }
+
+        .atomic-statement {
+            display: inline-block; /* Allows transforms */
+            padding: 0.1em 0.3em;
+            margin: 0 0.1em;
+            border: 1px solid transparent;
+            transition: all 0.3s;
+            border-radius: 2px;
+        }
+
+        .atomic-statement.verified {
+            background: var(--c-fg);
+            color: var(--c-bg);
+            font-weight: bold;
+        }
+
+        .atomic-statement.hallucination {
+            border: 1px dashed var(--c-fg);
+            background-image: var(--dither-pattern);
+            background-size: 2px 2px;
+            animation: jitter 0.2s infinite;
+        }
+
+        .math-badge {
+            margin-top: 2rem;
+            border: 2px solid var(--c-fg);
+            padding: 0.5rem 1rem;
+            font-size: var(--fs-lg);
+            opacity: 0; 
+            transition: opacity 0.5s;
+        }
+
+        /* --- 6. PHASE III: RADAR --- */
+        .radar-container {
+            width: clamp(150px, 20vw, 300px);
+            aspect-ratio: 1 / 1;
+            position: relative;
+        }
+
+        .radar-scope {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid var(--c-fg);
+            position: relative;
+            background: 
+                radial-gradient(circle, transparent 19%, var(--c-dim) 20%, transparent 21%),
+                radial-gradient(circle, transparent 49%, var(--c-dim) 50%, transparent 51%),
+                linear-gradient(0deg, transparent 49.5%, var(--c-dim) 50%, transparent 50.5%),
+                linear-gradient(90deg, transparent 49.5%, var(--c-dim) 50%, transparent 50.5%);
+            background-size: 100% 100%;
+        }
+
+        .radar-line {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 48%; height: 2px;
+            background: var(--c-fg);
+            transform-origin: 0% 50%;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0; 
+        }
+
+        .radar-line.main { height: 4px; opacity: 1; transform: rotate(-90deg); z-index: 2; border: 1px solid var(--c-bg); }
+        .radar-line.ghost { height: 1px; background: var(--c-fg); }
+
+        .relevancy-score { margin-top: 1rem; font-size: var(--fs-lg); text-align: center; }
+
+        /* --- 7. SVG LAYER --- */
+        #connection-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 8;
+            overflow: visible;
+        }
+        
+        .connector { 
+            stroke: var(--c-fg); 
+            stroke-width: 2; 
+            fill: none; 
+            transition: opacity 0.3s;
+            vector-effect: non-scaling-stroke; /* Keeps line width constant on zoom */
+        }
+        .connector.dashed { stroke-dasharray: 8, 4; opacity: 0.6; }
+
+        /* --- 8. FOOTER CONTROLS --- */
+        .control-panel {
+            background: var(--c-bg);
+            border-top: 2px solid var(--c-fg);
+            padding: 1rem;
+            position: sticky;
+            bottom: 0;
+            width: 100%;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap; /* Allows wrapping on very small screens */
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-label { font-size: 0.75rem; opacity: 0.8; }
+
+        .btn-group { display: flex; gap: 0.5rem; }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--c-fg);
+            color: var(--c-fg);
+            padding: 0.5rem 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            /* Touch target size */
+            min-height: 44px;
+        }
+        
+        button.active { background: var(--c-fg); color: var(--c-bg); font-weight: bold; box-shadow: 0 0 10px var(--c-dim); }
+
+        input[type=range] {
+            width: 100%;
+            min-width: 200px;
+            accent-color: var(--c-fg);
+            height: 44px; /* Touch target */
+        }
+
+        /* --- 9. ANIMATIONS --- */
+        @keyframes jitter {
+            0% { transform: translate(0,0); }
+            25% { transform: translate(-1px, 1px); }
+            50% { transform: translate(1px, -1px); }
+            75% { transform: translate(-1px, 0); }
+            100% { transform: translate(0,0); }
+        }
+
+        /* --- 10. MEDIA QUERIES (BREAKPOINTS) --- */
+        
+        /* TABLET & MOBILE (<900px) */
+        @media (max-width: 900px) {
+            .pipeline-container {
+                grid-template-columns: 1fr; /* Stack vertically */
+                gap: 60px;
+            }
+            
+            .precision-gauge {
+                height: 10px;
+                width: 100%;
+                top: auto;
+                bottom: -20px;
+                left: 0;
+                flex-direction: row; /* Horizontal gauge */
+            }
+            .gauge-fill { height: 100%; width: 0%; transition: width 0.5s; }
+
+            /* Adjust stack to not clip in vertical layout */
+            .stack-container {
+                margin-bottom: 20px; 
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+
+    <!-- MAIN SVG LAYER (Absolute to Body) -->
+    <svg id="connection-layer"></svg>
+
+    <div class="pipeline-container">
+        
+        <!-- PHASE 1: PRECISION -->
+        <div class="zone" id="zone-1">
+            <div class="zone-label glow">I. Context Precision</div>
+            
+            <div class="stack-wrapper">
+                <div class="stack-container" id="card-stack">
+                    <div class="precision-gauge"><div class="gauge-fill" id="meter-fill"></div></div>
+                    <!-- Cards injected via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- PHASE 2: FAITHFULNESS -->
+        <div class="zone" id="zone-2">
+            <div class="zone-label glow">II. Faithfulness</div>
+            <div class="terminal-box border-box">
+                <div style="opacity:0.6; font-size:0.8em; margin-bottom:1rem;">> LLM_OUTPUT_STREAM_V2.1</div>
+                <div id="answer-text">
+                    The <span id="fact-1" class="atomic-statement">Eiffel Tower is located in Paris</span>, representing the industrial era. 
+                    It was <span id="fact-2" class="atomic-statement">constructed in 1889</span> for the World's Fair. 
+                    <span id="fact-3" class="atomic-statement">It is made entirely of solid gold</span> and visible from space.
+                </div>
+            </div>
+            <div class="math-badge glow" id="faith-badge">SCORE: 0.0</div>
+        </div>
+
+        <!-- PHASE 3: RELEVANCY -->
+        <div class="zone" id="zone-3">
+            <div class="zone-label glow">III. Relevancy</div>
+            <div class="radar-container">
+                <div class="radar-scope">
+                    <div class="radar-line main"></div>
+                    <div class="radar-line ghost" id="ghost-1"></div>
+                    <div class="radar-line ghost" id="ghost-2"></div>
+                    <div class="radar-line ghost" id="ghost-3"></div>
+                </div>
+            </div>
+            <div class="relevancy-score glow" id="relevancy-score">COS_SIM: ---</div>
+        </div>
+
+    </div>
+
+    <!-- FOOTER CONTROLS -->
+    <div class="control-panel">
+        <div class="control-group">
+            <div class="control-label">SCENARIO:</div>
+            <div class="btn-group">
+                <button id="btn-perfect" class="active" onclick="app.setScenario('perfect')">Perfect Match</button>
+                <button id="btn-hallucination" onclick="app.setScenario('hallucination')">Hallucination</button>
+            </div>
+        </div>
+        <div class="control-group" style="flex-grow: 1; max-width: 400px;">
+            <div class="control-label" style="display:flex; justify-content:space-between;">
+                <span>PROGRESS</span>
+                <span id="step-label">INPUT</span>
+            </div>
+            <input type="range" id="progress-slider" min="0" max="100" value="0" oninput="app.updateVis()">
+        </div>
+    </div>
+
+    <script>
+        /**
+         * APPLICATION LOGIC
+         * Encapsulated to avoid global scope pollution
+         */
+        const app = (() => {
+            
+            // --- DOM ELEMENTS ---
+            const els = {
+                slider: document.getElementById('progress-slider'),
+                stepLabel: document.getElementById('step-label'),
+                stack: document.getElementById('card-stack'),
+                meter: document.getElementById('meter-fill'),
+                facts: [document.getElementById('fact-1'), document.getElementById('fact-2'), document.getElementById('fact-3')],
+                ghosts: [document.getElementById('ghost-1'), document.getElementById('ghost-2'), document.getElementById('ghost-3')],
+                svg: document.getElementById('connection-layer'),
+                badge: document.getElementById('faith-badge'),
+                relevancyText: document.getElementById('relevancy-score'),
+                body: document.body,
+                container: document.querySelector('.pipeline-container')
+            };
+
+            let currentScenario = 'perfect';
+
+            // --- DATA MODELS ---
+            const scenarios = {
+                perfect: {
+                    precision: 95,
+                    cardOrder: ['Doc A [Gold]', 'Doc B', 'Doc C', 'Doc D', 'Doc E'],
+                    cardStyles: ['golden', '', '', '', 'noise'],
+                    factStatus: ['verified', 'verified', 'verified'], 
+                    radarAngles: [-5, 10, -8],
+                    math: "3/3 (100%)",
+                    simScore: "0.98"
+                },
+                hallucination: {
+                    precision: 20,
+                    cardOrder: ['Doc B', 'Doc D', 'Doc E', 'Doc C', 'Doc A [Gold]'],
+                    cardStyles: ['noise', 'noise', 'noise', '', 'golden'],
+                    factStatus: ['verified', 'verified', 'hallucination'],
+                    radarAngles: [-45, 80, 30],
+                    math: "2/3 (66%)",
+                    simScore: "0.45"
+                }
+            };
+
+            // --- INIT ---
+            function init() {
+                initCards();
+                // Resize listener for SVG redraws
+                window.addEventListener('resize', debounce(() => updateVis(), 100));
+                // Scroll listener for SVG redraws (lines need to follow content)
+                window.addEventListener('scroll', () => {
+                    if(parseInt(els.slider.value) >= 33 && parseInt(els.slider.value) < 66) {
+                        requestAnimationFrame(() => drawConnections((els.slider.value - 33) / 33));
+                    }
+                });
+            }
+
+            function initCards() {
+                els.stack.innerHTML = '<div class="precision-gauge"><div class="gauge-fill" id="meter-fill"></div></div>';
+                // Re-bind meter
+                els.meter = document.getElementById('meter-fill');
+                
+                const data = scenarios[currentScenario];
+                
+                for(let i=0; i<5; i++) {
+                    let card = document.createElement('div');
+                    card.className = `doc-card ${data.cardStyles[i] || ''}`;
+                    card.innerText = data.cardOrder[i];
+                    card.id = `card-${i}`;
+                    // Initial ISO Stacking
+                    card.style.transform = `translate3d(0, ${i*15}px, -${i*30}px)`;
+                    card.style.zIndex = 10 - i;
+                    els.stack.appendChild(card);
+                }
+            }
+
+            // --- MAIN RENDER LOOP ---
+            function updateVis() {
+                const progress = parseInt(els.slider.value);
+                const data = scenarios[currentScenario];
+                const isMobile = window.innerWidth <= 900;
+
+                // Update Label
+                if (progress < 33) els.stepLabel.innerText = "PHASE I: RETRIEVAL";
+                else if (progress < 66) els.stepLabel.innerText = "PHASE II: FACT CHECK";
+                else els.stepLabel.innerText = "PHASE III: INTENT";
+
+                // --- PHASE 1: PRECISION (0-33) ---
+                if (progress < 33) {
+                    const step = progress / 33;
+                    resetStage2();
+                    resetStage3();
+
+                    // Animate Cards
+                    // On mobile, spread vertically more aggressively
+                    // On desktop, standard fan out
+                    const spreadY = isMobile ? 50 : 40; 
+                    
+                    Array.from(els.stack.children).forEach((child, i) => {
+                        if(child.classList.contains('precision-gauge')) return;
+                        // Index correction due to gauge being child 0
+                        const idx = i - 1; 
+                        
+                        const yOffset = idx * spreadY * step;
+                        // Use translate3d to force GPU
+                        child.style.transform = `translate3d(0, ${yOffset}px, 0) scale(${1 - (idx*0.05)})`;
+                    });
+
+                    // Fill Meter
+                    if(isMobile) {
+                         els.meter.style.width = (step * data.precision) + '%';
+                         els.meter.style.height = '100%';
+                    } else {
+                        els.meter.style.height = (step * data.precision) + '%';
+                        els.meter.style.width = '100%';
+                    }
+                } 
+                else {
+                    // Holding State Phase 1
+                    Array.from(els.stack.children).forEach((child, i) => {
+                        if(child.classList.contains('precision-gauge')) return;
+                        const idx = i - 1; 
+                        const spreadY = isMobile ? 50 : 40;
+                        child.style.transform = `translate3d(0, ${idx * spreadY}px, 0) scale(${1 - (idx*0.05)})`;
+                    });
+                    if(isMobile) els.meter.style.width = data.precision + '%';
+                    else els.meter.style.height = data.precision + '%';
+                }
+
+                // --- PHASE 2: FAITHFULNESS (33-66) ---
+                if (progress >= 33 && progress < 66) {
+                    const step = (progress - 33) / 33;
+                    resetStage3();
+                    drawConnections(step);
+                    
+                    if (step > 0.8) {
+                        els.badge.style.opacity = 1;
+                        els.badge.innerText = `SCORE: ${data.math}`;
+                    } else {
+                        els.badge.style.opacity = 0;
+                    }
+                } 
+                else if (progress < 33) {
+                    els.svg.innerHTML = ''; 
+                }
+                else {
+                    // Holding State Phase 2
+                    drawConnections(1.0);
+                    els.badge.style.opacity = 1;
+                    els.badge.innerText = `SCORE: ${data.math}`;
+                }
+
+                // --- PHASE 3: RELEVANCY (66-100) ---
+                if (progress >= 66) {
+                    const step = (progress - 66) / 34;
+                    
+                    els.ghosts.forEach((ghost, i) => {
+                        ghost.style.opacity = step;
+                        const angle = data.radarAngles[i];
+                        const currentAngle = -90 + (angle * step);
+                        ghost.style.transform = `rotate(${currentAngle}deg)`;
+                    });
+
+                    if(step > 0.8) els.relevancyText.innerText = `COS_SIM: ${data.simScore}`;
+                }
+            }
+
+            // --- LOGIC: DRAW CONNECTIONS ---
+            function drawConnections(completeness) {
+                // Clear SVG
+                els.svg.innerHTML = '';
+                
+                // Get Container Offset for Absolute Positioning calculation
+                const bodyRect = document.body.getBoundingClientRect();
+                const isMobile = window.innerWidth <= 900;
+                const data = scenarios[currentScenario];
+
+                els.facts.forEach((fact, i) => {
+                    const status = data.factStatus[i];
+                    
+                    // Logic: Map fact i to card i. 
+                    // Note: els.stack has gauge as child 0, so cards are 1-5
+                    const card = document.getElementById(`card-${i}`);
+                    
+                    if (!card) return;
+
+                    // Update Text Styles
+                    fact.className = (completeness > 0.5) 
+                        ? `atomic-statement ${status}` 
+                        : `atomic-statement`;
+
+                    // 1. Get Coordinates relative to Viewport
+                    const rCard = card.getBoundingClientRect();
+                    const rText = fact.getBoundingClientRect();
+
+                    // 2. Convert to Document Coordinates (Absolute)
+                    // We simply add window.scrollX/Y to the viewport rect
+                    const scrollX = window.scrollX;
+                    const scrollY = window.scrollY;
+
+                    let startX, startY, endX, endY;
+
+                    if (isMobile) {
+                        // Vertical Layout: Bottom of Card -> Top of Text
+                        startX = rCard.left + (rCard.width / 2) + scrollX;
+                        startY = rCard.bottom + scrollY;
+                        
+                        endX = rText.left + (rText.width / 2) + scrollX;
+                        endY = rText.top + scrollY;
+                    } else {
+                        // Horizontal Layout: Right of Card -> Left of Text
+                        startX = rCard.right + scrollX;
+                        startY = rCard.top + (rCard.height / 2) + scrollY;
+                        
+                        endX = rText.left + scrollX;
+                        endY = rText.top + (rText.height / 2) + scrollY;
+                    }
+
+                    // 3. Bezier Control Points
+                    // Calculate curve strength based on distance
+                    const dist = Math.hypot(endX - startX, endY - startY);
+                    const offset = dist * 0.5;
+
+                    let cp1x, cp1y, cp2x, cp2y;
+
+                    if (isMobile) {
+                        // Vertical Curve logic
+                        cp1x = startX;
+                        cp1y = startY + offset;
+                        cp2x = endX;
+                        cp2y = endY - offset;
+                    } else {
+                        // Horizontal Curve logic
+                        cp1x = startX + offset;
+                        cp1y = startY;
+                        cp2x = endX - offset;
+                        cp2y = endY;
+                    }
+
+                    // 4. Construct SVG Path
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    const d = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
+                    
+                    path.setAttribute("d", d);
+                    path.setAttribute("class", `connector ${status === 'hallucination' ? 'dashed' : ''}`);
+                    path.style.opacity = completeness;
+                    
+                    els.svg.appendChild(path);
+                });
+            }
+
+            function resetStage2() {
+                els.facts.forEach(f => f.className = 'atomic-statement');
+                els.svg.innerHTML = '';
+                els.badge.style.opacity = 0;
+            }
+
+            function resetStage3() {
+                els.ghosts.forEach(g => {
+                    g.style.opacity = 0;
+                    g.style.transform = 'rotate(-90deg)';
+                });
+                els.relevancyText.innerText = "COS_SIM: ---";
+            }
+
+            function setScenario(type) {
+                currentScenario = type;
+                document.getElementById('btn-perfect').className = type === 'perfect' ? 'active' : '';
+                document.getElementById('btn-hallucination').className = type === 'hallucination' ? 'active' : '';
+                
+                els.slider.value = 0;
+                initCards();
+                updateVis();
+            }
+
+            // Utils
+            function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+
+            // Expose public methods
+            return {
+                init,
+                updateVis,
+                setScenario
+            };
+        })();
+
+        // Start App
+        app.init();
+        app.updateVis();
+
+    </script>
+</body>
+</html>

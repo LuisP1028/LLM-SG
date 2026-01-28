@@ -1,0 +1,568 @@
+--- START OF FILE LSH.html ---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSH_VISUALIZER // HYPERPLANE_SLICER</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --phos-color: #33ff00;    /* Active Points */
+            --dim-color: #1a4d1a;     /* Passive Points */
+            --plane-color: #00ffff;   /* Hyperplanes */
+            --query-color: #ffffff;   /* Cursor */
+            --text-font: 'Courier New', Courier, monospace;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--phos-color);
+            font-family: var(--text-font);
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* LAYOUT CONTAINER */
+        #container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* LEFT PANEL: VIEWPORT (60%) */
+        #viewport {
+            width: 65%;
+            height: 100%;
+            position: relative;
+            border-right: 2px solid var(--phos-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        /* RIGHT PANEL: SIDEBAR (40%) */
+        #sidebar {
+            width: 35%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            box-sizing: border-box;
+        }
+
+        /* SIDEBAR SECTIONS */
+        .panel {
+            padding: 15px;
+            border-bottom: 1px dashed var(--dim-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            font-weight: bold;
+            color: var(--plane-color);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* PANEL B: SIGNATURE MATRIX */
+        #sig-panel {
+            height: 30%;
+            overflow: hidden;
+        }
+        
+        .bit-display {
+            display: flex;
+            justify-content: center;
+            font-size: 24px;
+            margin: 10px 0;
+            font-weight: bold;
+            letter-spacing: 5px;
+        }
+        .bit { padding: 5px; border: 1px solid var(--dim-color); width: 20px; text-align: center; }
+        .bit.one { color: var(--phos-color); box-shadow: 0 0 5px var(--phos-color); }
+        .bit.zero { color: var(--dim-color); opacity: 0.5; }
+
+        /* PANEL C: BUCKET STORAGE */
+        #bucket-panel {
+            height: 50%;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--phos-color) var(--bg-color);
+        }
+
+        .bucket-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+            margin-bottom: 2px;
+            font-size: 12px;
+            border-left: 3px solid transparent;
+        }
+        .bucket-row.active {
+            background-color: rgba(51, 255, 0, 0.1);
+            border-left: 3px solid var(--phos-color);
+            color: #fff;
+        }
+        .bucket-id { font-family: monospace; }
+        .bucket-bar { height: 8px; background: var(--dim-color); flex-grow: 1; margin-left: 10px; align-self: center; }
+        .bucket-bar-fill { height: 100%; background: var(--phos-color); width: 0%; transition: width 0.3s; }
+
+        /* PANEL D: CONTROLS/STATS */
+        #stats-panel {
+            height: 20%;
+            border-bottom: none;
+            justify-content: flex-end;
+        }
+        
+        .stat-row { margin-bottom: 5px; font-size: 14px; }
+        .highlight { color: #fff; }
+
+        #actionBtn {
+            margin-top: 10px;
+            background: var(--dim-color);
+            color: #fff;
+            border: 1px solid var(--phos-color);
+            padding: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        #actionBtn:hover { background: var(--phos-color); color: #000; }
+
+        /* CANVAS */
+        canvas {
+            image-rendering: pixelated; 
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* OVERLAYS */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(0,0,0,0) 50%, rgba(0,0,0,0.2) 50%);
+            background-size: 100% 4px; pointer-events: none; z-index: 999; opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+
+    <div id="container">
+        <!-- PANEL A: VECTOR SPACE -->
+        <div id="viewport">
+            <!-- Internal low-res for aesthetic -->
+            <canvas id="simCanvas" width="480" height="360"></canvas>
+        </div>
+
+        <div id="sidebar">
+            <!-- PANEL B: SIGNATURE MATRIX -->
+            <div id="sig-panel" class="panel">
+                <div class="panel-header">
+                    <span>Signature Matrix</span>
+                    <span id="hash-label">---</span>
+                </div>
+                <div style="font-size: 12px; color: var(--dim-color);">PROJECTION STATUS:</div>
+                <div class="bit-display" id="bitDisplay">
+                    <div class="bit zero">0</div>
+                    <div class="bit zero">0</div>
+                    <div class="bit zero">0</div>
+                    <div class="bit zero">0</div>
+                </div>
+                <div id="projection-log" style="font-size: 10px; margin-top: auto; font-family: monospace;">
+                    > WAITING FOR INPUT...
+                </div>
+            </div>
+
+            <!-- PANEL C: BUCKET STORAGE -->
+            <div id="bucket-panel" class="panel">
+                <div class="panel-header">
+                    <span>Bucket Storage</span>
+                    <span id="bucket-count">0 BKTS</span>
+                </div>
+                <div id="bucket-list">
+                    <!-- Bucket rows generated here -->
+                </div>
+            </div>
+
+            <!-- PANEL D: STATS & CONTROLS -->
+            <div id="stats-panel" class="panel">
+                <div class="stat-row">PHASE: <span id="phase-display" class="highlight">INIT</span></div>
+                <div class="stat-row">TOTAL POINTS: <span id="total-pts">200</span></div>
+                <div class="stat-row" id="perf-row" style="display:none;">
+                    CHECKS: <span id="check-count" style="color:var(--plane-color)">0</span> / <span id="total-count">200</span>
+                    <br><span style="font-size:10px; color:#888;">(EFFICIENCY GAIN)</span>
+                </div>
+                <button id="actionBtn">INITIALIZE SPACE</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * HYPERPLANE SLICER // LSH VISUALIZATION
+ */
+
+// --- CONFIG ---
+const CANVAS_WIDTH = 480;
+const CANVAS_HEIGHT = 360;
+const COLORS = {
+    bg: '#050505',
+    active: '#33ff00',   // Green
+    passive: '#1a4d1a',  // Dim Green
+    plane: '#00ffff',    // Cyan
+    query: '#ffffff',    // White
+    grid: '#0a0a0a'
+};
+
+const NUM_POINTS = 150;
+const NUM_PLANES = 4; // Leads to 2^4 = 16 max buckets
+
+// --- STATE ---
+const STATE = {
+    PHASE: 0, // 0: Init, 1: Slice, 2: Index, 3: Query
+    MOUSE: { x: CANVAS_WIDTH/2, y: CANVAS_HEIGHT/2 },
+    PLANES: [],
+    POINTS: [],
+    BUCKETS: {},
+    ACTIVE_BUCKET: null
+};
+
+// --- DOM ELEMENTS ---
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+const btn = document.getElementById('actionBtn');
+const phaseDisplay = document.getElementById('phase-display');
+const bitDisplay = document.getElementById('bitDisplay');
+const bucketList = document.getElementById('bucket-list');
+const projLog = document.getElementById('projection-log');
+const checkCountEl = document.getElementById('check-count');
+const perfRow = document.getElementById('perf-row');
+
+// --- INPUT HANDLING ---
+// Map screen mouse coordinates to canvas resolution
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = CANVAS_WIDTH / rect.width;
+    const scaleY = CANVAS_HEIGHT / rect.height;
+    STATE.MOUSE.x = (e.clientX - rect.left) * scaleX;
+    STATE.MOUSE.y = (e.clientY - rect.top) * scaleY;
+});
+
+btn.addEventListener('click', advancePhase);
+
+// --- CORE FUNCTIONS ---
+
+function initSim() {
+    STATE.POINTS = [];
+    STATE.PLANES = [];
+    STATE.BUCKETS = {};
+    
+    // 1. Generate Clustered Data
+    const centers = [
+        {x: CANVAS_WIDTH*0.3, y: CANVAS_HEIGHT*0.3},
+        {x: CANVAS_WIDTH*0.7, y: CANVAS_HEIGHT*0.3},
+        {x: CANVAS_WIDTH*0.5, y: CANVAS_HEIGHT*0.75},
+        {x: CANVAS_WIDTH*0.8, y: CANVAS_HEIGHT*0.8}
+    ];
+
+    centers.forEach(c => {
+        for(let i=0; i<NUM_POINTS/centers.length; i++) {
+            STATE.POINTS.push({
+                x: c.x + (Math.random()-0.5)*80,
+                y: c.y + (Math.random()-0.5)*80,
+                hash: '',
+                active: false
+            });
+        }
+    });
+
+    log("VECTOR SPACE INITIALIZED.");
+}
+
+function generatePlanes() {
+    // Generate random lines through center
+    const cx = CANVAS_WIDTH / 2;
+    const cy = CANVAS_HEIGHT / 2;
+    
+    for(let i=0; i<NUM_PLANES; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        STATE.PLANES.push({
+            nx: Math.cos(angle), // Normal X
+            ny: Math.sin(angle), // Normal Y
+            cx: cx,
+            cy: cy,
+            id: i
+        });
+    }
+    log(`GENERATED ${NUM_PLANES} HYPERPLANES.`);
+}
+
+function computeHashes() {
+    STATE.BUCKETS = {};
+    
+    STATE.POINTS.forEach(p => {
+        let h = "";
+        STATE.PLANES.forEach(plane => {
+            const val = (p.x - plane.cx)*plane.nx + (p.y - plane.cy)*plane.ny;
+            h += (val > 0) ? "1" : "0";
+        });
+        p.hash = h;
+
+        if(!STATE.BUCKETS[h]) STATE.BUCKETS[h] = [];
+        STATE.BUCKETS[h].push(p);
+    });
+
+    updateBucketDOM();
+    log("INDEX BUILT. BUCKETS POPULATED.");
+}
+
+function getHash(x, y) {
+    let h = "";
+    STATE.PLANES.forEach(plane => {
+        const val = (x - plane.cx)*plane.nx + (y - plane.cy)*plane.ny;
+        h += (val > 0) ? "1" : "0";
+    });
+    return h;
+}
+
+// --- VISUALIZATION HELPERS ---
+
+function updateBucketDOM() {
+    bucketList.innerHTML = "";
+    const sortedKeys = Object.keys(STATE.BUCKETS).sort();
+    
+    sortedKeys.forEach(key => {
+        const count = STATE.BUCKETS[key].length;
+        const percent = (count / NUM_POINTS) * 100;
+        
+        const row = document.createElement('div');
+        row.className = 'bucket-row';
+        row.id = `bkt-${key}`;
+        row.innerHTML = `
+            <span class="bucket-id">${key}</span>
+            <div class="bucket-bar">
+                <div class="bucket-bar-fill" style="width:${percent}%"></div>
+            </div>
+            <span style="margin-left:5px">${count}</span>
+        `;
+        bucketList.appendChild(row);
+    });
+    
+    document.getElementById('bucket-count').innerText = `${sortedKeys.length} BKTS`;
+}
+
+function updateBitDisplay(hash) {
+    // hash is string like "1010"
+    let html = "";
+    for(let char of hash) {
+        const type = char === '1' ? 'one' : 'zero';
+        html += `<div class="bit ${type}">${char}</div>`;
+    }
+    bitDisplay.innerHTML = html;
+    document.getElementById('hash-label').innerText = hash;
+}
+
+function log(msg) {
+    projLog.innerText = `> ${msg}`;
+}
+
+function advancePhase() {
+    STATE.PHASE++;
+    
+    if(STATE.PHASE === 1) {
+        // SLICE
+        btn.innerText = "INDEX POINTS";
+        phaseDisplay.innerText = "SLICING";
+        generatePlanes();
+    } 
+    else if (STATE.PHASE === 2) {
+        // INDEX
+        btn.innerText = "START QUERY";
+        phaseDisplay.innerText = "BUCKETING";
+        computeHashes();
+    }
+    else if (STATE.PHASE === 3) {
+        // QUERY
+        btn.innerText = "RESET SYSTEM";
+        phaseDisplay.innerText = "QUERY_MODE";
+        perfRow.style.display = 'block';
+        document.getElementById('total-count').innerText = NUM_POINTS;
+        log("MOVE MOUSE TO SEARCH VECTOR SPACE");
+    }
+    else {
+        // RESET
+        STATE.PHASE = 0;
+        initSim();
+        btn.innerText = "GENERATE PLANES";
+        phaseDisplay.innerText = "INIT";
+        perfRow.style.display = 'none';
+        bucketList.innerHTML = "";
+        bitDisplay.innerHTML = '<div class="bit zero">-</div>'.repeat(4);
+    }
+}
+
+// --- RENDER LOOP ---
+
+function draw() {
+    // 1. Clear
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // 2. Draw Grid (Background)
+    ctx.fillStyle = COLORS.grid;
+    for(let x=0; x<CANVAS_WIDTH; x+=20) ctx.fillRect(x,0,1,CANVAS_HEIGHT);
+    for(let y=0; y<CANVAS_HEIGHT; y+=20) ctx.fillRect(0,y,CANVAS_WIDTH,1);
+
+    // 3. Draw Planes (if Phase >= 1)
+    if(STATE.PHASE >= 1) {
+        ctx.strokeStyle = COLORS.plane;
+        ctx.lineWidth = 1;
+        
+        STATE.PLANES.forEach((p, idx) => {
+            // Calculate line ends
+            // Line is perpendicular to normal (nx, ny)
+            // vector direction: (-ny, nx)
+            const dx = -p.ny * 600;
+            const dy = p.nx * 600;
+
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]); // Dashed line styling
+            ctx.moveTo(p.cx - dx, p.cy - dy);
+            ctx.lineTo(p.cx + dx, p.cy + dy);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Normal Indicator (Positive Side)
+            ctx.beginPath();
+            ctx.moveTo(p.cx, p.cy);
+            ctx.lineTo(p.cx + p.nx*20, p.cy + p.ny*20);
+            ctx.stroke();
+            
+            // Label
+            ctx.fillStyle = COLORS.plane;
+            ctx.font = "10px monospace";
+            ctx.fillText(idx, p.cx + p.nx*25, p.cy + p.ny*25);
+        });
+    }
+
+    // 4. Draw Points
+    // If Phase 3, we calculate active bucket first
+    let activePoints = [];
+    let queryHash = "";
+
+    if (STATE.PHASE === 3) {
+        queryHash = getHash(STATE.MOUSE.x, STATE.MOUSE.y);
+        updateBitDisplay(queryHash);
+        
+        // Highlight Sidebar Bucket
+        const allRows = document.querySelectorAll('.bucket-row');
+        allRows.forEach(r => r.classList.remove('active'));
+        const activeRow = document.getElementById(`bkt-${queryHash}`);
+        if(activeRow) {
+            activeRow.classList.add('active');
+            activeRow.scrollIntoView({block: "nearest"});
+        }
+
+        // Get candidates
+        if (STATE.BUCKETS[queryHash]) {
+            activePoints = STATE.BUCKETS[queryHash];
+        }
+        
+        checkCountEl.innerText = activePoints.length;
+    }
+
+    STATE.POINTS.forEach(p => {
+        // Logic for color
+        let color = COLORS.passive;
+        if (STATE.PHASE === 0) color = COLORS.active; // All green in init
+        if (STATE.PHASE === 1) color = COLORS.passive;
+        if (STATE.PHASE === 2) {
+             // Twinkle effect on index
+             color = Math.random() > 0.9 ? COLORS.active : COLORS.passive;
+        }
+        if (STATE.PHASE === 3) {
+            // Only active if in same bucket
+            if (p.hash === queryHash) color = COLORS.active;
+            else color = COLORS.passive;
+        }
+
+        ctx.fillStyle = color;
+        // Draw small square
+        ctx.fillRect(p.x-1, p.y-1, 3, 3);
+    });
+
+    // 5. Query Cursor & Neighbors (Phase 3)
+    if (STATE.PHASE === 3) {
+        const mx = STATE.MOUSE.x;
+        const my = STATE.MOUSE.y;
+
+        // Draw Cursor
+        ctx.strokeStyle = COLORS.query;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mx-10, my); ctx.lineTo(mx+10, my);
+        ctx.moveTo(mx, my-10); ctx.lineTo(mx, my+10);
+        ctx.stroke();
+        
+        // Draw Candidate Circle (Visualizing the bucket region approx)
+        ctx.strokeStyle = COLORS.active;
+        ctx.beginPath();
+        // Just a visual circle, not functional
+        ctx.arc(mx, my, 15, 0, Math.PI*2); 
+        ctx.stroke();
+
+        // Connect to Active Points
+        ctx.strokeStyle = "rgba(51, 255, 0, 0.3)";
+        ctx.beginPath();
+        activePoints.forEach(p => {
+            ctx.moveTo(mx, my);
+            ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+
+        // Highlight Nearest
+        let nearestDist = Infinity;
+        let nearestP = null;
+        activePoints.forEach(p => {
+            const d = (p.x-mx)**2 + (p.y-my)**2;
+            if(d < nearestDist) {
+                nearestDist = d;
+                nearestP = p;
+            }
+        });
+
+        if(nearestP) {
+            ctx.strokeStyle = COLORS.query;
+            ctx.strokeRect(nearestP.x-4, nearestP.y-4, 9, 9);
+            // Strong connection line
+            ctx.beginPath();
+            ctx.moveTo(mx, my);
+            ctx.lineTo(nearestP.x, nearestP.y);
+            ctx.stroke();
+        }
+    }
+
+    requestAnimationFrame(draw);
+}
+
+// Start
+initSim();
+draw();
+
+</script>
+</body>
+</html>

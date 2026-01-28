@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speculative Decoding: Ditherpunk Viz</title>
+    <style>
+        /* --- RESET & CORE VARIABLES --- */
+        :root {
+            --bg-color: #000000;
+            --fg-color: #00FF00;
+            --fg-dim: #005500;
+            --fg-alert: #00FF00; /* Monochromatic constraint */
+            --crt-flicker: 0.02;
+            --scan-speed: 8s;
+            --font-stack: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+            font-family: var(--font-stack);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            text-transform: uppercase;
+        }
+
+        /* --- DITHERPUNK & CRT EFFECTS --- */
+        .crt-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: 
+                /* Scanlines */
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                /* Static Noise (simulated dither) */
+                linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06));
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+            z-index: 999;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+        }
+
+        /* The Atkinson Dithering Simulation (Checkerboard overlay) */
+        .dither-grid {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(var(--fg-dim) 15%, transparent 16%),
+                radial-gradient(var(--fg-dim) 15%, transparent 16%);
+            background-size: 4px 4px;
+            background-position: 0 0, 2px 2px;
+            opacity: 0.2;
+            pointer-events: none;
+            z-index: 998;
+        }
+
+        /* Text Glow */
+        .glow-text {
+            text-shadow: 0 0 4px var(--fg-color), 0 0 10px var(--fg-dim);
+        }
+
+        /* --- LAYOUT --- */
+        header {
+            padding: 20px;
+            border-bottom: 2px solid var(--fg-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { margin: 0; font-size: clamp(1rem, 2vw, 2rem); letter-spacing: 2px; }
+
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-rows: 1fr 1fr; /* Two distinct lanes */
+            gap: 2px;
+            background: var(--fg-color); /* Acts as border between rows */
+            position: relative;
+        }
+
+        .lane {
+            background: var(--bg-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .lane-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 0.8rem;
+            background: var(--fg-color);
+            color: var(--bg-color);
+            padding: 2px 8px;
+            font-weight: bold;
+        }
+
+        /* --- VISUAL ELEMENTS --- */
+        
+        /* The Models */
+        .model-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            height: 60px;
+        }
+
+        .model-box {
+            border: 2px solid var(--fg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.2s;
+            box-shadow: 4px 4px 0px var(--fg-dim);
+        }
+
+        .model-large {
+            width: 80px; height: 80px;
+            background: var(--bg-color);
+        }
+
+        .model-small {
+            width: 50px; height: 50px;
+            margin-right: 20px;
+            border-style: dashed;
+        }
+
+        .active-model {
+            background: var(--fg-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--fg-color);
+        }
+
+        /* The Token Stream */
+        .token-stream {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            height: 50px;
+            font-size: clamp(0.8rem, 1.5vw, 1.2rem);
+            overflow: hidden;
+        }
+
+        .token {
+            border: 1px solid var(--fg-color);
+            padding: 5px 10px;
+            opacity: 0;
+            transform: translateX(20px);
+            animation: appear 0.2s forwards;
+            white-space: nowrap;
+        }
+
+        .token.ghost {
+            border-style: dotted;
+            opacity: 0.7;
+        }
+
+        .token.verified {
+            background: var(--fg-color);
+            color: var(--bg-color);
+            border-style: solid;
+            font-weight: bold;
+        }
+
+        .token.rejected {
+            text-decoration: line-through;
+            opacity: 0.5;
+            border-color: var(--fg-dim);
+        }
+
+        @keyframes appear {
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Progress Bars */
+        .memory-loader {
+            height: 10px;
+            width: 100px;
+            border: 1px solid var(--fg-dim);
+            margin-left: 20px;
+            display: none;
+            position: relative;
+        }
+
+        .memory-fill {
+            height: 100%;
+            background: var(--fg-color);
+            width: 0%;
+        }
+
+        .memory-loader.loading .memory-fill {
+            animation: loadMemory 2s linear forwards; /* Standard speed */
+        }
+        
+        .memory-loader.loading-fast .memory-fill {
+            animation: loadMemory 0.2s linear forwards; /* Draft speed */
+        }
+
+        @keyframes loadMemory {
+            to { width: 100%; }
+        }
+
+        /* Tokenizer Lookup Visualization */
+        .tokenizer-lookup {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            border: 1px solid var(--fg-color);
+            padding: 10px;
+            font-size: 0.7rem;
+            background: var(--bg-color);
+            z-index: 100;
+        }
+        .tokenizer-row {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dashed var(--fg-dim);
+        }
+
+        /* --- STATS --- */
+        .stats {
+            font-size: 0.8rem;
+            text-align: right;
+        }
+        .stat-val { font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+    <div class="dither-grid"></div>
+
+    <header>
+        <h1 class="glow-text">SPECULATIVE_DECODING_VIZ_v1.0</h1>
+        <div class="stats">
+            <div>TARGET_MODEL: <span class="stat-val">70B Params</span></div>
+            <div>DRAFT_MODEL: <span class="stat-val">1B Params</span></div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        
+        <div class="lane" id="lane-standard">
+            <div class="lane-label">STANDARD GENERATION (SERIAL)</div>
+            
+            <div class="model-container">
+                <div class="model-box model-large" id="std-model">70B</div>
+                <div class="memory-loader" id="std-loader">
+                    <div class="memory-fill"></div>
+                </div>
+            </div>
+            
+            <div class="token-stream" id="std-stream">
+                </div>
+        </div>
+
+        <div class="lane" id="lane-spec">
+            <div class="lane-label">SPECULATIVE DECODING (PARALLEL)</div>
+            
+            <div class="model-container">
+                <div class="model-box model-small" id="spec-draft">DRAFT</div>
+                <div class="model-box model-large" id="spec-target">70B</div>
+                <div class="memory-loader" id="spec-loader">
+                    <div class="memory-fill"></div>
+                </div>
+            </div>
+
+            <div class="token-stream" id="spec-stream">
+                </div>
+        </div>
+
+    </div>
+
+    <div class="tokenizer-lookup">
+        <div style="text-align: center; border-bottom: 1px solid white; margin-bottom:5px;">SHARED TOKENIZER</div>
+        <div id="lookup-data">ID: ---- | "WAITING"</div>
+    </div>
+
+    <script>
+        const TEXT_CORPUS = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG AND RUNS AWAY INTO THE CYBER VOID".split(" ");
+        
+        // --- STANDARD LANE LOGIC ---
+        const stdStream = document.getElementById('std-stream');
+        const stdLoader = document.getElementById('std-loader');
+        const stdModel = document.getElementById('std-model');
+        let stdIndex = 0;
+
+        function runStandardCycle() {
+            if (stdIndex >= TEXT_CORPUS.length) {
+                // Reset
+                stdStream.innerHTML = '';
+                stdIndex = 0;
+            }
+
+            // 1. Activate Model
+            stdModel.classList.add('active-model');
+            stdLoader.style.display = 'block';
+            stdLoader.classList.remove('loading');
+            void stdLoader.offsetWidth; // Trigger reflow
+            stdLoader.classList.add('loading');
+
+            // 2. Wait for "Load" (simulated 2s bottleneck)
+            setTimeout(() => {
+                // Generate Token
+                createToken(stdStream, TEXT_CORPUS[stdIndex], 'verified');
+                updateTokenizer(TEXT_CORPUS[stdIndex]);
+                
+                stdIndex++;
+                stdModel.classList.remove('active-model');
+                stdLoader.style.display = 'none';
+
+                // Loop
+                setTimeout(runStandardCycle, 500);
+            }, 2000);
+        }
+
+        // --- SPECULATIVE LANE LOGIC ---
+        const specStream = document.getElementById('spec-stream');
+        const specLoader = document.getElementById('spec-loader');
+        const specDraft = document.getElementById('spec-draft');
+        const specTarget = document.getElementById('spec-target');
+        let specIndex = 0;
+
+        async function runSpeculativeCycle() {
+            if (specIndex >= TEXT_CORPUS.length) {
+                specStream.innerHTML = '';
+                specIndex = 0;
+            }
+
+            // --- PHASE 1: DRAFTING (Fast) ---
+            specDraft.classList.add('active-model');
+            
+            // Determine batch size (usually 3-5)
+            const batchSize = 4;
+            let draftTokens = [];
+            
+            // Simulate Draft Generation (very fast sequential)
+            for (let i = 0; i < batchSize; i++) {
+                if (specIndex + i >= TEXT_CORPUS.length) break;
+                
+                // 20% Chance of error in draft to show correction
+                let word = TEXT_CORPUS[specIndex + i];
+                let isError = Math.random() < 0.25 && i > 0; // Only make errors after first token for visual clarity
+                
+                if (isError) word = getRandomWord();
+
+                await wait(200); // Fast draft speed
+                let tokenEl = createToken(specStream, word, 'ghost');
+                updateTokenizer(word);
+                draftTokens.push({ el: tokenEl, correctWord: TEXT_CORPUS[specIndex + i], isError: isError });
+            }
+
+            specDraft.classList.remove('active-model');
+
+            // --- PHASE 2: VERIFICATION (The "One Load" Magic) ---
+            await wait(300);
+            specTarget.classList.add('active-model');
+            
+            // Show the single heavy load
+            specLoader.style.display = 'block';
+            specLoader.classList.remove('loading');
+            void specLoader.offsetWidth;
+            specLoader.classList.add('loading');
+
+            // Wait for the heavy load (2s)
+            await wait(2000); 
+
+            // Scan and Verify
+            specLoader.style.display = 'none';
+            
+            let rejected = false;
+
+            for (let i = 0; i < draftTokens.length; i++) {
+                if (rejected) {
+                    // If we already rejected a previous token, all subsequent drafts are discarded
+                    draftTokens[i].el.remove();
+                    continue;
+                }
+
+                let tokenData = draftTokens[i];
+                
+                // Visual scan delay
+                await wait(150); 
+
+                if (tokenData.isError) {
+                    // REJECT!
+                    tokenData.el.classList.remove('ghost');
+                    tokenData.el.classList.add('rejected');
+                    
+                    // Show Correction
+                    await wait(300);
+                    tokenData.el.remove(); // Remove bad token
+                    createToken(specStream, tokenData.correctWord, 'verified'); // Add correct one
+                    updateTokenizer(tokenData.correctWord);
+                    
+                    specIndex++; 
+                    rejected = true; // Stop accepting draft tokens
+                } else {
+                    // ACCEPT
+                    tokenData.el.classList.remove('ghost');
+                    tokenData.el.classList.add('verified');
+                    specIndex++;
+                }
+            }
+
+            // Always generate ONE new token after the batch (the "correction" or next step)
+            if (!rejected && specIndex < TEXT_CORPUS.length) {
+                createToken(specStream, TEXT_CORPUS[specIndex], 'verified');
+                specIndex++;
+            }
+
+            specTarget.classList.remove('active-model');
+
+            // Loop
+            setTimeout(runSpeculativeCycle, 1000);
+        }
+
+
+        // --- UTILS ---
+        function createToken(container, text, type) {
+            const span = document.createElement('div');
+            span.className = `token ${type}`;
+            span.innerText = text;
+            container.appendChild(span);
+            // Auto scroll
+            container.scrollLeft = container.scrollWidth;
+            return span;
+        }
+
+        function updateTokenizer(word) {
+            const id = Math.floor(Math.random() * 9000) + 1000;
+            const lookup = document.getElementById('lookup-data');
+            lookup.innerHTML = `ID: <span style="color:white">${id}</span> | "${word}"`;
+            lookup.style.background = '#003300';
+            setTimeout(() => lookup.style.background = 'black', 100);
+        }
+
+        function getRandomWord() {
+            const junk = ["BLIP", "ERROR", "GLITCH", "NOISE", "HALT"];
+            return junk[Math.floor(Math.random() * junk.length)];
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Start
+        setTimeout(runStandardCycle, 1000);
+        setTimeout(runSpeculativeCycle, 1000);
+
+    </script>
+</body>
+</html>

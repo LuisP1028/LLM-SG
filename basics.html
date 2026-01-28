@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Part I: BASICS // Study Guide</title>
+<style>
+    /* 
+       --- STYLE CONFIGURATION --- 
+       (Identical to Hash Shell)
+    */
+    :root {
+        --bg-color: #000000;
+        --text-color: #00ff41;
+        --accent-color: #00ff41;
+        --dim-color: #003b00;
+        --border-color: #00ff41;
+        --font-main: 'Courier New', Courier, monospace;
+        --font-header: 'Arial Black', Impact, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: var(--font-main);
+        line-height: 1.5;
+        overflow-x: hidden;
+    }
+
+    .dither-layer {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
+        background-size: 4px 4px;
+        opacity: 0.4;
+    }
+
+    .scanlines {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 9999;
+    }
+
+    .container {
+        max-width: 900px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 40px 20px;
+        border-left: 2px dashed var(--dim-color);
+        border-right: 2px dashed var(--dim-color);
+        background-color: rgba(0, 10, 0, 0.9);
+        min-height: 100vh;
+    }
+
+    h1 {
+        font-family: var(--font-header);
+        text-transform: uppercase;
+        font-size: 2.5rem;
+        border-bottom: 5px solid var(--accent-color);
+        margin-bottom: 40px;
+        color: var(--accent-color);
+        text-align: center;
+    }
+
+    strong { color: var(--accent-color); text-decoration: underline; }
+    em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
+
+    /* ACCORDION STYLES */
+    details.section {
+        margin-bottom: 15px;
+        border: 1px solid var(--dim-color);
+        background: #050505;
+    }
+
+    details.section > summary {
+        font-family: var(--font-main);
+        font-weight: bold;
+        padding: 12px;
+        background: #0a0a0a;
+        color: var(--text-color);
+        cursor: pointer;
+        list-style: none;
+        border-bottom: 1px solid transparent;
+        text-transform: uppercase;
+        font-size: 1.1rem;
+    }
+
+    details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
+    details.section[open] > summary {
+        border-bottom: 1px solid var(--dim-color);
+        background: #0f0f0f;
+        color: var(--accent-color);
+        text-shadow: 0px 0px 5px var(--accent-color);
+    }
+
+    .section-content { padding: 20px; }
+
+    .subsection {
+        margin-bottom: 25px;
+        border-left: 4px solid var(--dim-color);
+        padding-left: 15px;
+    }
+
+    .subsection-title {
+        background: var(--dim-color);
+        color: var(--accent-color);
+        padding: 2px 6px;
+        font-weight: bold;
+        text-transform: uppercase;
+        display: inline-block;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+    }
+
+    p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
+    ul { padding-left: 20px; margin-bottom: 15px; }
+    li { margin-bottom: 5px; }
+
+    .code-block {
+        background: #020a02;
+        border: 1px dashed var(--dim-color);
+        padding: 10px;
+        margin: 10px 0;
+        font-family: 'Courier New', monospace;
+        color: var(--accent-color);
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+</style>
+</head>
+<body>
+
+<div class="dither-layer"></div>
+<div class="scanlines"></div>
+
+<div class="container">
+    <h1>Part I: Basics</h1>
+
+    <!-- MAIN CONTENT BUCKET -->
+    <div class="part-content">
+        
+        <!-- ============================================== -->
+        <!-- SECTION 1: THE RETRIEVAL PIPELINE -->
+        <!-- ============================================== -->
+        <details class="section">
+            <summary>1. The Retrieval Pipeline</summary>
+            <div class="section-content">
+                
+                <div class="subsection">
+                    <span class="subsection-title">Core Mechanism</span>
+                    <p><strong>The Flow:</strong> Question → Vector → Database Match → Context Extraction → LLM Prompt.</p>
+                    <ol>
+                        <li><strong>Vectorization:</strong> The user input is converted into a list of numbers (vector) capturing semantic meaning.</li>
+                        <li><strong>Similarity Search:</strong> The system compares this vector against the database to find the <em>K</em> most similar records.</li>
+                        <li><strong>Augmentation:</strong> Matching info is extracted and appended to the prompt, acting as the knowledge base for the answer.</li>
+                    </ol>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Distance Metrics</span>
+                    <p>How we measure the "gap" between vectors determines what is considered relevant.</p>
+                    <ul>
+                        <li><strong>Manhattan (Dimensional):</strong> Treats dimensions independently. Good when criteria are separate. Prevents single-dimension domination.</li>
+                        <li><strong>Euclidean (Magnitude):</strong> Measures spatial distance. Sensitive to overall magnitude; squaring amplifies large gaps.</li>
+                        <li><strong>Cosine (Similarity):</strong> Measures <em>directional alignment</em> only. Ignores magnitude/scale. Best for semantic meaning.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </details>
+
+        <!-- ============================================== -->
+        <!-- SECTION 2: CDC ARCHITECTURE -->
+        <!-- ============================================== -->
+        <details class="section">
+            <summary>2. CDC (Change Data Capture)</summary>
+            <div class="section-content">
+                
+                <div class="subsection">
+                    <span class="subsection-title">The Role of CDC</span>
+                    <p>Links the <strong>Data Warehouse (Source)</strong> to the <strong>Feature Store (Target)</strong>.</p>
+                    <p>It captures raw data changes (transaction logs) to trigger transformation logic immediately. This updates computed features in real-time, avoiding slow bulk re-processing.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Push vs. Pull Strategies</span>
+                    <div class="code-block">
+PUSH (Active):
+- Source detects change -> Transmits immediately.
+- Result: Near real-time sync.
+- Safety: Messaging system acts as a buffer.
+
+PULL (Passive):
+- Source logs changes -> Target periodically requests (polls).
+- Result: Reduces source load, introduces latency.
+- Safety: Logs are buffered for safety.
+                    </div>
+                </div>
+
+            </div>
+        </details>
+
+        <!-- ============================================== -->
+        <!-- SECTION 3: CDC IMPLEMENTATION TYPES -->
+        <!-- ============================================== -->
+        <details class="section">
+            <summary>3. CDC Implementation Types</summary>
+            <div class="section-content">
+                
+                <div class="subsection">
+                    <span class="subsection-title">Trigger-Based (Precision)</span>
+                    <p><strong>Mechanism:</strong> Pre-defined SQL triggers execute on data change, writing details to a tracking table.</p>
+                    <ul>
+                        <li><em>Pros:</em> Captures everything (including deletes). Free, built-in, easy to implement.</li>
+                        <li><em>Cons:</em> Slows down every data entry (extra write operations). Best for strict auditing on light workloads.</li>
+                    </ul>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Log-Based (Performance)</span>
+                    <p><strong>Mechanism:</strong> Parses immutable binary transaction logs (WAL) at the <strong>storage layer</strong>.</p>
+                    <ul>
+                        <li><em>Pros:</em> The "Gold Standard." Zero load on the main DB. Instant capture.</li>
+                        <li><em>Cons:</em> Complex, expensive, often vendor-specific. Best for mission-critical speed.</li>
+                    </ul>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Time-Based (Simplicity)</span>
+                    <p><strong>Mechanism:</strong> Query for records with a "Last Modified" timestamp newer than the previous sync (High Water Mark).</p>
+                    <ul>
+                        <li><em>Pros:</em> Easy to build (just a query).</li>
+                        <li><em>Cons:</em> <strong>Misses deletions</strong> (records vanish before scan). Slows DB while checking. Best for simple periodic updates.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </details>
+
+        <!-- ============================================== -->
+        <!-- SECTION 4: TRAINING PARAMETERS -->
+        <!-- ============================================== -->
+        <details class="section">
+            <summary>4. Training Parameters</summary>
+            <div class="section-content">
+                
+                <div class="subsection">
+                    <span class="subsection-title">Schedulers</span>
+                    <p><strong>Linear:</strong> Drops learning rate at a constant rate. Predictable, steady cooling.</p>
+                    <p><strong>Cosine:</strong> Bell-curve decay. Stays high longer, drops fast, ends with a very slow tail. Allows for precise fine-tuning in final steps.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Efficiency & Context</span>
+                    <p><strong>Batch Size & Accumulation:</strong> Large batches give smoother gradients but eat VRAM. <em>Gradient Accumulation</em> mimics large batches by summing gradients over small "mini-batches".</p>
+                    <p><strong>Packing (Multipack):</strong> Stitches multiple short examples into one sequence to prevent VRAM waste on padding. Uses <strong>attention masks</strong> to "wall off" samples so the model doesn't confuse contexts.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Optimizers</span>
+                    <p><strong>AdamW:</strong> The gold standard. Uses "moments" and weight decay.</p>
+                    <ul>
+                        <li><em>32-bit:</em> Highest precision.</li>
+                        <li><em>8-bit:</em> Quantized. Saves massive VRAM with similar quality.</li>
+                    </ul>
+                    <p><strong>Paged Optimizers:</strong> Offload state to CPU RAM when GPU is full (prevents OOM crashes).</p>
+                </div>
+
+            </div>
+        </details>
+
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Batching // </title>
+    <style>
+        /* --- CORE THEME --- */
+        :root {
+            --bg: #050505;
+            --c-short: #00ff41;   /* Green */
+            --c-med: #ffb000;     /* Amber */
+            --c-long: #ff3333;    /* Red */
+            --c-dim: #1a1a1a;
+            --c-grid: #0f2a0f;
+            
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--c-short);
+            font-family: var(--font-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            text-transform: uppercase;
+        }
+
+        /* --- CRT OVERLAY --- */
+        .crt-fx {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 3px, 3px 100%;
+            z-index: 99;
+        }
+        
+        .noise-bg {
+            position: fixed;
+            inset: 0;
+            opacity: 0.08;
+            background-image: radial-gradient(var(--c-short) 1px, transparent 1px);
+            background-size: 3px 3px;
+            z-index: 98;
+        }
+
+        /* --- UI STRUCTURE --- */
+        header {
+            border-bottom: 2px solid var(--c-short);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,20,0,0.5);
+            z-index: 100;
+        }
+
+        h1 { font-size: 1.4rem; letter-spacing: 2px; text-shadow: 0 0 5px var(--c-short); }
+        .metrics { font-size: 0.85rem; display: flex; gap: 1.5rem; }
+        .val { color: #fff; font-weight: bold; }
+
+        main {
+            flex: 1;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            max-width: 100%; /* Allow full width for long lanes */
+            margin: 0 auto;
+            width: 100%;
+            position: relative;
+            z-index: 100;
+        }
+
+        /* --- THE QUEUE (INPUT) --- */
+        .queue-section {
+            border: 1px solid var(--c-grid);
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.5);
+        }
+        .queue-label { font-size: 0.7rem; color: #666; margin-bottom: 0.5rem; display: block;}
+        
+        .queue-track {
+            height: 50px;
+            display: flex;
+            align-items: flex-end; 
+            gap: 6px;
+            padding-left: 5px;
+            border-bottom: 1px dashed #333;
+        }
+
+        .queue-item {
+            width: 14px;
+            border: 1px solid currentColor;
+            background: rgba(255,255,255,0.1);
+            position: relative;
+            transition: all 0.2s;
+        }
+        .queue-item.short { color: var(--c-short); height: 30%; }
+        .queue-item.med { color: var(--c-med); height: 60%; }
+        .queue-item.long { color: var(--c-long); height: 100%; }
+
+        /* --- THE GPU LANES (PROCESS) --- */
+        .lanes-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow: hidden; /* Prevent vertical scroll */
+        }
+
+        .lane-row {
+            display: flex;
+            height: 52px; /* Fixed height per lane */
+            align-items: center;
+            border: 1px solid #333;
+            background: #080808;
+            padding: 0 1rem;
+            position: relative;
+        }
+
+        .lane-info {
+            width: 80px;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            color: #666;
+            border-right: 1px solid #333;
+            margin-right: 1rem;
+            height: 100%;
+            display: flex;
+            align-items: center;
+        }
+
+        .track-area {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow-x: auto; /* Allow horizontal scroll if ghost track is huge */
+            overflow-y: hidden;
+            scrollbar-width: none; /* Firefox */
+        }
+        .track-area::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
+        /* --- REQUEST STATES --- */
+        
+        /* 1. GHOST TRACK (The Destiny) */
+        .ghost-track {
+            height: 32px;
+            border: 1px dashed;
+            border-color: inherit; 
+            opacity: 0.4;
+            display: flex;
+            align-items: center;
+            padding: 2px;
+            /* WIDTH IS CALCULATED IN JS VIA PIXELS */
+            box-sizing: content-box; /* Important so padding doesn't mess up calc */
+        }
+
+        /* 2. PREFILL BLOCK (The Cost) */
+        .block-prefill {
+            height: 100%;
+            width: 40px; /* FIXED WIDTH */
+            flex-shrink: 0; /* NO SQUISHING */
+            background: currentColor; 
+            color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.7rem;
+            margin-right: 2px;
+            animation: pulse-prefill 0.5s infinite alternate;
+        }
+
+        .token-container {
+            display: flex;
+            height: 100%;
+            align-items: center;
+        }
+
+        /* 3. TOKENS (The Progress) */
+        .token {
+            width: 8px; /* FIXED WIDTH */
+            margin-right: 2px; /* FIXED MARGIN */
+            /* Total footprint = 10px */
+            flex-shrink: 0; /* NO SQUISHING */
+            height: 80%;
+            background: currentColor;
+            opacity: 0.8;
+            box-shadow: 0 0 4px currentColor;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes pulse-prefill {
+            from { opacity: 0.6; box-shadow: 0 0 0 currentColor; }
+            to { opacity: 1; box-shadow: 0 0 8px currentColor; }
+        }
+
+        @keyframes done-flash {
+            0% { background-color: #fff; }
+            100% { background-color: transparent; }
+        }
+
+        .finished-fx {
+            animation: done-flash 0.3s ease-out;
+        }
+
+        .idle-msg {
+            color: #333;
+            font-size: 0.8rem;
+            letter-spacing: 4px;
+        }
+
+        /* --- CONTROLS --- */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        button {
+            background: transparent;
+            border: 1px solid var(--c-short);
+            color: var(--c-short);
+            padding: 0.5rem 1.5rem;
+            font-family: inherit;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        button:hover { background: var(--c-short); color: #000; }
+
+    </style>
+</head>
+<body>
+
+    <div class="crt-fx"></div>
+    <div class="noise-bg"></div>
+
+    <header>
+        <h1>CONTINUOUS BATCHING // PIXEL PERFECT</h1>
+        <div class="metrics">
+            <span>TP/s: <span id="tps" class="val">0</span></span>
+            <span>UTILIZATION: <span id="util" class="val">0%</span></span>
+            <span>COMPLETED: <span id="completed" class="val">0</span></span>
+        </div>
+    </header>
+
+    <main>
+        <div class="queue-section">
+            <span class="queue-label">INCOMING REQUEST QUEUE (HEIGHT = LENGTH)</span>
+            <div class="queue-track" id="queue-container">
+                </div>
+        </div>
+
+        <div class="lanes-container" id="lanes-container">
+            </div>
+        
+        <div class="controls">
+            <button onclick="toggleSim()">PAUSE/PLAY</button>
+            <button onclick="injectBurst()">INJECT BURST</button>
+        </div>
+    </main>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            numLanes: 4,
+            tickRate: 100, // Speed of simulation
+            
+            // GEOMETRY CONFIG (Critical for Overflow Fix)
+            pxPerToken: 10,  // Must match CSS (8px width + 2px margin)
+            pxPrefill: 42,   // Must match CSS (40px width + 2px margin)
+            
+            types: {
+                // Min/Max = Number of TOKENS (not including prefill)
+                SHORT: { min: 8,  max: 12, color: 'var(--c-short)', class: 'short', prefillCost: 3 },
+                MED:   { min: 25, max: 35, color: 'var(--c-med)',   class: 'med',   prefillCost: 5 },
+                LONG:  { min: 60, max: 80, color: 'var(--c-long)',  class: 'long',  prefillCost: 8 }
+            }
+        };
+
+        // --- STATE ---
+        let isRunning = true;
+        let queue = [];
+        let lanes = []; 
+        let stats = { completed: 0, totalTokens: 0, ticks: 0 };
+
+        // --- DOM REFS ---
+        const domQueue = document.getElementById('queue-container');
+        const domLanes = document.getElementById('lanes-container');
+        const domTps = document.getElementById('tps');
+        const domUtil = document.getElementById('util');
+        const domCompleted = document.getElementById('completed');
+
+        // --- INITIALIZATION ---
+        function init() {
+            // Create Lane DOMs
+            for(let i=0; i<CONFIG.numLanes; i++) {
+                const laneDiv = document.createElement('div');
+                laneDiv.className = 'lane-row';
+                laneDiv.innerHTML = `
+                    <div class="lane-info">LANE 0${i+1}</div>
+                    <div class="track-area" id="track-${i}"></div>
+                `;
+                domLanes.appendChild(laneDiv);
+                
+                lanes.push({
+                    id: i,
+                    state: 'IDLE', 
+                    req: null,     
+                    timer: 0       
+                });
+            }
+
+            // Fill initial queue
+            for(let i=0; i<8; i++) addRequestToQueue();
+
+            // Start Loops
+            setInterval(tick, CONFIG.tickRate);
+            setInterval(updateMetrics, 1000);
+        }
+
+        // --- CORE LOOP ---
+        function tick() {
+            if(!isRunning) return;
+            stats.ticks++;
+
+            // 1. Maintain Queue Pressure
+            if(queue.length < 6 && Math.random() > 0.7) addRequestToQueue();
+
+            // 2. Process Lanes
+            lanes.forEach(lane => {
+                const trackDom = document.getElementById(`track-${lane.id}`);
+
+                switch(lane.state) {
+                    case 'IDLE':
+                        if(queue.length > 0) {
+                            // --- INSERTION LOGIC ---
+                            lane.req = queue.shift();
+                            renderQueue();
+                            
+                            lane.state = 'PREFILL';
+                            lane.timer = 0;
+                            
+                            // --- PIXEL PERFECT CALCULATION ---
+                            // Calculate exact pixel width needed for the container
+                            const tokensWidth = lane.req.targetLength * CONFIG.pxPerToken;
+                            const totalWidth = tokensWidth + CONFIG.pxPrefill;
+                            
+                            trackDom.innerHTML = `
+                                <div class="ghost-track" style="width: ${totalWidth}px; color: ${lane.req.colorVal}">
+                                    <div class="block-prefill">[CTX]</div>
+                                    <div class="token-container"></div>
+                                </div>
+                            `;
+                        } else {
+                            if(trackDom.innerHTML === '') trackDom.innerHTML = '<span class="idle-msg">WAITING...</span>';
+                        }
+                        break;
+
+                    case 'PREFILL':
+                        // Blocking phase. No tokens generated.
+                        lane.timer++;
+                        if(lane.timer >= lane.req.prefillCost) {
+                            lane.state = 'DECODING';
+                            // Remove flashing animation via JS if desired, or let it persist as "Head"
+                            const prefillBlock = trackDom.querySelector('.block-prefill');
+                            if(prefillBlock) prefillBlock.style.animation = 'none'; // Stop pulsing
+                        }
+                        break;
+
+                    case 'DECODING':
+                        // Generate one token per tick
+                        lane.req.currentLength++;
+                        stats.totalTokens++;
+                        
+                        // Append token visual
+                        const container = trackDom.querySelector('.token-container');
+                        const token = document.createElement('div');
+                        token.className = 'token';
+                        token.style.color = lane.req.colorVal;
+                        container.appendChild(token);
+
+                        // Check Completion
+                        if(lane.req.currentLength >= lane.req.targetLength) {
+                            lane.state = 'DONE';
+                        }
+                        break;
+
+                    case 'DONE':
+                        completeRequest(lane, trackDom);
+                        break;
+                }
+            });
+        }
+
+        // --- HELPERS ---
+
+        function addRequestToQueue() {
+            const r = Math.random();
+            let typeKey = 'SHORT';
+            if(r > 0.6) typeKey = 'MED';
+            if(r > 0.85) typeKey = 'LONG'; // Increased chance of long stragglers
+
+            const typeConfig = CONFIG.types[typeKey];
+            const len = Math.floor(Math.random() * (typeConfig.max - typeConfig.min) + typeConfig.min);
+
+            queue.push({
+                type: typeKey,
+                targetLength: len,
+                currentLength: 0,
+                colorVal: typeConfig.color,
+                cssClass: typeConfig.class,
+                prefillCost: typeConfig.prefillCost
+            });
+            renderQueue();
+        }
+
+        function renderQueue() {
+            domQueue.innerHTML = '';
+            queue.slice(0,12).forEach(req => {
+                const el = document.createElement('div');
+                el.className = `queue-item ${req.cssClass}`;
+                domQueue.appendChild(el);
+            });
+        }
+
+        function completeRequest(lane, trackDom) {
+            stats.completed++;
+            domCompleted.innerText = stats.completed;
+            
+            // Completion Flash
+            if(trackDom.firstElementChild) {
+                trackDom.firstElementChild.classList.add('finished-fx');
+            }
+            
+            lane.state = 'LOCKED'; 
+            
+            // Immediate Eviction (fast clear)
+            setTimeout(() => {
+                trackDom.innerHTML = '';
+                lane.state = 'IDLE';
+                lane.req = null;
+            }, 200);
+        }
+
+        function updateMetrics() {
+            if(!isRunning) return;
+            // Calculate active throughput
+            const active = lanes.filter(l => l.state === 'DECODING').length;
+            const tps = (active * (1000/CONFIG.tickRate)).toFixed(0);
+            
+            const busy = lanes.filter(l => l.state !== 'IDLE').length;
+            const util = ((busy/CONFIG.numLanes)*100).toFixed(0);
+
+            domTps.innerText = tps;
+            domUtil.innerText = util + "%";
+        }
+
+        function toggleSim() { isRunning = !isRunning; }
+        function injectBurst() { for(let i=0; i<4; i++) addRequestToQueue(); }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>

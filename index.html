@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM-BASICS-SG</title>
+<style>
+    /* --- STYLE CONFIGURATION --- 
+       Terminal Green Ditherpunk Theme
+    */
+    :root {
+        --bg-color: #000000;           /* Pure Black */
+        --text-color: #00ff41;         /* Terminal Green */
+        --accent-color: #00ff41;       /* Bright Green */
+        --dim-color: #003b00;          /* Dark Green */
+        --border-color: #00ff41;       /* Green Borders */
+        --font-main: 'Courier New', Courier, monospace;
+        --font-header: 'Arial Black', Impact, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: var(--font-main);
+        line-height: 1.5;
+        overflow-x: hidden;
+    }
+
+    /* --- DITHERPUNK VISUALS --- */
+    
+    .dither-layer {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
+        background-size: 4px 4px;
+        opacity: 0.4;
+    }
+
+    .scanlines {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(
+            to bottom, 
+            rgba(0, 255, 65, 0), 
+            rgba(0, 255, 65, 0) 50%, 
+            rgba(0, 20, 0, 0.2) 50%, 
+            rgba(0, 20, 0, 0.2)
+        );
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 9999;
+    }
+
+    /* --- RESPONSIVE CONTAINER --- */
+    .container {
+        max-width: 900px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 40px 20px;
+        border-left: 2px dashed var(--dim-color);
+        border-right: 2px dashed var(--dim-color);
+        background-color: rgba(0, 10, 0, 0.9);
+        min-height: 100vh;
+    }
+
+    /* Typography */
+    h1 {
+        font-family: var(--font-header);
+        text-transform: uppercase;
+        font-size: 3rem;
+        border-bottom: 5px solid var(--accent-color);
+        margin-bottom: 40px;
+        letter-spacing: -2px;
+        text-shadow: 0px 0px 8px var(--accent-color);
+        color: var(--accent-color);
+        text-align: center;
+        word-wrap: break-word;
+    }
+
+    /* --- NAVIGATION / ACCORDION SYSTEM --- */
+
+    /* The outer wrapper is now a <details> tag */
+    details.part-nav {
+        display: block;
+        margin-bottom: 30px;
+        border: 2px solid var(--border-color);
+        background: #000;
+        box-shadow: 6px 6px 0px var(--dim-color);
+        transition: transform 0.1s;
+    }
+    
+    details.part-nav:hover {
+        box-shadow: 4px 4px 0px var(--dim-color);
+        transform: translate(2px, 2px);
+    }
+
+    details.part-nav[open] {
+        box-shadow: 2px 2px 0px var(--dim-color);
+        transform: translate(4px, 4px);
+    }
+
+    /* SUMMARY Styling (The Clickable Header) */
+    summary.part-link {
+        font-family: var(--font-header);
+        font-size: 1.5rem;
+        padding: 15px 20px;
+        background-color: var(--accent-color);
+        color: var(--bg-color);
+        text-transform: uppercase;
+        cursor: pointer;
+        list-style: none; /* Hides default triangle */
+        position: relative;
+    }
+
+    /* Hide default triangle in Webkit/Chrome */
+    summary.part-link::-webkit-details-marker {
+        display: none;
+    }
+
+    /* Custom Arrow */
+    summary.part-link::after {
+        content: '+'; 
+        position: absolute; 
+        right: 20px; 
+        font-weight: 900;
+    }
+
+    details[open] summary.part-link::after {
+        content: '-';
+    }
+
+    /* Sub-text inside the header */
+    .part-info { 
+        display: block;
+        margin-top: 5px;
+        font-size: 0.8rem;
+        border-top: 2px solid var(--bg-color); 
+        padding-top: 5px;
+    }
+    
+    .focus-line {
+        font-family: var(--font-main);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #003b00; /* Darker green on the bright background */
+        font-weight: bold;
+    }
+
+    /* --- CONTENT AREA (Where external HTML loads) --- */
+    .part-content {
+        padding: 20px;
+        border-top: 2px solid var(--border-color);
+        background-color: rgba(0, 20, 0, 0.8);
+        min-height: 100px;
+        animation: scanFade 0.3s ease-in-out;
+    }
+
+    .loading-text {
+        color: var(--accent-color);
+        font-weight: bold;
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+    @keyframes scanFade { from { opacity: 0; } to { opacity: 1; } }
+
+    @media (max-width: 600px) {
+        h1 { font-size: 1.8rem; border-bottom-width: 3px; }
+        summary.part-link { font-size: 1.1rem; padding: 12px; }
+        .container { padding: 10px; border: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="dither-layer"></div>
+<div class="scanlines"></div>
+
+<div class="container">
+    <h1>LLM-BASICS, RAG <br>& SFT </h1>
+
+    <details class="part-nav" ontoggle="loadPart(this, 'basics.html')">
+        <summary class="part-link">
+            Part I: BASICS
+            <div class="part-info">
+                <span class="focus-line">Focus: Retrieval, Distance, CDC, Training</span>
+            </div>
+        </summary>
+        <div class="part-content">
+            <span class="loading-text">[INITIALIZING DATA STREAM...]</span>
+        </div>
+    </details>
+
+    <details class="part-nav" ontoggle="loadPart(this, 'RAG.html')">
+        <summary class="part-link">
+            Part II: RAG
+            <div class="part-info">
+                <span class="focus-line">Focus: Pre-Retrieval, Retrieval, Post-Retrieval</span>
+            </div>
+        </summary>
+        <div class="part-content">
+            <span class="loading-text">[INITIALIZING DATA STREAM...]</span>
+        </div>
+    </details>
+
+    <details class="part-nav" ontoggle="loadPart(this, 'SFT.html')">
+        <summary class="part-link">
+            Part III: SFT
+            <div class="part-info">
+                <span class="focus-line">Focus: LoRA, QLoRA, Instruction/Preference</span>
+            </div>
+        </summary>
+        <div class="part-content">
+            <span class="loading-text">[INITIALIZING DATA STREAM...]</span>
+        </div>
+    </details>
+
+    <details class="part-nav" ontoggle="loadPart(this, 'optimization.html')">
+        <summary class="part-link">
+            Part IV: OPTIMIZATIONS
+            <div class="part-info">
+                <span class="focus-line">Focus: Attention, Quantization, LoRA</span>
+            </div>
+        </summary>
+        <div class="part-content">
+            <span class="loading-text">[INITIALIZING DATA STREAM...]</span>
+        </div>
+    </details>
+
+    <details class="part-nav" ontoggle="loadPart(this, 'EVAL.html')">
+        <summary class="part-link">
+            Part V: EVALUATIONS
+            <div class="part-info">
+                <span class="focus-line">Focus: RAGAS, DPO, Benchmarks</span>
+            </div>
+        </summary>
+        <div class="part-content">
+            <span class="loading-text">[INITIALIZING DATA STREAM...]</span>
+        </div>
+    </details>
+
+</div>
+
+<script>
+    // Keep track of loaded modules to avoid repeated network requests
+    const loadedModules = new Set();
+
+    async function loadPart(detailsElement, fileName) {
+        // 1. If closing, do nothing
+        if (!detailsElement.open) return;
+
+        // 2. If already loaded, do nothing
+        if (loadedModules.has(fileName)) return;
+
+        const contentDiv = detailsElement.querySelector('.part-content');
+        
+        try {
+            // 3. Fetch the external HTML file
+            const response = await fetch(fileName);
+            if (!response.ok) {
+                throw new Error(`HTTP Error ${response.status}: File not found`);
+            }
+            
+            // 4. Get text content
+            const text = await response.text();
+
+            // 5. Parse the HTML to extract only the relevant content
+            // We create a temporary DOM to manipulate the incoming data
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+
+            // Attempt to grab content inside .container to avoid double margins/headers
+            // Fallback to body if .container doesn't exist in the target file
+            const newContent = doc.querySelector('.container') || doc.body;
+
+            // 6. Inject the content
+            contentDiv.innerHTML = newContent.innerHTML;
+            
+            // 7. Mark as loaded
+            loadedModules.add(fileName);
+
+        } catch (error) {
+            contentDiv.innerHTML = `
+                <div style="color: #ff4141; padding: 20px; border: 1px dashed red;">
+                    <strong>[ERROR]</strong> CONNECTION FAILED<br>
+                    TARGET: ${fileName}<br>
+                    LOG: ${error.message}
+                </div>
+            `;
+        }
+    }
+</script>
+
+</body>
+</html>

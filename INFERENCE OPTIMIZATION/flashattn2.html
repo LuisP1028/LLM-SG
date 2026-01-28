@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashAttention-2: Ditherpunk Visualization</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --term-green: #00FF41;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--term-green);
+        }
+
+        /* The Canvas is scaled up to fit the window, preserving pixelation */
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        /* CRT Scanline Overlay */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.4) 50%,
+                rgba(0,0,0,0.4)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* Vignette */
+        .vignette {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,1) 100%);
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        #ui-layer {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 20;
+            pointer-events: none;
+            text-shadow: 0 0 5px var(--term-green);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+    <div id="ui-layer">
+        <h1 id="status-text">SYSTEM BOOT...</h1>
+        <div id="sub-status">INITIALIZING MEMORY HIERARCHY</div>
+    </div>
+    <canvas id="screen"></canvas>
+
+<script>
+/**
+ * CONFIGURATION & CONSTANTS
+ */
+const C = {
+    RES_X: 320, // Low internal resolution for chunky pixels
+    RES_Y: 180,
+    COLORS: [
+        {r: 5, g: 5, b: 5},       // 0: Black
+        {r: 0, g: 59, b: 0},      // 1: Dim Green
+        {r: 0, g: 255, b: 65},    // 2: Matrix Green
+        {r: 220, g: 255, b: 220}  // 3: White/Highlight
+    ],
+    PHASES: {
+        IDLE: 0,
+        PARTITION: 1,
+        LOAD_Q: 2,
+        INNER_LOOP_1: 3,
+        RESCALE: 4,
+        INNER_LOOP_2: 5,
+        WRITE_BACK: 6
+    }
+};
+
+/**
+ * GRAPHICS ENGINE (Software Renderer + Dithering)
+ */
+class DitherEngine {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Logical Resolution
+        this.width = C.RES_X;
+        this.height = C.RES_Y;
+        
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+
+        // Buffers
+        this.offscreen = new OffscreenCanvas(this.width, this.height);
+        this.oCtx = this.offscreen.getContext('2d');
+        
+        this.imageData = this.ctx.createImageData(this.width, this.height);
+    }
+
+    clear() {
+        this.oCtx.fillStyle = '#050505';
+        this.oCtx.fillRect(0, 0, this.width, this.height);
+    }
+
+    // Standard drawing primitives wrapping the offscreen context
+    rect(x, y, w, h, colorIdx) {
+        this.oCtx.fillStyle = this.idxToHex(colorIdx);
+        this.oCtx.fillRect(Math.floor(x), Math.floor(y), w, h);
+    }
+
+    strokeRect(x, y, w, h, colorIdx) {
+        this.oCtx.strokeStyle = this.idxToHex(colorIdx);
+        this.oCtx.lineWidth = 1;
+        this.oCtx.strokeRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, w, h);
+    }
+
+    text(str, x, y, colorIdx, size = 10) {
+        this.oCtx.fillStyle = this.idxToHex(colorIdx);
+        this.oCtx.font = `${size}px monospace`;
+        this.oCtx.fillText(str, Math.floor(x), Math.floor(y));
+    }
+
+    idxToHex(idx) {
+        const c = C.COLORS[idx];
+        return `rgb(${c.r}, ${c.g}, ${c.b})`;
+    }
+
+    // THE ATKINSON DITHERING PASS
+    render() {
+        // 1. Get raw pixels from offscreen canvas
+        const srcData = this.oCtx.getImageData(0, 0, this.width, this.height);
+        const data = srcData.data;
+        const w = this.width;
+        const h = this.height;
+
+        // 2. Iterate and Dither
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                
+                // Grayscale conversion for simplified dithering logic
+                const oldR = data[i];
+                const oldG = data[i+1];
+                const oldB = data[i+2];
+                const avg = (oldR + oldG + oldB) / 3;
+
+                // Quantize to palette (Find nearest color)
+                let bestColor = C.COLORS[0];
+                let minDist = Infinity;
+                
+                // Simple Euclidean distance in brightness
+                const paletteAvgs = [5, 40, 150, 240]; 
+                
+                let qIdx = 0;
+                if (avg > 180) qIdx = 3;
+                else if (avg > 100) qIdx = 2;
+                else if (avg > 30) qIdx = 1;
+                else qIdx = 0;
+
+                const newColor = C.COLORS[qIdx];
+                
+                data[i] = newColor.r;
+                data[i+1] = newColor.g;
+                data[i+2] = newColor.b;
+                data[i+3] = 255;
+
+                // Error Diffusion (Atkinson)
+                const err = (avg - paletteAvgs[qIdx]) / 8;
+
+                // Neighbors
+                /* 
+                   *   1   1
+                 1   1   1
+                     1
+                */
+                const distribute = (dx, dy) => {
+                    if (x + dx >= 0 && x + dx < w && y + dy >= 0 && y + dy < h) {
+                        const ni = ((y + dy) * w + (x + dx)) * 4;
+                        const v = data[ni] + err; // Apply error to RGB channels (simplified to just adding brightness)
+                        data[ni] += err;
+                        data[ni+1] += err;
+                        data[ni+2] += err;
+                    }
+                };
+
+                distribute(1, 0); distribute(2, 0);
+                distribute(-1, 1); distribute(0, 1); distribute(1, 1);
+                distribute(0, 2);
+            }
+        }
+
+        // 3. Put processed pixels to visible canvas
+        this.ctx.putImageData(srcData, 0, 0);
+    }
+}
+
+/**
+ * SCENE OBJECTS
+ */
+class HBM {
+    constructor() {
+        this.x = 10;
+        this.y = 20;
+        this.w = 100;
+        this.h = 140;
+        this.showGrid = false;
+        this.blocks = [];
+    }
+
+    draw(gfx) {
+        // Label
+        gfx.text("HBM [80GB]", this.x, this.y - 5, 2);
+        
+        // Main Container
+        gfx.strokeRect(this.x, this.y, this.w, this.h, 1);
+
+        // Draw Matrix Representation
+        // Q Matrix
+        gfx.rect(this.x + 5, this.y + 10, this.w - 10, 30, 1);
+        gfx.text("Q", this.x + 10, this.y + 30, 0);
+
+        // K Matrix
+        gfx.rect(this.x + 5, this.y + 50, this.w - 10, 30, 1);
+        gfx.text("K", this.x + 10, this.y + 70, 0);
+
+        // V Matrix
+        gfx.rect(this.x + 5, this.y + 90, this.w - 10, 30, 1);
+        gfx.text("V", this.x + 10, this.y + 110, 0);
+
+        // Tiling Overlay
+        if (this.showGrid) {
+            for(let i=1; i<4; i++) {
+                // Vertical cuts
+                let gx = this.x + 5 + (i * 22);
+                gfx.strokeRect(gx, this.y + 10, 0.5, 110, 3);
+            }
+        }
+    }
+}
+
+class SRAM {
+    constructor() {
+        this.x = 210;
+        this.y = 40;
+        this.w = 100;
+        this.h = 100;
+        this.qSlot = null;
+        this.kSlot = null;
+        this.vSlot = null;
+        this.accLevel = 0;
+        this.accMax = 0; // The virtual "Max" value
+        this.showAcc = false;
+        this.rescaleAnim = 0;
+    }
+
+    draw(gfx) {
+        // Label
+        gfx.text("SRAM [20MB]", this.x, this.y - 5, 2);
+        
+        // Chip Surface
+        gfx.strokeRect(this.x, this.y, this.w, this.h, 2);
+        
+        // Q-Slot (Sticky)
+        gfx.strokeRect(this.x + 10, this.y + 10, 20, 20, 1);
+        gfx.text("Q", this.x + 12, this.y + 24, 1);
+        if (this.qSlot) gfx.rect(this.x + 12, this.y + 12, 16, 16, 2);
+
+        // K/V Slots (Transient)
+        gfx.strokeRect(this.x + 10, this.y + 40, 20, 20, 1);
+        gfx.text("K", this.x + 12, this.y + 54, 1);
+        if (this.kSlot) gfx.rect(this.x + 12, this.y + 42, 16, 16, 3);
+
+        gfx.strokeRect(this.x + 10, this.y + 70, 20, 20, 1);
+        gfx.text("V", this.x + 12, this.y + 84, 1);
+        if (this.vSlot) gfx.rect(this.x + 12, this.y + 72, 16, 16, 3);
+
+        // The Accumulator (Softmax State)
+        if (this.showAcc) {
+            gfx.text("ACCUMULATOR", this.x + 40, this.y + 10, 2, 8);
+            
+            // Container
+            gfx.strokeRect(this.x + 50, this.y + 20, 30, 60, 2);
+            
+            // Liquid
+            let h = this.accLevel * 50; // Scale factor
+            let y = (this.y + 20 + 60) - h;
+            
+            // Rescale visual effect
+            if (this.rescaleAnim > 0) {
+                gfx.text("RESCALING!", this.x + 40, this.y + 95, 3, 8);
+                // Dither pattern for "fizzing"
+                if (Math.random() > 0.5) gfx.rect(this.x + 51, y, 28, h, 3);
+                else gfx.rect(this.x + 51, y, 28, h, 2);
+            } else {
+                gfx.rect(this.x + 51, y, 28, h, 2);
+            }
+        }
+    }
+}
+
+class Block {
+    constructor(type, startX, startY, targetX, targetY) {
+        this.type = type;
+        this.x = startX;
+        this.y = startY;
+        this.tx = targetX;
+        this.ty = targetY;
+        this.done = false;
+        this.speed = 2;
+    }
+
+    update() {
+        const dx = this.tx - this.x;
+        const dy = this.ty - this.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        if (dist < this.speed) {
+            this.x = this.tx;
+            this.y = this.ty;
+            this.done = true;
+        } else {
+            this.x += (dx / dist) * this.speed;
+            this.y += (dy / dist) * this.speed;
+        }
+    }
+
+    draw(gfx) {
+        let col = 2;
+        if (this.type === 'K') col = 3;
+        if (this.type === 'O') col = 3;
+        
+        gfx.rect(this.x, this.y, 16, 16, col);
+        gfx.text(this.type, this.x + 4, this.y + 12, 0);
+    }
+}
+
+/**
+ * MAIN APP
+ */
+const engine = new DitherEngine('screen');
+const hbm = new HBM();
+const sram = new SRAM();
+let blocks = [];
+let statusText = document.getElementById('status-text');
+let subText = document.getElementById('sub-status');
+
+function setStatus(main, sub) {
+    statusText.innerText = main;
+    subText.innerText = sub || "";
+}
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// THE NARRATIVE SEQUENCER
+async function runSequence() {
+    
+    // --- PHASE 1: Tiling ---
+    setStatus("PHASE 1: PARTITIONING", "Breaking Q, K, V into SRAM-sized Tiles");
+    await wait(1000);
+    hbm.showGrid = true;
+    await wait(1500);
+
+    // --- PHASE 2: Load Q ---
+    setStatus("PHASE 2: LOAD QUERY", "Moving Q-Tile to SRAM (Slow HBM Access)");
+    // Create Q Block
+    const qBlock = new Block("Q", hbm.x + 27, hbm.y + 15, sram.x + 12, sram.y + 12);
+    qBlock.speed = 1.5; // Slow highway
+    blocks.push(qBlock);
+    
+    // Wait for arrival
+    while(!qBlock.done) await wait(16);
+    
+    blocks = []; // Clear moving block
+    sram.qSlot = true; // Lock in SRAM
+    setStatus("PHASE 2: COMPLETE", "Q-Tile Locked. Will stay for entire row.");
+    await wait(1000);
+
+    // --- PHASE 3: Inner Loop (Block 1) ---
+    sram.showAcc = true;
+    
+    // 3a. Load K1
+    setStatus("PHASE 3: INNER LOOP [1/2]", "Fetching K-Tile 1");
+    const k1 = new Block("K", hbm.x + 27, hbm.y + 55, sram.x + 12, sram.y + 42);
+    blocks.push(k1);
+    while(!k1.done) await wait(16);
+    blocks = [];
+    sram.kSlot = true;
+
+    // 3b. Compute & Load V1
+    setStatus("COMPUTING...", "Q x K^T -> Raw Scores");
+    await wait(500);
+    // 3c. Update Accumulator (First fill)
+    sram.accLevel = 0.4;
+    sram.accMax = 10; // Arbitrary low max
+    setStatus("UPDATE ACCUMULATOR", "Softmax(Scores) * V -> Stored");
+    const v1 = new Block("V", hbm.x + 27, hbm.y + 95, sram.x + 12, sram.y + 72);
+    blocks.push(v1);
+    while(!v1.done) await wait(16);
+    blocks = [];
+    sram.vSlot = true;
+    
+    await wait(800);
+    // Cleanup Slot 1
+    sram.kSlot = false;
+    sram.vSlot = false;
+    setStatus("CLEANUP", "Discarding K/V from SRAM to free space");
+    await wait(800);
+
+    // --- PHASE 4: Inner Loop (Block 2 - The Rescale) ---
+    setStatus("PHASE 3: INNER LOOP [2/2]", "Fetching K-Tile 2 (New Max Found!)");
+    const k2 = new Block("K", hbm.x + 50, hbm.y + 55, sram.x + 12, sram.y + 42);
+    blocks.push(k2);
+    while(!k2.done) await wait(16);
+    blocks = [];
+    sram.kSlot = true;
+
+    await wait(500);
+    setStatus("ONLINE SOFTMAX CORRECTION", "Formula: old_acc * exp(old_max - new_max)");
+    
+    // THE RESCALE ANIMATION
+    sram.rescaleAnim = 1;
+    let frames = 0;
+    while(frames < 40) {
+        // Shrink visual
+        sram.accLevel = 0.4 - (frames/40)*0.15; 
+        frames++;
+        await wait(16);
+    }
+    sram.rescaleAnim = 0;
+
+    // Add new data
+    setStatus("MERGING", "Adding new weighted results");
+    const v2 = new Block("V", hbm.x + 50, hbm.y + 95, sram.x + 12, sram.y + 72);
+    blocks.push(v2);
+    while(!v2.done) await wait(16);
+    blocks = [];
+    sram.vSlot = true;
+
+    // Grow accumulator to final
+    sram.accLevel = 0.8;
+    await wait(800);
+    sram.kSlot = false;
+    sram.vSlot = false;
+
+    // --- PHASE 5: Write Back ---
+    setStatus("PHASE 4: WRITE BACK", "Final O-Tile sent to HBM. Matrix never materialized!");
+    sram.showAcc = false; // "Converted" to block
+    const oBlock = new Block("O", sram.x + 50, sram.y + 50, hbm.x + 10, hbm.y + 10); // Target vague HBM spot
+    blocks.push(oBlock);
+    
+    while(!oBlock.done) await wait(16);
+    blocks = [];
+    
+    setStatus("SEQUENCE COMPLETE", "FlashAttention Cycle Finished.");
+    
+    // Loop
+    await wait(3000);
+    reset();
+    runSequence();
+}
+
+function reset() {
+    hbm.showGrid = false;
+    sram.qSlot = false;
+    sram.kSlot = false;
+    sram.vSlot = false;
+    sram.showAcc = false;
+    sram.accLevel = 0;
+    blocks = [];
+}
+
+// ANIMATION LOOP
+function loop() {
+    // Logic
+    blocks.forEach(b => b.update());
+
+    // Draw
+    engine.clear();
+
+    // Wire/Highway (Static background)
+    // Draw 3 lines connecting HBM to SRAM
+    for(let i=0; i<3; i++) {
+        let y = 60 + (i * 20);
+        engine.oCtx.strokeStyle = '#003B00';
+        engine.oCtx.beginPath();
+        engine.oCtx.moveTo(110, y);
+        engine.oCtx.lineTo(210, y);
+        engine.oCtx.stroke();
+    }
+    engine.text("BANDWIDTH BOTTLENECK", 125, 55, 1);
+
+    hbm.draw(engine);
+    sram.draw(engine);
+    
+    blocks.forEach(b => b.draw(engine));
+
+    engine.render();
+    requestAnimationFrame(loop);
+}
+
+// Start
+loop();
+runSequence();
+
+</script>
+</body>
+</html>
