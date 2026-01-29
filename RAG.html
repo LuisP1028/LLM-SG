@@ -505,59 +505,60 @@ Update: Tweak weights so Query lands closer to Positive.</div>
       </details>
 
       <details class="section">
-          <summary>10. Self-Querying / Filtered Vector Searching</summary>
-          <div class="section-content">
-              <div class="subsection">
-                  <span class="subsection-title">Process</span>
-                  <ol>
-                      <li><strong>Scope and Configuration:</strong> Loads Metadata Schema.</li>
-                      <li><strong>Schema-Based Extraction:</strong> Maps text to structured categories (e.g., author: Paul).</li>
-                      <li><strong>Entity Resolution:</strong> Resolves names to UUIDs.</li>
-                      <li><strong>Query Enrichment:</strong> Combines semantic text with hard identifiers.</li>
-                      <li><strong>Filtered Retrieval:</strong> DB executes search with strict metadata gates.</li>
-                  </ol>
-              </div>
-              <div class="subsection">
-                  <span class="subsection-title">Filtered Vector Search Breakdown</span>
-                  <p>1. <strong>Metadata Schema Definition:</strong> Tag vectors during ingestion.</p>
-                  <p>2. <strong>Self-Query Phase:</strong> LLM extracts filters (e.g., Year: 2024).</p>
-                  <p>3. <strong>Pre-Filtering Execution:</strong> Masks non-matching documents <em>before</em> similarity calculation.</p>
-                  <p>4. <strong>Vector Similarity Search:</strong> Calculates distance only on surviving candidates.</p>
-              </div>
-          </div>
-      </details>
-
-      <details class="section">
-          <summary>11. Query Expansion / Reranking</summary>
-          <div class="section-content">
-              <div class="subsection">
-                  <span class="subsection-title">Query Expansion</span>
-                  <p>Increases recall by generating multiple perspectives of a query.</p>
-                  <ol>
-                      <li><strong>Initiation:</strong> Define number of perspectives (N).</li>
-                      <li><strong>Persona Injection:</strong> Define AI objective (e.g., skeptic, expert).</li>
-                      <li><strong>Semantic Diversification:</strong> LLM reframes query to traverse embedding space.</li>
-                      <li><strong>Structured Parsing:</strong> Splits output into search list.</li>
-                      <li><strong>High-Recall Retrieval:</strong> Parallel search for all variations.</li>
-                  </ol>
-              </div>
-              <div class="subsection">
-                  <span class="subsection-title">Reranking</span>
-                  <p>1. <strong>Over-Retrieval:</strong> Cast a wide net (e.g., fetch 100).</p>
-                  <p>2. <strong>Cross-Encoder Scoring:</strong> Process query and document together for deep reasoning.</p>
-                  <p>3. <strong>Re-Ordering:</strong> Sort by high-precision score and keep top K.</p>
-              </div>
-          </div>
-      </details>
-
-      <details class="section">
-          <summary>12. When It's Appropriate</summary>
-          <div class="section-content">
-              <p><strong>Query Expansion:</strong> Use when finding "x" and synonyms. Goal: <strong>Recall</strong>.</p>
-              <p><strong>Self-Querying:</strong> Use when finding "x" with strict constraints "y". Goal: <strong>Precision & Security</strong>.</p>
-              <p><strong>Hybrid Approach:</strong> Use for "x" + synonyms + constraints "y". Goal: <strong>High-stakes retrieval</strong>.</p>
-          </div>
-      </details>
+        <summary>10. Advanced Retrieval Strategies: Self-Querying, Expansion & Reranking</summary>
+        <div class="section-content">
+            
+            <div class="subsection">
+                <span class="subsection-title">A. Self-Querying / Filtered Vector Search</span>
+                <p><em>Best for finding "x" with strict constraints "y" (Focus: Precision & Security).</em></p>
+                <p><strong>Process:</strong></p>
+                <ol>
+                    <li><strong>Scope and Configuration:</strong> Loads Metadata Schema.</li>
+                    <li><strong>Schema-Based Extraction:</strong> Maps text to structured categories (e.g., author: Paul).</li>
+                    <li><strong>Entity Resolution:</strong> Resolves names to UUIDs.</li>
+                    <li><strong>Query Enrichment:</strong> Combines semantic text with hard identifiers.</li>
+                    <li><strong>Filtered Retrieval:</strong> DB executes search with strict metadata gates.</li>
+                </ol>
+                <p><strong>Technical Breakdown:</strong></p>
+                <ul>
+                    <li><strong>Metadata Schema Definition:</strong> Tag vectors during ingestion.</li>
+                    <li><strong>Self-Query Phase:</strong> LLM extracts filters (e.g., Year: 2024).</li>
+                    <li><strong>Pre-Filtering Execution:</strong> Masks non-matching documents <em>before</em> similarity calculation.</li>
+                    <li><strong>Vector Similarity Search:</strong> Calculates distance only on surviving candidates.</li>
+                </ul>
+            </div>
+    
+            <hr style="border-top: 1px dashed #ccc; margin: 15px 0;">
+    
+            <div class="subsection">
+                <span class="subsection-title">B. Query Expansion & Reranking</span>
+                <p><em>Best for finding "x" and synonyms (Focus: Recall).</em></p>
+                <p><strong>Query Expansion Workflow:</strong></p>
+                <ol>
+                    <li><strong>Initiation:</strong> Define number of perspectives (N).</li>
+                    <li><strong>Persona Injection:</strong> Define AI objective (e.g., skeptic, expert).</li>
+                    <li><strong>Semantic Diversification:</strong> LLM reframes query to traverse embedding space.</li>
+                    <li><strong>Structured Parsing:</strong> Splits output into search list.</li>
+                    <li><strong>High-Recall Retrieval:</strong> Parallel search for all variations.</li>
+                </ol>
+                <p><strong>Reranking Workflow:</strong></p>
+                <ul>
+                    <li><strong>Over-Retrieval:</strong> Cast a wide net (e.g., fetch 100).</li>
+                    <li><strong>Cross-Encoder Scoring:</strong> Process query and document together for deep reasoning.</li>
+                    <li><strong>Re-Ordering:</strong> Sort by high-precision score and keep top K.</li>
+                </ul>
+            </div>
+    
+            <hr style="border-top: 1px dashed #ccc; margin: 15px 0;">
+    
+            <div class="subsection">
+                <span class="subsection-title">C. Strategic Application Matrix</span>
+                <p><strong>Query Expansion:</strong> Use when finding concepts + synonyms. <br>Goal: <strong>Recall</strong>.</p>
+                <p><strong>Self-Querying:</strong> Use when finding concepts + strict metadata constraints.<br>Goal: <strong>Precision & Security</strong>.</p>
+                <p><strong>Hybrid Approach:</strong> Use for concepts + synonyms + constraints.<br>Goal: <strong>High-stakes retrieval</strong>.</p>
+            </div>
+        </div>
+    </details>
 
   </div>
 </div>
