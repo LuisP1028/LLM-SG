@@ -1,128 +1,131 @@
+
 <!DOCTYPE html>
-
-<html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Part VI: LLM Evaluation // Study Guide</title> <style> /* --- STYLE CONFIGURATION --- (Identical to Main Shell) */ :root { --bg-color: #000000; --text-color: #00ff41; --accent-color: #00ff41; --dim-color: #003b00; --border-color: #00ff41; --font-main: 'Courier New', Courier, monospace; --font-header: 'Arial Black', Impact, sans-serif; }
-
-* { box-sizing: border-box; }
-
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Part VI: LLM Evaluation // Study Guide</title>
+<style>
+/* --- STYLE CONFIGURATION --- (Identical to Main Shell) */
+:root {
+--bg-color: #000000;
+--text-color: #00ff41;
+--accent-color: #00ff41;
+--dim-color: #003b00;
+--border-color: #00ff41;
+--font-main: 'Courier New', Courier, monospace;
+--font-header: 'Arial Black', Impact, sans-serif;
+}
+{ box-sizing: border-box; }
 body {
-    margin: 0;
-    padding: 0;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-family: var(--font-main);
-    line-height: 1.5;
-    overflow-x: hidden;
+margin: 0;
+padding: 0;
+background-color: var(--bg-color);
+color: var(--text-color);
+font-family: var(--font-main);
+line-height: 1.5;
+overflow-x: hidden;
 }
-
 .dither-layer {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    z-index: -1;
-    background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
-    background-size: 4px 4px;
-    opacity: 0.4;
+position: fixed;
+top: 0; left: 0; width: 100%; height: 100%;
+z-index: -1;
+background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
+background-size: 4px 4px;
+opacity: 0.4;
 }
-
 .scanlines {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
-    background-size: 100% 4px;
-    pointer-events: none;
-    z-index: 9999;
+position: fixed;
+top: 0; left: 0; width: 100%; height: 100%;
+background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
+background-size: 100% 4px;
+pointer-events: none;
+z-index: 9999;
 }
-
 .container {
-    max-width: 900px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 40px 20px;
-    border-left: 2px dashed var(--dim-color);
-    border-right: 2px dashed var(--dim-color);
-    background-color: rgba(0, 10, 0, 0.9);
-    min-height: 100vh;
+max-width: 900px;
+width: 100%;
+margin: 0 auto;
+padding: 40px 20px;
+border-left: 2px dashed var(--dim-color);
+border-right: 2px dashed var(--dim-color);
+background-color: rgba(0, 10, 0, 0.9);
+min-height: 100vh;
 }
-
 h1 {
-    font-family: var(--font-header);
-    text-transform: uppercase;
-    font-size: 2.5rem;
-    border-bottom: 5px solid var(--accent-color);
-    margin-bottom: 40px;
-    color: var(--accent-color);
-    text-align: center;
+font-family: var(--font-header);
+text-transform: uppercase;
+font-size: 2.5rem;
+border-bottom: 5px solid var(--accent-color);
+margin-bottom: 40px;
+color: var(--accent-color);
+text-align: center;
 }
-
 strong { color: var(--accent-color); text-decoration: underline; }
 em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
-
 /* ACCORDION STYLES */
 details.section {
-    margin-bottom: 15px;
-    border: 1px solid var(--dim-color);
-    background: #050505;
+margin-bottom: 15px;
+border: 1px solid var(--dim-color);
+background: #050505;
 }
-
 details.section > summary {
-    font-family: var(--font-main);
-    font-weight: bold;
-    padding: 12px;
-    background: #0a0a0a;
-    color: var(--text-color);
-    cursor: pointer;
-    list-style: none;
-    border-bottom: 1px solid transparent;
-    text-transform: uppercase;
-    font-size: 1.1rem;
+font-family: var(--font-main);
+font-weight: bold;
+padding: 12px;
+background: #0a0a0a;
+color: var(--text-color);
+cursor: pointer;
+list-style: none;
+border-bottom: 1px solid transparent;
+text-transform: uppercase;
+font-size: 1.1rem;
 }
-
 details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
 details.section[open] > summary {
-    border-bottom: 1px solid var(--dim-color);
-    background: #0f0f0f;
-    color: var(--accent-color);
-    text-shadow: 0px 0px 5px var(--accent-color);
+border-bottom: 1px solid var(--dim-color);
+background: #0f0f0f;
+color: var(--accent-color);
+text-shadow: 0px 0px 5px var(--accent-color);
 }
-
 .section-content { padding: 20px; }
-
 .subsection {
-    margin-bottom: 25px;
-    border-left: 4px solid var(--dim-color);
-    padding-left: 15px;
+margin-bottom: 25px;
+border-left: 4px solid var(--dim-color);
+padding-left: 15px;
 }
-
 .subsection-title {
-    background: var(--dim-color);
-    color: var(--accent-color);
-    padding: 2px 6px;
-    font-weight: bold;
-    text-transform: uppercase;
-    display: inline-block;
-    margin-bottom: 10px;
-    font-size: 0.9rem;
+background: var(--dim-color);
+color: var(--accent-color);
+padding: 2px 6px;
+font-weight: bold;
+text-transform: uppercase;
+display: inline-block;
+margin-bottom: 10px;
+font-size: 0.9rem;
 }
-
 p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
 ul { padding-left: 20px; margin-bottom: 15px; }
 li { margin-bottom: 5px; }
-
 .code-block {
-    background: #020a02;
-    border: 1px dashed var(--dim-color);
-    padding: 10px;
-    margin: 10px 0;
-    font-family: 'Courier New', monospace;
-    color: var(--accent-color);
-    overflow-x: auto;
-    white-space: pre-wrap;
+background: #020a02;
+border: 1px dashed var(--dim-color);
+padding: 10px;
+margin: 10px 0;
+font-family: 'Courier New', monospace;
+color: var(--accent-color);
+overflow-x: auto;
+white-space: pre-wrap;
 }
-</style> </head> <body>
-
-<div class="dither-layer"></div> <div class="scanlines"></div>
-
-<div class="container"> <h1>Part VI: LLM Evaluation</h1>
-
+</style>
+</head>
+<body>
+<div class="dither-layer"></div>
+<div class="scanlines"></div>
+<div class="container">
+<h1>Part VI: LLM Evaluation</h1>
+code
+Code
 <div class="part-content">
     
     <details class="section">
@@ -133,36 +136,36 @@ li { margin-bottom: 5px; }
                 <span class="subsection-title">LLM-as-a-Judge: Scoring vs. Ranking</span>
                 <p>When using an LLM to evaluate preference data, you have two primary methods:</p>
                 <ul>
-                    [cite_start]<li><strong>Absolute Scoring:</strong> The LLM assigns a 1–5 or "Good/Bad" rating to a single response[cite: 539]. [cite_start]It’s fast but often inconsistent across different prompts or sessions[cite: 540].</li>
-                    [cite_start]<li><strong>Pairwise Ranking [Best]:</strong> The LLM compares two responses (A vs. B) to pick a winner[cite: 541]. [cite_start]This is the gold standard for DPO because it mimics human decision-making and produces more stable, relative signals[cite: 542].</li>
+                    <li><strong>Absolute Scoring:</strong> The LLM assigns a 1–5 or "Good/Bad" rating to a single response. It’s fast but often inconsistent across different prompts or sessions.</li>
+                    <li><strong>Pairwise Ranking [Best]:</strong> The LLM compares two responses (A vs. B) to pick a winner. This is the gold standard for DPO because it mimics human decision-making and produces more stable, relative signals.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Boosting Evaluation Accuracy</span>
-                [cite_start]<p><strong>CoT + Pairwise Ranking:</strong> Use when the task is highly subjective or creative (e.g., poetry, persona-mimicry, or open-ended advice)[cite: 543]. Strength: Forces logical justification. [cite_start]Since no "answer key" exists, the judge's own reasoning process ensures it weighs complex trade-offs—like creativity vs. clarity—before picking a winner[cite: 544]. [cite_start]To prevent the judge from relying on "vibes" or length, it generates its own independent reasoning to evaluate the candidates' final outputs[cite: 545, 546]. [cite_start]It does not read the candidate's thoughts; it builds its own logical path to a decision[cite: 547].</p>
+                <p><strong>CoT + Pairwise Ranking:</strong> Use when the task is highly subjective or creative (e.g., poetry, persona-mimicry, or open-ended advice). Strength: Forces logical justification. Since no "answer key" exists, the judge's own reasoning process ensures it weighs complex trade-offs—like creativity vs. clarity—before picking a winner. To prevent the judge from relying on "vibes" or length, it generates its own independent reasoning to evaluate the candidates' final outputs. It does not read the candidate's thoughts; it builds its own logical path to a decision.</p>
                 
-                [cite_start]<p><strong>Ground Truth + Pairwise Ranking:</strong> Use when there is a definitive "correct" answer (e.g., Python scripts, calculus, or history)[cite: 551]. Strength: Acts as an immutable anchor. [cite_start]It eliminates hallucinations by providing the judge with the "answer key," forcing it to penalize confident but incorrect logic[cite: 552]. [cite_start]Ground Truth acts as the "answer key" for the judge[cite: 553]. [cite_start]It shifts the task from "Which sounds better?" to "Which is more correct?"[cite: 555].</p>
+                <p><strong>Ground Truth + Pairwise Ranking:</strong> Use when there is a definitive "correct" answer (e.g., Python scripts, calculus, or history). Strength: Acts as an immutable anchor. It eliminates hallucinations by providing the judge with the "answer key," forcing it to penalize confident but incorrect logic. Ground Truth acts as the "answer key" for the judge. It shifts the task from "Which sounds better?" to "Which is more correct?"</p>
                 
-                [cite_start]<p><strong>The Rubric + Pairwise Ranking:</strong> Use when the task is constrained by specific requirements but lacks a single "right" answer (e.g., "Summarize this for a 5-year-old")[cite: 556]. Strength: Prevents "goalpost shifting." [cite_start]By defining the ideal criteria first, the judge resists favoring superficial traits like politeness or length over actual compliance[cite: 556]. [cite_start]It acts as a stabilizing force, ensuring that the same criteria are applied to every pair in the dataset, leading to a much cleaner training signal for DPO[cite: 559].</p>
+                <p><strong>The Rubric + Pairwise Ranking:</strong> Use when the task is constrained by specific requirements but lacks a single "right" answer (e.g., "Summarize this for a 5-year-old"). Strength: Prevents "goalpost shifting." By defining the ideal criteria first, the judge resists favoring superficial traits like politeness or length over actual compliance. It acts as a stabilizing force, ensuring that the same criteria are applied to every pair in the dataset, leading to a much cleaner training signal for DPO.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Reinforcement Learning from Human Feedback (RLHF)</span>
-                [cite_start]<p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize[cite: 560]. [cite_start]The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability[cite: 561]. [cite_start]If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$[cite: 562].</p>
-                                    <ul>
-                    <li><strong>1. [cite_start]The Reward Model: Learning "Taste":</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head[cite: 563]. [cite_start]Instead of predicting the next word, it outputs a single number[cite: 564]. [cite_start]Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer[cite: 566].</li>
-                    <li><strong>2. [cite_start]Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization[cite: 567]. [cite_start]Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy[cite: 568].</li>
-                    <li><strong>3. How the RM Informs the Candidate:</strong> The candidate model generates a response. [cite_start]The RM "grades" it with a score[cite: 569]. [cite_start]PPO then calculates the Advantage: how much better this response was compared to the model's average[cite: 570]. Positive score: The model is nudged to produce similar outputs. [cite_start]Negative score: The model is nudged away[cite: 571].</li>
+                <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
+                <ul>
+                    <li><strong>1. The Reward Model: Learning "Taste":</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
+                    <li><strong>2. Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
+                    <li><strong>3. How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the Advantage: how much better this response was compared to the model's average. Positive score: The model is nudged to produce similar outputs. Negative score: The model is nudged away.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Direct Preference Optimization (DPO)</span>
-                [cite_start]<p>Instead of training a separate Reward Model to "score" outputs, DPO uses the language model itself as the reward estimator[cite: 572]. [cite_start]It compares the log probabilities of a "preferred" completion and a "rejected" completion relative to a static reference model[cite: 573]. [cite_start]The training process uses a Binary Cross-Entropy (BCE) loss[cite: 574].</p>
-                                    [cite_start]<p>$\beta$ determines the penalty for straying from the reference policy[cite: 575]. A low $\beta$ prioritizes following preference data, risking $KL$-divergence and mode collapse. [cite_start]A high $\beta$ enforces a tighter "anchor," preserving the model's original distribution and reasoning[cite: 576].</p>
+                <p>Instead of training a separate Reward Model to "score" outputs, DPO uses the language model itself as the reward estimator. It compares the log probabilities of a "preferred" completion and a "rejected" completion relative to a static reference model. The training process uses a Binary Cross-Entropy (BCE) loss.</p>
+                <p>$\beta$ determines the penalty for straying from the reference policy. A low $\beta$ prioritizes following preference data, risking $KL$-divergence and mode collapse. A high $\beta$ enforces a tighter "anchor," preserving the model's original distribution and reasoning.</p>
                 
-                [cite_start]<p><strong>Efficiency via Adapters:</strong> When paired with LoRA/QLoRA, DPO is exceptionally resource-efficient[cite: 577]. [cite_start]Using adapters changes the architecture: Shared Weights (The large base model remains frozen and serves as the reference) and Trainable Modules (You only update small adapter layers)[cite: 578, 579]. [cite_start]This effectively eliminates the memory overhead of the reference model while maintaining the KL-divergence constraint[cite: 580].</p>
+                <p><strong>Efficiency via Adapters:</strong> When paired with LoRA/QLoRA, DPO is exceptionally resource-efficient. Using adapters changes the architecture: Shared Weights (The large base model remains frozen and serves as the reference) and Trainable Modules (You only update small adapter layers). This effectively eliminates the memory overhead of the reference model while maintaining the KL-divergence constraint.</p>
             </div>
 
         </div>
@@ -174,63 +177,63 @@ li { margin-bottom: 5px; }
             
             <div class="subsection">
                 <span class="subsection-title">Simple Pre-Training Metrics</span>
-                [cite_start]<p><strong>Training Loss:</strong> This measures the "error rate" while the model is learning[cite: 582]. Using cross-entropy, it calculates how far the model's guess is from the actual next word. [cite_start]As the model improves, this number should consistently drop[cite: 583].</p>
-                [cite_start]<p><strong>Validation Loss:</strong> The same error calculation, but performed on data the model has never seen during training[cite: 584]. [cite_start]This is the ultimate test of "generalization"[cite: 584].</p>
-                <p><strong>Gradient Norm:</strong> This tracks the scale of internal updates. [cite_start]If the norm is too high (exploding) or too low (vanishing), the model is becoming unstable[cite: 585].</p>
-                <p><strong>Perplexity:</strong> $PPL(X) = exp(- \frac{1}{t} \sum \log P(w_i | w_{<i}))$. [cite_start]A lower perplexity indicates the model is less "surprised" by natural language [cite: 586-587].</p>
+                <p><strong>Training Loss:</strong> This measures the "error rate" while the model is learning. Using cross-entropy, it calculates how far the model's guess is from the actual next word. As the model improves, this number should consistently drop.</p>
+                <p><strong>Validation Loss:</strong> The same error calculation, but performed on data the model has never seen during training. This is the ultimate test of "generalization".</p>
+                <p><strong>Gradient Norm:</strong> This tracks the scale of internal updates. If the norm is too high (exploding) or too low (vanishing), the model is becoming unstable.</p>
+                <p><strong>Perplexity:</strong> $PPL(X) = exp(- \frac{1}{t} \sum \log P(w_i | w_{<i}))$. A lower perplexity indicates the model is less "surprised" by natural language.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Evaluations of Base Models</span>
                 <ul>
-                    [cite_start]<li><strong>MMLU (Knowledge):</strong> Measures broad factual knowledge in fields like law and medicine[cite: 589]. [cite_start]Use this to see if a model has the "encyclopedic backbone" required for domain-specific tasks[cite: 590].</li>
-                    [cite_start]<li><strong>HellaSwag (Reasoning):</strong> Tests situational common sense and narrative flow[cite: 591]. It’s the go-to metric for chatbots that need to understand human intent and social context.</li>
-                    [cite_start]<li><strong>GSM8K (Logic):</strong> Uses math word problems to assess multi-step reasoning[cite: 592]. Prioritize this if your task requires complex instruction following.</li>
-                    [cite_start]<li><strong>HumanEval (Coding):</strong> Measures Python proficiency and functional logic[cite: 593]. Essential for technical tasks, software engineering, or structured data generation.</li>
-                    [cite_start]<li><strong>ARC-C (Causality):</strong> Targets causal reasoning through hard science questions[cite: 594]. It’s vital for tasks requiring "how" and "why" understanding.</li>
+                    <li><strong>MMLU (Knowledge):</strong> Measures broad factual knowledge in fields like law and medicine. Use this to see if a model has the "encyclopedic backbone" required for domain-specific tasks.</li>
+                    <li><strong>HellaSwag (Reasoning):</strong> Tests situational common sense and narrative flow. It’s the go-to metric for chatbots that need to understand human intent and social context.</li>
+                    <li><strong>GSM8K (Logic):</strong> Uses math word problems to assess multi-step reasoning. Prioritize this if your task requires complex instruction following.</li>
+                    <li><strong>HumanEval (Coding):</strong> Measures Python proficiency and functional logic. Essential for technical tasks, software engineering, or structured data generation.</li>
+                    <li><strong>ARC-C (Causality):</strong> Targets causal reasoning through hard science questions. It’s vital for tasks requiring "how" and "why" understanding.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Evaluations of Fine-Tuned Models</span>
-                [cite_start]<p>Benchmarking fine-tuned models highlights the delta from the base version[cite: 595]. [cite_start]Evaluations shift from testing raw "knowledge" to assessing how well the model behaves as an assistant[cite: 596].</p>
+                <p>Benchmarking fine-tuned models highlights the delta from the base version. Evaluations shift from testing raw "knowledge" to assessing how well the model behaves as an assistant.</p>
                 <ul>
-                    [cite_start]<li><strong>IFEval (Instruction Following Evaluation):</strong> Uses verifiable constraints to measure precision (e.g., "no commas" or "JSON format")[cite: 597]. [cite_start]Ideal for apps requiring high format reliability and structural consistency[cite: 598].</li>
-                    [cite_start]<li><strong>Chatbot Arena:</strong> The "gold standard" for human preference via blind, crowdsourced battles[cite: 599]. [cite_start]High scores correlate with user satisfaction regarding a model's conversational style and tone[cite: 600].</li>
-                    [cite_start]<li><strong>AlpacaEval:</strong> An automated Chatbot Arena simulator using a high-powered "judge" model (like GPT-4o)[cite: 601]. [cite_start]It is a fast, cost-effective development tool[cite: 602].</li>
-                    [cite_start]<li><strong>MT-Bench (Multi-Turn Benchmark):</strong> Evaluates multi-turn conversations by testing context retention and consistency across follow-up questions[cite: 603].</li>
-                    [cite_start]<li><strong>GAIA (General AI Assistants):</strong> Tests agentic skills through real-world tasks requiring tool use, browsing, and reasoning[cite: 605].</li>
+                    <li><strong>IFEval (Instruction Following Evaluation):</strong> Uses verifiable constraints to measure precision (e.g., "no commas" or "JSON format"). Ideal for apps requiring high format reliability and structural consistency.</li>
+                    <li><strong>Chatbot Arena:</strong> The "gold standard" for human preference via blind, crowdsourced battles. High scores correlate with user satisfaction regarding a model's conversational style and tone.</li>
+                    <li><strong>AlpacaEval:</strong> An automated Chatbot Arena simulator using a high-powered "judge" model (like GPT-4o). It is a fast, cost-effective development tool.</li>
+                    <li><strong>MT-Bench (Multi-Turn Benchmark):</strong> Evaluates multi-turn conversations by testing context retention and consistency across follow-up questions.</li>
+                    <li><strong>GAIA (General AI Assistants):</strong> Tests agentic skills through real-world tasks requiring tool use, browsing, and reasoning.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Domain Specific LLM Evaluations</span>
-                [cite_start]<p>General benchmarks fail to capture the nuance of specialized models[cite: 607]. [cite_start]To measure performance accurately, use specialized suites[cite: 608].</p>
+                <p>General benchmarks fail to capture the nuance of specialized models. To measure performance accurately, use specialized suites.</p>
                 <ul>
-                    [cite_start]<li><strong>MedQA (Healthcare):</strong> Tests medical reasoning via USMLE-style questions[cite: 611]. [cite_start]It measures a model's ability to synthesize clinical data into accurate diagnoses and treatments[cite: 612].</li>
-                    [cite_start]<li><strong>IaC-Eval (Infrastructure):</strong> Evaluates code generation for cloud infrastructure (e.g., Terraform)[cite: 613].</li>
-                    [cite_start]<li><strong>CAIBench (Defense):</strong> A meta-benchmark using containerized Capture The Flag tasks[cite: 614]. It assesses tactical proficiency in reverse engineering and exploitation.</li>
-                    [cite_start]<li><strong>RepoSpace (Aerospace):</strong> Focuses on repository-level code generation for spaceborne hardware[cite: 615].</li>
-                    [cite_start]<li><strong>EngiBench (Engineering):</strong> A hierarchical benchmark for complex problem-solving in structural design[cite: 616].</li>
+                    <li><strong>MedQA (Healthcare):</strong> Tests medical reasoning via USMLE-style questions. It measures a model's ability to synthesize clinical data into accurate diagnoses and treatments.</li>
+                    <li><strong>IaC-Eval (Infrastructure):</strong> Evaluates code generation for cloud infrastructure (e.g., Terraform).</li>
+                    <li><strong>CAIBench (Defense):</strong> A meta-benchmark using containerized Capture The Flag tasks. It assesses tactical proficiency in reverse engineering and exploitation.</li>
+                    <li><strong>RepoSpace (Aerospace):</strong> Focuses on repository-level code generation for spaceborne hardware.</li>
+                    <li><strong>EngiBench (Engineering):</strong> A hierarchical benchmark for complex problem-solving in structural design.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Task Specific LLM Evaluations</span>
-                [cite_start]<p>With a defined ground truth, you can use classic ML metrics to mathematically compare model predictions against a human-labeled "gold standard"[cite: 617].</p>
-                                    <ul>
-                    <li><strong>ROUGE (Summarization):</strong> Focuses on "Recall." [cite_start]It measures how much of the original, important information is preserved by checking the overlap of word sequences (n-grams) between the model’s summary and a human reference[cite: 618, 619].</li>
-                    [cite_start]<li><strong>Accuracy (Classification):</strong> The simplest metric; it calculates the percentage of correct predictions out of the total[cite: 620].</li>
-                    <li><strong>Precision (Quality):</strong> Measures the "trustworthiness" of positive results. [cite_start]It is the ratio of true positives to all positive predictions made[cite: 622]. [cite_start]High precision means the model rarely labels something incorrectly[cite: 623].</li>
-                    <li><strong>Recall (Quantity):</strong> Measures "completeness." [cite_start]It is the ratio of true positives to all actual positive instances in the data[cite: 624]. [cite_start]High recall means the model successfully finds most of what it was supposed to catch[cite: 625].</li>
-                    [cite_start]<li><strong>F1 Score (The Balance):</strong> The "harmonic mean" of precision and recall[cite: 626]. [cite_start]It provides a single score that balances the trade-off between the two[cite: 627].</li>
+                <p>With a defined ground truth, you can use classic ML metrics to mathematically compare model predictions against a human-labeled "gold standard".</p>
+                <ul>
+                    <li><strong>ROUGE (Summarization):</strong> Focuses on "Recall." It measures how much of the original, important information is preserved by checking the overlap of word sequences (n-grams) between the model’s summary and a human reference.</li>
+                    <li><strong>Accuracy (Classification):</strong> The simplest metric; it calculates the percentage of correct predictions out of the total.</li>
+                    <li><strong>Precision (Quality):</strong> Measures the "trustworthiness" of positive results. It is the ratio of true positives to all positive predictions made. High precision means the model rarely labels something incorrectly.</li>
+                    <li><strong>Recall (Quantity):</strong> Measures "completeness." It is the ratio of true positives to all actual positive instances in the data. High recall means the model successfully finds most of what it was supposed to catch.</li>
+                    <li><strong>F1 Score (The Balance):</strong> The "harmonic mean" of precision and recall. It provides a single score that balances the trade-off between the two.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Custom Benchmark Creation</span>
-                [cite_start]<p><strong>Text Generation:</strong> The model is prompted to output a specific label (e.g., "B")[cite: 629]. [cite_start]You use string matching or regex to verify the answer[cite: 630]. [cite_start]This reflects real-world performance and tests the model's ability to follow strict formatting instructions[cite: 631].</p>
-                [cite_start]<p><strong>Log-Likelihood:</strong> The system calculates the probability (logits) assigned to each answer token without generating text[cite: 632]. The option with the highest likelihood is selected. [cite_start]This measures "raw" knowledge and avoids errors caused by verbose or malformed responses[cite: 633].</p>
+                <p><strong>Text Generation:</strong> The model is prompted to output a specific label (e.g., "B"). You use string matching or regex to verify the answer. This reflects real-world performance and tests the model's ability to follow strict formatting instructions.</p>
+                <p><strong>Log-Likelihood:</strong> The system calculates the probability (logits) assigned to each answer token without generating text. The option with the highest likelihood is selected. This measures "raw" knowledge and avoids errors caused by verbose or malformed responses.</p>
             </div>
 
         </div>
@@ -238,5 +241,5 @@ li { margin-bottom: 5px; }
 
 </div>
 </div>
-
-</body> </html>
+</body>
+</html>
