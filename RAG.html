@@ -414,21 +414,45 @@
                 <div class="subsection">
                     <span class="subsection-title">A. Self-Querying / Filtered Vector Search</span>
                     <p><em>Best for finding "x" with strict constraints "y" (Focus: Precision & Security).</em></p>
+                    
                     <p><strong>Process:</strong></p>
                     <ol>
-                        <li><strong>Scope and Configuration:</strong> Loads Metadata Schema.</li>
-                        <li><strong>Schema-Based Extraction:</strong> Maps text to structured categories (e.g., author: Paul).</li>
-                        <li><strong>Entity Resolution:</strong> Resolves names to UUIDs.</li>
-                        <li><strong>Query Enrichment:</strong> Combines semantic text with hard identifiers.</li>
-                        <li><strong>Filtered Retrieval:</strong> DB executes search with strict metadata gates.</li>
+                        <li>
+                            <strong>Scope and Configuration:</strong> The pipeline initializes by defining search parameters (live vs. test). Crucially, it loads the specific Metadata Schema—a blueprint defining allowed fields (e.g., dates, prices). This restricts the AI to a specific business context, ensuring it only looks for valid, structured categories.
+                        </li>
+                        <li>
+                            <strong>Schema-Based Extraction:</strong> Acting as a precision filter, the AI maps unstructured text to the structured categories defined by the schema. It converts natural language like "posts by Paul" into exact attributes (author: Paul). This extracts "hard" data points to guide the search, rather than relying solely on semantic vibes.
+                        </li>
+                        <li>
+                            <strong>Entity Resolution:</strong> To ensure accuracy, the system resolves extracted names to unique, permanent identifiers (UUIDs) using a central index. If Step 2 identifies the column (mapping "Paul" to author), then Step 3 identifies the row (mapping the text "Paul" to User_ID_99). It prevents errors where two different people with the same name accidentally share results.
+                        </li>
+                        <li>
+                            <strong>Query Enrichment:</strong> The system constructs a composite query object. It combines the original text for semantic understanding with the verified "hard" identifiers for filtering. This enriches the instruction set, telling the vector database exactly which constraints to enforce alongside the semantic search; in other words, it adds mandatory metadata constraints to fuzzy text.
+                        </li>
+                        <li>
+                            <strong>Filtered Retrieval:</strong> Finally, the database executes a Filtered Vector Search. It uses the metadata as a strict gatekeeper to exclude non-matching documents before running the semantic search. This hybrid method guarantees 100% adherence to business logic (like user permissions) without sacrificing relevance.
+                        </li>
                     </ol>
+                
                     <p><strong>Technical Breakdown:</strong></p>
-                    <ul>
-                        <li><strong>Metadata Schema Definition:</strong> Tag vectors during ingestion.</li>
-                        <li><strong>Self-Query Phase:</strong> LLM extracts filters (e.g., Year: 2024).</li>
-                        <li><strong>Pre-Filtering Execution:</strong> Masks non-matching documents <em>before</em> similarity calculation.</li>
-                        <li><strong>Vector Similarity Search:</strong> Calculates distance only on surviving candidates.</li>
-                    </ul>
+                    <ol>
+                        <li>
+                            <strong>Metadata Schema Definition:</strong> First, you must enrich your raw data. During ingestion, assign structured Metadata Tags (e.g., timestamp, file_type, user_id) to each vector embedding. This creates the "hooks" for future filters.
+                        </li>
+                        <li>
+                            <strong>The Self-Query Phase (Intent Parsing):</strong> When a query arrives, an LLM parses it to extract parameters.
+                            <ul>
+                                <li><em>Prompt:</em> "Show me 2024 reports on solar energy."</li>
+                                <li><em>Extraction:</em> Semantic Vector: "solar energy" | Filter: {"year": 2024}.</li>
+                            </ul>
+                        </li>
+                        <li>
+                            <strong>Pre-Filtering Execution:</strong> The vector database applies the filter <em>before</em> calculating similarity. It masks all vectors that don't match year: 2024, drastically reducing the search space and preventing "semantic hallucinations" from other years.
+                        </li>
+                        <li>
+                            <strong>Vector Similarity Search:</strong> The engine calculates the distance (e.g., Cosine Similarity) between the query vector and only the "surviving" candidates.
+                        </li>
+                    </ol>
                 </div>
         
                 <hr style="border-top: 1px dashed #ccc; margin: 15px 0;">
@@ -436,19 +460,42 @@
                 <div class="subsection">
                     <span class="subsection-title">B. Query Expansion & Reranking</span>
                     <p><em>Best for finding "x" and synonyms (Focus: Recall).</em></p>
-                    <p><strong>Query Expansion Workflow:</strong></p>
+                    
+                    <p><strong>Overview:</strong> Increasing retrieval recall by capturing semantically related context that a single vector might overlook. Standard vector search uses a single query vector, which often misses relevant documents that use different wording or exist in a slightly different area of the embedding space. Query Expansion solves this by using an LLM to generate multiple versions of the original question. Instead of one search, you perform $N$ searches, covering various "perspectives" of the query.</p>
+                    
+                    <p><em>Warning: Although query expansion is useful, it can introduce latency as a consequence of searching for multiple vectors instead of one; to mitigate this, you can introduce parallelization methods.</em></p>
+                
+                    <p><strong>Query Expansion Workflow (The How):</strong></p>
                     <ol>
-                        <li><strong>Initiation:</strong> Define number of perspectives (N).</li>
-                        <li><strong>Persona Injection:</strong> Define AI objective (e.g., skeptic, expert).</li>
-                        <li><strong>Semantic Diversification:</strong> LLM reframes query to traverse embedding space.</li>
-                        <li><strong>Structured Parsing:</strong> Splits output into search list.</li>
-                        <li><strong>High-Recall Retrieval:</strong> Parallel search for all variations.</li>
+                        <li>
+                            <strong>Initiation and Configuration:</strong> The process begins by defining the scope of expansion. You configure how many alternate perspectives ($N$) are required for your specific task. The system validates these parameters and, if in a testing phase, uses "mocking" to simulate the flow. This ensures the logic holds whether you are expanding a simple search or a complex, multi-step reasoning task.
+                        </li>
+                        <li>
+                            <strong>Persona and Context Injection:</strong> A Prompt Template is crafted to define the AI's objective. This is highly flexible: you can instruct the AI to act as a subject matter expert, a technical skeptic, or even a creative writer. By using placeholders for the persona, original question, and separators, the system adapts the expansion strategy to suit different document types or specific user intents.
+                        </li>
+                        <li>
+                            <strong>Semantic Diversification:</strong> The LLM performs the expansion, reframing the original query into diverse linguistic representations. This step is the "engine" of flexibility; the model adjusts for jargon, synonyms, or conceptual overlaps. The goal is to traverse different regions of the embedding space, ensuring the search isn't trapped by the specific wording or narrow constraints of the initial question.
+                        </li>
+                        <li>
+                            <strong>Structured Parsing:</strong> Turns a "wall of text" into a checklist. The LLM outputs all $N$ queries as one long string. The system uses a delimiter (like <code>#next-question#</code>) as a "cutting point" to split that string into a clean list of individual, searchable questions.
+                        </li>
+                        <li>
+                            <strong>High-Recall Retrieval:</strong> Casts a "wide net" across the database. The system executes all $N$ queries at once through parallel search. This maximizes recall by covering more embedding space, retrieving context that a single vector might overlook.
+                        </li>
                     </ol>
+                
                     <p><strong>Reranking Workflow:</strong></p>
+                    <p>Reranking transforms a broad list of "potential" matches into a prioritized list of "guaranteed" context.</p>
                     <ul>
-                        <li><strong>Over-Retrieval:</strong> Cast a wide net (e.g., fetch 100).</li>
-                        <li><strong>Cross-Encoder Scoring:</strong> Process query and document together for deep reasoning.</li>
-                        <li><strong>Re-Ordering:</strong> Sort by high-precision score and keep top K.</li>
+                        <li>
+                            <strong>Over-Retrieval (The Wide Net):</strong> Initial vector search is fast but "shallow." To ensure we don't miss the best answer, we retrieve more documents than we actually need (e.g., fetching 100 results when we only want to show 5). This compensates for the "semantic noise" where the database might rank a popular but irrelevant document higher than a niche, perfect match.
+                        </li>
+                        <li>
+                            <strong>Cross-Encoder Scoring (Deep Reasoning):</strong> We pass the user’s query and each retrieved document into a Cross-Encoder. Unlike initial search (which looks at documents in isolation), the Cross-Encoder processes the query and document together. This allows the model to perform "joint attention," identifying nuanced relationships and specific relevance that simple math often misses.
+                        </li>
+                        <li>
+                            <strong>Re-Ordering and Selection:</strong> Based on the Cross-Encoder’s high-precision scores, we sort the entire pool. The document that most accurately answers the query—regardless of its initial vector rank—is moved to the top. We then discard the "tail" of the list, keeping only the top $K$ results to serve as the definitive context for the LLM.
+                        </li>
                     </ul>
                 </div>
         
@@ -456,11 +503,29 @@
         
                 <div class="subsection">
                     <span class="subsection-title">C. Strategic Application Matrix</span>
-                    <p><strong>Query Expansion:</strong> Use when finding concepts + synonyms. <br>Goal: <strong>Recall</strong>.</p>
-                    <p><strong>Self-Querying:</strong> Use when finding concepts + strict metadata constraints.<br>Goal: <strong>Precision & Security</strong>.</p>
-                    <p><strong>Hybrid Approach:</strong> Use for concepts + synonyms + constraints.<br>Goal: <strong>High-stakes retrieval</strong>.</p>
+                    
+                    
+                    <p><strong>1. Query Expansion</strong></p>
+                    <ul>
+                        <li><strong>Use Case:</strong> Identify "x" and everything synonymous with "x" without regard for rigid constraints.</li>
+                        <li><strong>Goal:</strong> <strong>Recall</strong>.</li>
+                        <li><strong>Context:</strong> Appropriate when ensuring that no relevant document is missed simply because the author used different terminology. It prioritizes a broad semantic net over strict boundaries.</li>
+                    </ul>
+                
+                    <p><strong>2. Self-Querying</strong></p>
+                    <ul>
+                        <li><strong>Use Case:</strong> Find "x" while strictly adhering to constraints "y".</li>
+                        <li><strong>Goal:</strong> <strong>Precision & Security</strong>.</li>
+                        <li><strong>Context:</strong> Appropriate when precision is the priority. By converting natural language into hard filters, it guarantees the AI only searches within a legally or operationally defined "safe zone," preventing the retrieval of irrelevant or unauthorized data.</li>
+                    </ul>
+                
+                    <p><strong>3. Hybrid Approach</strong></p>
+                    <ul>
+                        <li><strong>Use Case:</strong> Identify "x" and its synonyms while adhering to constraints "y".</li>
+                        <li><strong>Goal:</strong> <strong>High-stakes retrieval</strong>.</li>
+                        <li><strong>Context:</strong> Appropriate when you cannot afford to miss information due to phrasing but must also respect strict logical or security boundaries. It combines the broad reach of expansion with the surgical precision of filtering.</li>
+                    </ul>
                 </div>
-            </div>
         </details>
 
         <details class="section">
