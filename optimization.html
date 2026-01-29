@@ -1,128 +1,147 @@
+
 <!DOCTYPE html>
-
-<html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Part V: Inference Optimization // Study Guide</title> <style> /* --- STYLE CONFIGURATION --- (Identical to Main Shell) */ :root { --bg-color: #000000; --text-color: #00ff41; --accent-color: #00ff41; --dim-color: #003b00; --border-color: #00ff41; --font-main: 'Courier New', Courier, monospace; --font-header: 'Arial Black', Impact, sans-serif; }
-
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Part V: Inference Optimization // Study Guide</title>
+<style>
+/* --- STYLE CONFIGURATION --- (Identical to Main Shell) */
+:root {
+--bg-color: #000000;
+--text-color: #00ff41;
+--accent-color: #00ff41;
+--dim-color: #003b00;
+--border-color: #00ff41;
+--font-main: 'Courier New', Courier, monospace;
+--font-header: 'Arial Black', Impact, sans-serif;
+}
+code
+Code
 * { box-sizing: border-box; }
 
-body {
-    margin: 0;
-    padding: 0;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    font-family: var(--font-main);
-    line-height: 1.5;
-    overflow-x: hidden;
-}
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: var(--font-main);
+        line-height: 1.5;
+        overflow-x: hidden;
+    }
 
-.dither-layer {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    z-index: -1;
-    background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
-    background-size: 4px 4px;
-    opacity: 0.4;
-}
+    .dither-layer {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
+        background-size: 4px 4px;
+        opacity: 0.4;
+    }
 
-.scanlines {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
-    background-size: 100% 4px;
-    pointer-events: none;
-    z-index: 9999;
-}
+    .scanlines {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 9999;
+    }
 
-.container {
-    max-width: 900px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 40px 20px;
-    border-left: 2px dashed var(--dim-color);
-    border-right: 2px dashed var(--dim-color);
-    background-color: rgba(0, 10, 0, 0.9);
-    min-height: 100vh;
-}
+    .container {
+        max-width: 900px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 40px 20px;
+        border-left: 2px dashed var(--dim-color);
+        border-right: 2px dashed var(--dim-color);
+        background-color: rgba(0, 10, 0, 0.9);
+        min-height: 100vh;
+    }
 
-h1 {
-    font-family: var(--font-header);
-    text-transform: uppercase;
-    font-size: 2.5rem;
-    border-bottom: 5px solid var(--accent-color);
-    margin-bottom: 40px;
-    color: var(--accent-color);
-    text-align: center;
-}
+    h1 {
+        font-family: var(--font-header);
+        text-transform: uppercase;
+        font-size: 2.5rem;
+        border-bottom: 5px solid var(--accent-color);
+        margin-bottom: 40px;
+        color: var(--accent-color);
+        text-align: center;
+    }
 
-strong { color: var(--accent-color); text-decoration: underline; }
-em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
+    strong { color: var(--accent-color); text-decoration: underline; }
+    em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
 
-/* ACCORDION STYLES */
-details.section {
-    margin-bottom: 15px;
-    border: 1px solid var(--dim-color);
-    background: #050505;
-}
+    /* ACCORDION STYLES */
+    details.section {
+        margin-bottom: 15px;
+        border: 1px solid var(--dim-color);
+        background: #050505;
+    }
 
-details.section > summary {
-    font-family: var(--font-main);
-    font-weight: bold;
-    padding: 12px;
-    background: #0a0a0a;
-    color: var(--text-color);
-    cursor: pointer;
-    list-style: none;
-    border-bottom: 1px solid transparent;
-    text-transform: uppercase;
-    font-size: 1.1rem;
-}
+    details.section > summary {
+        font-family: var(--font-main);
+        font-weight: bold;
+        padding: 12px;
+        background: #0a0a0a;
+        color: var(--text-color);
+        cursor: pointer;
+        list-style: none;
+        border-bottom: 1px solid transparent;
+        text-transform: uppercase;
+        font-size: 1.1rem;
+    }
 
-details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
-details.section[open] > summary {
-    border-bottom: 1px solid var(--dim-color);
-    background: #0f0f0f;
-    color: var(--accent-color);
-    text-shadow: 0px 0px 5px var(--accent-color);
-}
+    details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
+    details.section[open] > summary {
+        border-bottom: 1px solid var(--dim-color);
+        background: #0f0f0f;
+        color: var(--accent-color);
+        text-shadow: 0px 0px 5px var(--accent-color);
+    }
 
-.section-content { padding: 20px; }
+    .section-content { padding: 20px; }
 
-.subsection {
-    margin-bottom: 25px;
-    border-left: 4px solid var(--dim-color);
-    padding-left: 15px;
-}
+    .subsection {
+        margin-bottom: 25px;
+        border-left: 4px solid var(--dim-color);
+        padding-left: 15px;
+    }
 
-.subsection-title {
-    background: var(--dim-color);
-    color: var(--accent-color);
-    padding: 2px 6px;
-    font-weight: bold;
-    text-transform: uppercase;
-    display: inline-block;
-    margin-bottom: 10px;
-    font-size: 0.9rem;
-}
+    .subsection-title {
+        background: var(--dim-color);
+        color: var(--accent-color);
+        padding: 2px 6px;
+        font-weight: bold;
+        text-transform: uppercase;
+        display: inline-block;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+    }
 
-p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
-ul { padding-left: 20px; margin-bottom: 15px; }
-li { margin-bottom: 5px; }
+    p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
+    ul, ol { padding-left: 20px; margin-bottom: 15px; }
+    li { margin-bottom: 5px; }
 
-.code-block {
-    background: #020a02;
-    border: 1px dashed var(--dim-color);
-    padding: 10px;
-    margin: 10px 0;
-    font-family: 'Courier New', monospace;
-    color: var(--accent-color);
-    overflow-x: auto;
-    white-space: pre-wrap;
-}
-</style> </head> <body>
-
-<div class="dither-layer"></div> <div class="scanlines"></div>
-
-<div class="container"> <h1>Part V: Inference Optimization</h1>
-
+    .code-block {
+        background: #020a02;
+        border: 1px dashed var(--dim-color);
+        padding: 10px;
+        margin: 10px 0;
+        font-family: 'Courier New', monospace;
+        color: var(--accent-color);
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+</style>
+</head>
+<body>
+<div class="dither-layer"></div>
+<div class="scanlines"></div>
+<div class="container">
+<h1>Part V: Inference Optimization</h1>
+code
+Code
 <div class="part-content">
     
     <details class="section">
@@ -130,82 +149,94 @@ li { margin-bottom: 5px; }
         <div class="section-content">
             <div class="subsection">
                 <span class="subsection-title">INFERENCE OPTIMIZATION TECHNIQUES</span>
-                [cite_start]<p>Optimization focuses on three critical metrics: latency (time to first token), throughput (tokens per second), and memory footprint. [cite: 409] [cite_start]Standard deployment often underutilizes hardware. [cite: 409] [cite_start]To achieve 2–4X efficiency gains, developers employ: [cite: 410]</p>
+                <p>Optimization focuses on three critical metrics: <strong>latency</strong> (time to first token), <strong>throughput</strong> (tokens per second), and <strong>memory footprint</strong>. Standard deployment often underutilizes hardware. To achieve 2–4X efficiency gains, developers employ:</p>
                 <ul>
-                    [cite_start]<li><strong>Model Parallelism:</strong> Distributing the model’s workload across multiple processing units. [cite: 410]</li>
-                    [cite_start]<li><strong>Weight Quantization:</strong> Compressing model weights to lower precision to save memory. [cite: 411]</li>
-                    [cite_start]<li><strong>Speculative Decoding:</strong> Using smaller models to "guess" tokens, speeding up the main generation. [cite: 412]</li>
+                    <li><strong>Model Parallelism:</strong> Distributing the model’s workload across multiple processing units.</li>
+                    <li><strong>Weight Quantization:</strong> Compressing model weights to lower precision to save memory.</li>
+                    <li><strong>Speculative Decoding:</strong> Using smaller models to "guess" tokens, speeding up the main generation.</li>
                 </ul>
-                [cite_start]<p>Choosing the right technique depends on your specific bottleneck: [cite: 413]</p>
+                <p><strong>Choosing the right technique depends on your specific bottleneck:</strong></p>
                 <ul>
-                    [cite_start]<li>: Non-negotiable for all LLM deployments to avoid $O(n²)$ re-computation. [cite: 413]</li>
-                    [cite_start]<li>(torch.compile): Best for latency-critical apps with fixed sequence limits; use when you need maximum GPU utilization without recompilation overhead. [cite: 413]</li>
-                    [cite_start]<li>: Best for high-throughput APIs; use when serving multiple concurrent users to prevent "stragglers" from stalling the GPU. [cite: 414, 415]</li>
-                    [cite_start]<li>: Best for large models (e.g., 70B+) where memory bandwidth is the bottleneck; use if you have a compatible, smaller draft model. [cite: 415, 416]</li>
-                    [cite_start]<li>: Best for tasks with high input-to-output overlap (e.g., summarization, document Q&A, editing); use when you want the acceleration of speculative decoding without the VRAM cost or complexity of managing a second draft model. [cite: 416, 417]</li>
-                    [cite_start]<li>: Best for memory-constrained hardware; use when the model won't fit in VRAM or to increase batch sizes. [cite: 417, 418]</li>
+                    <li><strong>KV Cache</strong>: Non-negotiable for all LLM deployments to avoid 𝑂(𝑛²) re-computation.</li>
+                    <li><strong>Static Caching</strong> (torch.compile): Best for latency-critical apps with fixed sequence limits; use when you need maximum GPU utilization without recompilation overhead.</li>
+                    <li><strong>Continuous Batching</strong>: Best for high-throughput APIs; use when serving multiple concurrent users to prevent "stragglers" from stalling the GPU.</li>
+                    <li><strong>Tensor Parallelism</strong>: Best for large models (e.g., 70B+) where memory bandwidth is the bottleneck; use if you have a compatible, smaller draft model.</li>
+                    <li><strong>Speculative Decoding</strong>: Best for tasks with high input-to-output overlap (e.g., summarization, document Q&A, editing); use when you want the acceleration of speculative decoding without the VRAM cost or complexity of managing a second draft model.</li>
+                    <li><strong>Quantization</strong>: Best for memory-constrained hardware; use when the model won't fit in VRAM or to increase batch sizes.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">ENCODER ONLY INFERENCE</span>
-                <ul>
-                    [cite_start]<li>Tokenizing the input prompt and passing it through an embedding layer and positional encoding. [cite: 419]</li>
-                    [cite_start]<li>Computing key and value pairs for each input token using the multi-head attention mechanism. [cite: 420]</li>
-                    [cite_start]<li>Generating output tokens sequentially, one at a time, using the computed keys and values. [cite: 421]</li>
-                </ul>
-                [cite_start]<p>First, the prefill phase (Steps 1–2) processes the input prompt in parallel, which GPUs handle efficiently. [cite: 422] [cite_start]Second, the decoding phase (Step 3) generates tokens sequentially. [cite: 422] [cite_start]Because each new token depends on all previous ones, this step cannot be parallelized, leaving hardware underutilized and creating the primary bottleneck for generation speed. [cite: 423]</p>
+                <ol>
+                    <li>Tokenizing the input prompt and passing it through an embedding layer and positional encoding.</li>
+                    <li>Computing key and value pairs for each input token using the multi-head attention mechanism.</li>
+                    <li>Generating output tokens sequentially, one at a time, using the computed keys and values.</li>
+                </ol>
+                <p>First, the <strong>prefill phase</strong> (Steps 1–2) processes the input prompt in parallel, which GPUs handle efficiently. Second, the <strong>decoding phase</strong> (Step 3) generates tokens <strong>sequentially</strong>. Because each new token depends on all previous ones, this step cannot be parallelized, leaving hardware underutilized and creating the primary bottleneck for generation speed.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">KEY-VALUE CACHING</span>
-                [cite_start]<p>When the model predicts the 101st token, the Keys ($K$) and Values ($V$) for tokens 1–100 are identical to what they were during the previous step. [cite: 424] [cite_start]KV Caching exploits this by saving those vectors in GPU memory. [cite: 425]</p>
-                                    <ol>
-                    [cite_start]<li><strong>The Retrieval:</strong> Instead of re-processing the entire sequence, the model only generates a Query ($Q$), Key ($K$), and Value ($V$) for the newest token. [cite: 426]</li>
-                    [cite_start]<li><strong>The Lookup:</strong> The new $Q$ scans the cached $K$s (the "addresses") of all previous tokens to determine relevance. [cite: 427]</li>
-                    [cite_start]<li><strong>The Extraction:</strong> It then pulls the corresponding information from the cached $V$s (the "payloads"). [cite: 428]</li>
+                <p>When the model predicts the 101st token, the Keys (𝐾) and Values (𝑉) for tokens 1–100 are identical to what they were during the previous step. KV Caching exploits this by saving those vectors in GPU memory.</p>
+                <ol>
+                    <li><strong>The Retrieval:</strong> Instead of re-processing the entire sequence, the model only generates a Query (𝑄), Key (𝐾), and Value (𝑉) for the newest token.</li>
+                    <li><strong>The Lookup:</strong> The new 𝑄 scans the cached 𝐾s (the "addresses") of all previous tokens to determine relevance.</li>
+                    <li><strong>The Extraction:</strong> It then pulls the corresponding information from the cached 𝑉s (the "payloads").</li>
                 </ol>
-                [cite_start]<p>By only calculating one new $K$/$V$ pair per step and reading the rest from the cache, the model avoids redundant math, transforming an $O(n²)$ computational burden into a much faster linear process. [cite: 429]</p>
+                <p>By only calculating one new 𝐾/𝑉 pair per step and reading the rest from the cache, the model avoids redundant math, transforming an 𝑂(𝑛²) computational burden into a much faster linear process.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">TORCH.COMPILE — STATIC CACHING</span>
-                [cite_start]<p>Standard PyTorch runs line-by-line, creating communication lag between the CPU and GPU. [cite: 430] torch.compile "fuses" these separate steps into a single optimized kernel. [cite_start]Instead of sending many small tasks, it sends one "super-instruction," letting the GPU work at max speed without interruptions. [cite: 431]</p>
-                [cite_start]<p>In a computer's memory, a tensor is defined by its shape. [cite: 432] [cite_start]When the KV cache is dynamic, the tensor representing it looks like this: Step 1: [1, 1, hidden_dim], Step 2: [2, 1, hidden_dim], Step 3: [3, 1, hidden_dim]. [cite: 433] [cite_start]Every time that first number (the sequence length) increases, the GPU sees a "new" object. [cite: 433] [cite_start]It has to "re-compile" or look up a new way to handle a 3-row matrix versus a 2-row matrix, the GPU cannot reuse the exact same machine-code instructions it just used. [cite: 434]</p>
-                [cite_start]<p><strong>Static Caching</strong> sets the dimension to a maximum (e.g., [2048, 1, hidden_dim]) immediately. [cite: 435] [cite_start]Because the shape never changes, the GPU can use one single, hyper-optimized execution path for every single step of the generation. [cite: 436]</p>
+                <p>Standard PyTorch runs line-by-line, creating <strong>communication lag</strong> between the CPU and GPU. <code>torch.compile</code> "fuses" these separate steps into a single <strong>optimized kernel</strong>. Instead of sending many small tasks, it sends one "super-instruction," letting the GPU work at max speed without interruptions.</p>
+                <p>In a computer's memory, a tensor is defined by its <strong>shape</strong>. When the KV cache is dynamic, the tensor representing it looks like this:</p>
+                <div class="code-block">
+Step 1: [1, 1, hidden_dim]
+Step 2: [2, 1, hidden_dim]
+Step 3: [3, 1, hidden_dim]
+</div>
+<p>Every time that first number (the sequence length) increases, the GPU sees a "new" object. It has to "re-compile" or look up a new way to handle a 3-row matrix versus a 2-row matrix, the GPU cannot reuse the exact same machine-code instructions it just used.</p>
+<p><strong>Static Caching</strong> sets the dimension to a maximum (e.g., <code>[2048, 1, hidden_dim]</code>) immediately. Because the shape never changes, the GPU can use one single, hyper-optimized execution path for every single step of the generation.</p>
+</div>
+code
+Code
+<div class="subsection">
+                <span class="subsection-title">CONTINUOUS BATCHING</span>
+                <p>If processing batch A, and 80% finishes, with 20% remaining; In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced.</p>
+                <p>Instead of waiting for that final 20% (the "straggler") to finish, the system inserts new requests into the available slots of the current batch. This ensures the GPU never sits idle while waiting for a single long-running task to complete.</p>
             </div>
 
             <div class="subsection">
-                <span class="subsection-title">CONTINUOUS BATCHING</span>
-                [cite_start]<p>If processing batch A, and 80% finishes, with 20% remaining; [cite: 437] [cite_start]In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced. [cite: 438] [cite_start]Instead of waiting for that final 20% (the "straggler") to finish, the system inserts new requests into the available slots of the current batch. [cite: 439] [cite_start]This ensures the GPU never sits idle while waiting for a single long-running task to complete. [cite: 440]</p>
-                                </div>
-
-            <div class="subsection">
                 <span class="subsection-title">SPECULATIVE DECODING</span>
-                [cite_start]<p>In standard generation, a massive model must load all its parameters from memory just to produce one token. [cite: 441] The bottleneck isn't the math; it's the delivery. [cite_start]Loading 70B parameters to calculate one token wastes 99% of the GPU's computing power. [cite: 442]</p>
-                                    [cite_start]<p>To fix this, a Draft Model (small and fast) "guesses" a sequence of future tokens (e.g., 5 tokens). [cite: 443] [cite_start]A small draft model has fewer layers and parameters, so it fits better in memory and generates 5 tokens fast. [cite: 444] [cite_start]The large model validates the draft’s “future” tokens by running them through its own layers as a batch. [cite: 445] [cite_start]If the draft guessed [$A, B, C, D, E$] and the large model agrees with all five, you’ve effectively skipped 5 expensive memory-loading cycles. [cite: 446] [cite_start]If the large model disagrees at $C$, it keeps $A$ and $B$, provides its own “correct” $C$, and discards the rest. [cite: 447] [cite_start]You still come out ahead because you got 3 tokens for the price of 1. [cite: 448]</p>
-                [cite_start]<p>Both models must use the same tokenizer — Models use IDs, not words. [cite: 448] [cite_start]If ID 1520 is "apple" to the draft model but "cat" to the large model, the math breaks. [cite: 449] [cite_start]They need a shared "dictionary" to ensure ID numbers represent the same concepts. [cite: 450]</p>
+                <p>In standard generation, a massive model must load all its parameters from memory just to produce one token. The bottleneck isn't the <strong>math</strong>; it's the <strong>delivery</strong>. Loading 70B parameters to calculate one token wastes 99% of the GPU's computing power.</p>
+                <ol>
+                    <li>To fix this, a Draft Model (small and fast) "guesses" a sequence of future tokens (e.g., 5 tokens). A small draft model has fewer layers and parameters, so it fits better in memory and generates 5 tokens fast.</li>
+                    <li>The large model validates the draft’s “future” tokens by running them through its own layers as a batch. If the draft guessed [𝐴, 𝐵, 𝐶, 𝐷, 𝐸] and the large model agrees with all five, you’ve effectively skipped 5 expensive memory-loading cycles.</li>
+                    <li>If the large model disagrees at 𝐶, it keeps 𝐴 and 𝐵, provides its own “correct” 𝐶, and discards the rest. You still come out ahead because you got 3 tokens for the price of 1.</li>
+                </ol>
+                <p>Both models must use the same tokenizer — Models use IDs, not words. If ID 1520 is "apple" to the draft model but "cat" to the large model, the math breaks. They need a shared "dictionary" to ensure ID numbers represent the same concepts.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">PROMPT LOOKUP DECODING</span>
-                [cite_start]<p>Prompt Lookup Decoding accelerates text generation by exploiting the high probability that the output will repeat phrases found in the input (e.g., in summarization). [cite: 451] [cite_start]It removes the need for a separate "draft model" used in standard speculative decoding. [cite: 452]</p>
-                [cite_start]<p>Here is the step-by-step process: [cite: 453]</p>
+                <p>Prompt Lookup Decoding accelerates text generation by exploiting the high probability that the output will repeat phrases found in the input (e.g., in summarization). It removes the need for a separate "draft model" used in standard speculative decoding.</p>
+                <p>Here is the step-by-step process:</p>
                 <ul>
-                    [cite_start]<li><strong>Generate:</strong> The main Large Language Model (LLM) produces a few current tokens (words) as normal. [cite: 453]</li>
-                    [cite_start]<li><strong>Match:</strong> The system scans the original input prompt to see if this exact sequence of tokens appears somewhere in the source text. [cite: 454]</li>
-                    [cite_start]<li><strong>Speculate:</strong> If a match is found, the system "copies" the subsequent tokens directly from the prompt, hypothesizing that the model will continue to follow that source text. [cite: 455]</li>
-                    <li><strong>Validate:</strong> The LLM checks all these speculated tokens simultaneously in a single parallel pass. [cite_start]If they are correct, they are accepted instantly; if not, the model discards them and generates the next token normally. [cite: 456, 457]</li>
+                    <li><strong>Generate:</strong> The main Large Language Model (LLM) produces a few current tokens (words) as normal.</li>
+                    <li><strong>Match:</strong> The system scans the original <strong>input prompt</strong> to see if this exact sequence of tokens appears somewhere in the source text.</li>
+                    <li><strong>Speculate:</strong> If a match is found, the system "copies" the subsequent tokens directly from the prompt, hypothesizing that the model will continue to follow that source text.</li>
+                    <li><strong>Validate:</strong> The LLM checks all these speculated tokens simultaneously in a single <strong>parallel pass</strong>. If they are correct, they are accepted instantly; if not, the model discards them and generates the next token normally.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">SELF-ATTENTION DEFINITIONS</span>
-                [cite_start]<p>In Transformers, Self-Attention is the mechanism that allows the model to understand context by relating words to one another. [cite: 458] [cite_start]This process relies on three vectors generated for every token: [cite: 459]</p>
+                <p>In Transformers, Self-Attention is the mechanism that allows the model to understand context by relating words to one another. This process relies on three vectors generated for every token:</p>
                 <ul>
-                    [cite_start]<li><strong>Query ($Q$):</strong> This is used to assess context between the token and the surrounding tokens. [cite: 459]</li>
-                    [cite_start]<li><strong>Key ($K$):</strong> A feature vector describing the cluster each token’s position in a high dimensional vector space. [cite: 460]</li>
-                    [cite_start]<li><strong>Value ($V$):</strong> Contains the actual features of each token. [cite: 461]</li>
+                    <li><strong>Query (𝑄):</strong> This is used to assess context between the token and the surrounding tokens.</li>
+                    <li><strong>Key (𝐾):</strong> A feature vector describing the cluster each token’s position in a high dimensional vector space.</li>
+                    <li><strong>Value (𝑉):</strong> Contains the actual features of each token.</li>
                 </ul>
             </div>
         </div>
@@ -216,36 +247,45 @@ li { margin-bottom: 5px; }
         <div class="section-content">
             <div class="subsection">
                 <span class="subsection-title">Data Parallelism (DP)</span>
-                [cite_start]<p>DP replicates the entire model onto every GPU, allowing each to process a different data subset simultaneously. [cite: 461] DP is superior for throughput because it minimizes communication; [cite_start]GPUs only sync once per step (after gradients). [cite: 462]</p>
-                                    [cite_start]<p><strong>When to choose:</strong> Use Data Parallelism when your bottleneck is data volume, not model size. [cite: 463] [cite_start]It is the easiest to implement and scales linearly across nodes, provided your model isn't so large that it leaves no room for the data batch itself. [cite: 464]</p>
-                [cite_start]<p><strong>Mechanism:</strong> In training, GPUs synchronize by averaging gradients to maintain identical weights. [cite: 465] [cite_start]In inference, DP facilitates concurrent processing, where multiple requests are handled in parallel. [cite: 466]</p>
-                [cite_start]<p><strong>The Bottleneck:</strong> Because every GPU must store the full model, DP is limited by the memory of a single device. [cite: 467] [cite_start]Trade-off: It significantly boosts throughput, but involves high communication overhead and redundant memory usage, making it inefficient for models that exceed individual GPU capacity. [cite: 468]</p>
+                <p>DP replicates the <strong>entire model</strong> onto every GPU, allowing each to process a different data subset simultaneously. DP is superior for throughput because it minimizes communication; GPUs only sync once per step (after gradients).</p>
+                <p><strong>When to choose:</strong> Use <strong>Data Parallelism</strong> when your bottleneck is <strong>data volume</strong>, not model size. It is the easiest to implement and scales linearly across nodes, provided your model isn't so large that it leaves no room for the data batch itself.</p>
+                <ul>
+                    <li><strong>Mechanism:</strong> In training, GPUs synchronize by averaging gradients to maintain identical weights. In inference, DP facilitates <strong>concurrent processing</strong>, where multiple requests are handled in parallel.</li>
+                    <li><strong>The Bottleneck:</strong> Because every GPU must store the full model, DP is limited by the memory of a <strong>single device</strong>.</li>
+                    <li><strong>Trade-off:</strong> It significantly boosts <strong>throughput</strong>, but involves high communication overhead and redundant memory usage, making it inefficient for models that exceed individual GPU capacity.</li>
+                </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Pipeline Parallelism (PP)</span>
-                <p>Pipeline Parallelism partitions a model vertically by layers. [cite_start]Instead of every GPU holding the entire model, the layers are divided into segments and distributed across a sequence of GPUs (the "degree of parallelism"). [cite: 469]</p>
-                                    <p><strong>When to choose:</strong> Use PP when memory is the bottleneck. [cite_start]It allows you to "stack" GPUs to hold the model. [cite: 470] [cite_start]It is ideal for scaling between different servers because it only transmits activations, which is less data-intensive than TP. [cite: 471]</p>
-                [cite_start]<p><strong>The Assembly Line:</strong> Data moves through the system like a factory conveyor belt. [cite: 472] [cite_start]GPU 1 processes the first segment and passes the activations (intermediate outputs) to GPU 2. In training, this process reverses during the backward pass, with gradients flowing back down the chain. [cite: 473]</p>
-                <p><strong>Memory Efficiency:</strong> This is the primary driver for PP. [cite_start]Because each device only stores a fraction of the model’s weights and the corresponding optimizer states, you can run models that are far too large for any single GPU's VRAM. [cite: 474]</p>
-                <p><strong>The "Pipeline Bubble":</strong> The main drawback is the sequential dependency. [cite_start]GPU 4 cannot start its work until GPUs 1, 2, and 3 have finished theirs. [cite: 475] [cite_start]This creates "bubbles"—periods of idle time where hardware sits unproductive while waiting for data from the preceding stage. [cite: 476]</p>
-                [cite_start]<p><strong>MITIGATING PIPELINE BUBBLES:</strong> Instead of waiting for a massive batch to clear Stage 1, the first micro-batch is passed to Stage 2 immediately. [cite: 477]</p>
+                <p>Pipeline Parallelism partitions a model <strong>vertically</strong> by layers. Instead of every GPU holding the entire model, the layers are divided into segments and distributed across a sequence of GPUs (the "degree of parallelism").</p>
+                <p><strong>When to choose:</strong> Use PP when <strong>memory</strong> is the bottleneck. It allows you to "stack" GPUs to hold the model. It is ideal for scaling <strong>between different servers</strong> because it only transmits activations, which is less data-intensive than TP.</p>
+                <ul>
+                    <li><strong>The Assembly Line:</strong> Data moves through the system like a factory conveyor belt. GPU 1 processes the first segment and passes the <strong>activations</strong> (intermediate outputs) to GPU 2. In training, this process reverses during the backward pass, with <strong>gradients</strong> flowing back down the chain.</li>
+                    <li><strong>Memory Efficiency:</strong> This is the primary driver for PP. Because each device only stores a fraction of the model’s weights and the corresponding optimizer states, you can run models that are far too large for any single GPU's VRAM.</li>
+                    <li><strong>The "Pipeline Bubble":</strong> The main drawback is the <strong>sequential dependency</strong>. GPU 4 cannot start its work until GPUs 1, 2, and 3 have finished theirs. This creates "bubbles"—periods of idle time where hardware sits unproductive while waiting for data from the preceding stage.</li>
+                    <li><strong>MITIGATING PIPELINE BUBBLES:</strong> Instead of waiting for a massive batch to clear Stage 1, the first micro-batch is passed to Stage 2 immediately.</li>
+                </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Tensor Parallelism (TP)</span>
-                [cite_start]<p>Tensor Parallelism splits a model horizontally by partitioning individual weight matrices (tensors) across multiple GPUs. [cite: 478]</p>
-                                    <p><strong>When to choose:</strong> Use TP for latency-sensitive tasks and ultra-large models within a single server. [cite_start]It requires NVLink speeds to handle constant syncing. [cite: 479] [cite_start]It is often combined with PP (forming 3D parallelism) to manage both layer depth and layer width. [cite: 480]</p>
-                [cite_start]<p><strong>The Mechanism:</strong> Instead of layers being on different devices (PP), a single layer’s math is shared. [cite: 481] [cite_start]Large operations, like MLP weights or Attention Heads, are sliced into shards. [cite: 482] [cite_start]GPUs receive the same input, compute their specific shard's result, and use an All-Reduce operation to sync and combine partial results into a final output. [cite: 483]</p>
-                [cite_start]<p><strong>Granularity:</strong> It is highly efficient for Self-Attention since heads are naturally independent. [cite: 484] [cite_start]However, layers like LayerNorm or Dropout are often replicated or split via Sequence Parallelism (by input length) because they require a global view of the data. [cite: 485]</p>
-                [cite_start]<p><strong>The Constraint:</strong> TP requires extremely high-speed interconnects (like NVLink) because GPUs must communicate multiple times within every single layer, making it best suited for GPUs within the same server. [cite: 486]</p>
+                <p>Tensor Parallelism splits a model <strong>horizontally</strong> by partitioning individual weight matrices (tensors) across multiple GPUs.</p>
+                <p><strong>When to choose:</strong> Use TP for <strong>latency-sensitive</strong> tasks and ultra-large models <strong>within a single server.</strong> It requires <strong>NVLink</strong> speeds to handle constant syncing. It is often combined with PP (forming 3D parallelism) to manage both layer depth and layer width.</p>
+                <ul>
+                    <li><strong>The Mechanism:</strong> Instead of layers being on different devices (PP), a single layer’s math is shared. Large operations, like MLP weights or <strong>Attention Heads</strong>, are sliced into shards. GPUs receive the same input, compute their specific shard's result, and use an <strong>All-Reduce</strong> operation to sync and combine partial results into a final output.</li>
+                    <li><strong>Granularity:</strong> It is highly efficient for Self-Attention since heads are naturally independent. However, layers like <strong>LayerNorm</strong> or <strong>Dropout</strong> are often replicated or split via <strong>Sequence Parallelism</strong> (by input length) because they require a global view of the data.</li>
+                    <li><strong>The Constraint:</strong> TP requires extremely high-speed interconnects (like NVLink) because GPUs must communicate multiple times <em>within</em> every single layer, making it best suited for GPUs within the same server.</li>
+                </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">COMBINING MODEL PARALLELISM APPROACH</span>
-                [cite_start]<p>The three methods are orthogonal, meaning they can be stacked like building blocks to form 3D Parallelism. [cite: 487]</p>
-                [cite_start]<p><strong>The Strategy:</strong> You split a model into Pipeline stages to fit across servers, use Tensor parallelism within each server to accelerate wide layers, and then wrap the whole setup in Data parallelism to process multiple batches at once. [cite: 488]</p>
-                <p><strong>The Goal:</strong> This hybridization lets you balance memory (PP), latency (TP), and throughput (DP). [cite_start]It is the industry standard for training "frontier" models (like GPT-4 or Llama-3-70B+) that are too massive for any single technique to handle efficiently. [cite: 489]</p>
+                <p>The three methods are <strong>orthogonal</strong>, meaning they can be stacked like building blocks to form <strong>3D Parallelism</strong>.</p>
+                <ul>
+                    <li><strong>The Strategy:</strong> You split a model into <strong>Pipeline</strong> stages to fit across servers, use <strong>Tensor</strong> parallelism within each server to accelerate wide layers, and then wrap the whole setup in <strong>Data</strong> parallelism to process multiple batches at once.</li>
+                    <li><strong>The Goal:</strong> This hybridization lets you balance <strong>memory</strong> (PP), <strong>latency</strong> (TP), and <strong>throughput</strong> (DP). It is the industry standard for training "frontier" models (like GPT-4 or Llama-3-70B+) that are too massive for any single technique to handle efficiently.</li>
+                </ul>
             </div>
         </div>
     </details>
@@ -255,44 +295,44 @@ li { margin-bottom: 5px; }
         <div class="section-content">
             <div class="subsection">
                 <span class="subsection-title">MODEL QUANTIZATION</span>
-                [cite_start]<p>Quantization refers to the process of representing the weights and activations of a neural network using lower-precision data types. [cite: 490]</p>
+                <p>Quantization refers to the process of representing the weights and activations of a neural network using lower-precision data types.</p>
                 <ul>
-                    <li><strong>FP32 (Full):</strong> Highest precision; uses 32 bits per number. [cite_start]Accurate but slow and memory-intensive. [cite: 491]</li>
-                    <li><strong>BF16/FP16 (Half):</strong> 16-bit formats. [cite_start]BF16 is preferred for LLMs because it preserves a larger range (exponent), preventing mathematical "overflow" during training. [cite: 491, 492]</li>
-                    <li><strong>INT8 (Quantization):</strong> An 8-bit integer format. [cite_start]Using techniques like absmax, you can compress high-precision weights into 8-bit buckets, drastically reducing VRAM usage at the cost of some "granularity" in the numbers. [cite: 492, 493]</li>
+                    <li><strong>FP32 (Full):</strong> Highest precision; uses 32 bits per number. Accurate but slow and memory-intensive.</li>
+                    <li><strong>BF16/FP16 (Half):</strong> 16-bit formats. <strong>BF16</strong> is preferred for LLMs because it preserves a larger <em>range</em> (exponent), preventing mathematical "overflow" during training.</li>
+                    <li><strong>INT8 (Quantization):</strong> An 8-bit integer format. Using techniques like <strong>absmax</strong>, you can compress high-precision weights into 8-bit buckets, drastically reducing VRAM usage at the cost of some "granularity" in the numbers.</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Quantization Methods</span>
-                [cite_start]<p><strong>Post-Training Quantization (PTQ):</strong> PTQ is a straightforward technique where the weights of a pre-trained model are directly converted to a lower precision format without any retraining. [cite: 494]</p>
-                [cite_start]<p><strong>Quantization-Aware Training (QAT):</strong> QAT performs quantization during the training or fine-tuning stage, allowing the model to adapt to the lower precision weights. [cite: 495]</p>
+                <p><strong>Post-Training Quantization (PTQ):</strong> PTQ is a straightforward technique where the weights of a pre-trained model are directly converted to a lower precision format without any retraining.</p>
+                <p><strong>Quantization-Aware Training (QAT):</strong> QAT performs quantization during the training or fine-tuning stage, allowing the model to adapt to the lower precision weights.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Absmax Quantization</span>
-                <p>This is a symmetric scaling method. [cite_start]You find the absolute maximum value in a tensor and use it to map everything into the [-127, 127] range. [cite: 496]</p>
-                                    <p><strong>The Problem:</strong> It assumes the data is centered around zero. [cite_start]If your weights are skewed (e.g., all positive), you waste half of your available "buckets," leading to higher rounding errors. [cite: 497]</p>
+                <p>This is a symmetric scaling method. You find the absolute maximum value in a tensor and use it to map everything into the <strong>[-127, 127]</strong> range.</p>
+                <p><strong>The Problem:</strong> It assumes the data is centered around zero. If your weights are skewed (e.g., all positive), you waste half of your available "buckets," leading to higher rounding errors.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">Zero-Point Quantization</span>
-                <p>Handles data that isn’t centered at zero. [cite_start]If your weights range from 2.0 to 10.0, Absmax wastes half the “slots” because it forces a symmetric range (e.g., 10 to 10) even when negative values don’t exist. [cite: 498]</p>
-                [cite_start]<p><strong>The Goal:</strong> Map your actual minimum (e.g., 2.0) to 128 and your actual maximum (e.g., 10.0) to 127. This ensures the entire 8-bit “budget” is used for your specific data. [cite: 499]</p>
-                [cite_start]<p><strong>The Zero-Point ($Z$):</strong> Since your data is shifted (it doesn’t start at 0), you calculate an offset. [cite: 500] [cite_start]The zero-point is the specific integer in the 8-bit range that represents the original 0.0. [cite: 501]</p>
+                <p>Handles data that isn’t centered at zero. If your weights range from 2.0 to 10.0, Absmax wastes half the “slots” because it forces a symmetric range (e.g., −10 to 10) even when negative values don’t exist.</p>
+                <p><strong>The Goal:</strong> Map your actual minimum (e.g., 2.0) to −128 and your actual maximum (e.g., 10.0) to 127. This ensures the entire 8-bit “budget” is used for your specific data.</p>
+                <p><strong>The Zero-Point (𝑍):</strong> Since your data is shifted (it doesn’t start at 0), you calculate an offset. The zero-point is the specific integer in the 8-bit range that represents the original 0.0.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">THE OUTLIER PROBLEM</span>
-                [cite_start]<p>Because quantization scales the entire range based on extreme values. [cite: 502] [cite_start]If most weights are approx 0.1 but one is 10.0, the mapping forces 99.9% of the weights into a tiny fraction of the available integer "slots" (e.g., just 0 and 1). [cite: 503] [cite_start]This "squishing" destroys the model's nuance. [cite: 504]</p>
-                [cite_start]<p>Decomposing the matrix into two separate pieces before the math happens. [cite: 504] Think of it like a filtered bypass. [cite_start]When the model encounters a matrix, it doesn't process it as one block. [cite: 505] [cite_start]It scans for values exceeding a threshold (like 6.0). [cite: 506]</p>
+                <p>Because quantization scales the entire range based on extreme values. If most weights are approx 0.1 but one is 10.0, the mapping forces 99.9% of the weights into a tiny fraction of the available integer "slots" (e.g., just 0 and 1). This "squishing" destroys the model's nuance.</p>
+                <p>Decomposing the matrix into two separate pieces before the math happens. Think of it like a filtered bypass. When the model encounters a matrix, it doesn't process it as one block. It scans for values exceeding a threshold (like 6.0).</p>
                 <ol>
-                    [cite_start]<li><strong>The Extraction:</strong> It literally pulls those outlier columns out and places them into a separate “High-Precision” matrix ($A$). [cite: 506]</li>
-                    [cite_start]<li><strong>The Remainder:</strong> What’s left is a matrix of “normal” values. [cite: 507] [cite_start]Because the outliers are gone, this matrix can now be quantized to $B$ with high resolution. [cite: 508]</li>
-                    [cite_start]<li><strong>Parallel Math:</strong> The computer performs two separate multiplications: the “skinny” $A$ lane and the “bulk” $B$ lane. [cite: 509]</li>
-                    [cite_start]<li><strong>The Merge:</strong> The results (now both in $FP16$) are summed back together. [cite: 510]</li>
+                    <li><strong>The Extraction:</strong> It literally pulls those outlier columns out and places them into a separate “High-Precision” matrix (𝐴).</li>
+                    <li><strong>The Remainder:</strong> What’s left is a matrix of “normal” values. Because the outliers are gone, this matrix can now be quantized to 𝐵 with high resolution.</li>
+                    <li><strong>Parallel Math:</strong> The computer performs two separate multiplications: the “skinny” 𝐴 lane and the “bulk” 𝐵 lane.</li>
+                    <li><strong>The Merge:</strong> The results (now both in 𝐴) are summed back together.</li>
                 </ol>
-                [cite_start]<p>The COMPUTATIONAL SAVINGS isn’t in the final addition; it’s in the matrix multiplication, which is the heaviest part of the workload. [cite: 510, 511]</p>
+                <p>The COMPUTATIONAL SAVINGS isn’t in the final addition; it’s in the <strong>matrix multiplication</strong>, which is the heaviest part of the workload.</p>
             </div>
         </div>
     </details>
@@ -302,38 +342,38 @@ li { margin-bottom: 5px; }
         <div class="section-content">
             <div class="subsection">
                 <span class="subsection-title">OPTIMIZED ATTENTION</span>
-                [cite_start]<p>Standard attention scales quadratically, causing the KV cache—the memory storing temporary token data—to overflow during long sequences. [cite: 512]</p>
-                [cite_start]<p><strong>PagedAttention</strong> solves this by partitioning the KV cache into small, fixed-size blocks that can be scattered across physical memory rather than requiring one continuous slab. [cite: 513]</p>
-                                    [cite_start]<p><strong>Key Advantages:</strong> Near-Zero Waste: Dynamic allocation allows for much higher batch sizes, increasing throughput [cite: 514]</p>
+                <p>Standard attention scales quadratically, causing the <strong>KV cache</strong>—the memory storing temporary token data—to overflow during long sequences.</p>
+                <p><strong>PagedAttention</strong> solves this by partitioning the KV cache into small, fixed-size blocks that can be scattered across physical memory rather than requiring one continuous slab.</p>
+                <p><strong>Key Advantages:</strong> Near-Zero Waste: Dynamic allocation allows for much higher batch sizes, increasing throughput.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">FLASHATTENTION2: BASIC DEFINITIONS</span>
                 <ul>
-                    [cite_start]<li><strong>HBM (High Bandwidth Memory):</strong> Think of HBM as the GPU's "warehouse." [cite: 514] [cite_start]It is massive (e.g., 80GB on an H100) and stores all your model weights and long-term data. [cite: 515] [cite_start]However, moving data from HBM to the processor is slow. [cite: 516]</li>
-                    [cite_start]<li><strong>SRAM (Static Random-Access Memory):</strong> SRAM is the "workbench" located right on the GPU chip. [cite: 517] [cite_start]It is incredibly fast—orders of magnitude faster than HBM—but it is tiny (often only tens of megabytes). [cite: 518]</li>
+                    <li><strong>HBM (High Bandwidth Memory):</strong> Think of <strong>HBM</strong> as the GPU's "warehouse." It is massive (e.g., 80GB on an H100) and stores all your model weights and long-term data. However, moving data from HBM to the processor is slow.</li>
+                    <li><strong>SRAM (Static Random-Access Memory):</strong> <strong>SRAM</strong> is the "workbench" located right on the GPU chip. It is incredibly fast—orders of magnitude faster than HBM—but it is tiny (often only tens of megabytes).</li>
                 </ul>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">SOFTMAX</span>
-                [cite_start]<p>When the GPU compares a Query (Q) to all Keys (K), it gets a row of raw similarity scores. [cite: 519] [cite_start]Some are high, some are low, and some are negative. [cite: 520] [cite_start]These raw numbers are hard for a computer to use as "weights." [cite: 521]</p>
-                [cite_start]<p>The Role of Softmax: [cite: 522]</p>
+                <p>When the GPU compares a <strong>Query</strong> (Q) to all <strong>Keys</strong> (K), it gets a row of raw similarity scores. Some are high, some are low, and some are negative. These raw numbers are hard for a computer to use as "weights."</p>
+                <p><strong>The Role of Softmax:</strong></p>
                 <ul>
-                    [cite_start]<li><strong>Normalization:</strong> It turns those raw scores into probabilities that sum up to 1.0 (or 100%). [cite: 522]</li>
-                    [cite_start]<li><strong>Highlighting:</strong> It uses an exponential function (e^x), which aggressively "widens the gap." [cite: 523] [cite_start]A slightly higher raw score becomes a much higher probability, while low scores are crushed toward zero. [cite: 524]</li>
+                    <li><strong>Normalization:</strong> It turns those raw scores into <strong>probabilities</strong> that sum up to <strong>1.0 (or 100%)</strong>.</li>
+                    <li><strong>Highlighting:</strong> It uses an exponential function (e^x), which aggressively "widens the gap." A slightly higher raw score becomes a much higher probability, while low scores are crushed toward zero.</li>
                 </ul>
-                [cite_start]<p><strong>Online Softmax:</strong> If you find a new, larger maximum (maxw), your old results ($e^{x - old\_max}$) are now wrong. [cite: 525] [cite_start]To fix them without re-reading the raw data from the “warehouse” (HBM), you multiply the old results by $e^{old\_max - new\_maxw}$. [cite: 526] [cite_start]Mathematically, this "shifts" the old values to the new baseline, and allows it to compute mathematically perfect softmax values incrementally, without ever storing the full $N \times N$ matrix. [cite: 527]</p>
+                <p><strong>Online Softmax:</strong> If you find a new, larger maximum (max_new), your old results (e^(x - old_max)) are now wrong. To fix them without re-reading the raw data from the “warehouse” (HBM), you multiply the old results by e^(old_max - max_new). Mathematically, this "shifts" the old values to the new baseline, and allows it to compute mathematically perfect softmax values incrementally, without ever storing the full 𝑁 × 𝑁 matrix.</p>
             </div>
 
             <div class="subsection">
                 <span class="subsection-title">THE HOW (FLASHATTENTION)</span>
                 <ol>
-                    [cite_start]<li><strong>The Tiling Strategy:</strong> The process begins by partitioning the large Query ($Q$), Key ($K$), and Value ($V$) matrices into small, manageable blocks (tiles). [cite: 528] [cite_start]These tiles are sized specifically to fit into the SRAM, the high-speed “workbench” right next to the GPU cores. [cite: 529] [cite_start]You can visualize this like a kernel in a CNN. [cite: 530]</li>
-                                            [cite_start]<li><strong>Loading the Workbench:</strong> The GPU pulls one block of $K$ and one block of $V$ from the HBM into the SRAM. [cite: 531] Because these blocks are small, this transfer is efficient. [cite_start]Once they are on the workbench, the GPU performs the matrix multiplication ($Q \times K$) at lightning speed. [cite: 532]</li>
-                    [cite_start]<li><strong>The Online Softmax Trick:</strong> As it processes each block, it keeps track of two local variables: the running maximum and the running sum of exponentials. [cite: 533] [cite_start]When a new block is processed, the GPU uses these variables to "rescale" the previous weights. [cite: 534]</li>
-                    [cite_start]<li><strong>Computing the Weighted Sum:</strong> Once the partial softmax for the current block is ready, the GPU pulls the corresponding block of $V$ into SRAM. [cite: 535] [cite_start]It multiplies the partial scores by these values to get a partial output. [cite: 536] [cite_start]This preserves information with high scores and effectively mutes the rest, adding this "weighted" data to the final output. [cite: 537]</li>
-                    [cite_start]<li><strong>The Final Write-Back:</strong> The final output is written to HBM chunk-by-chunk as each row finishes, not all at once. [cite: 538]</li>
+                    <li><strong>The Tiling Strategy:</strong> The process begins by partitioning the large Query (𝑄), Key (𝐾), and Value (𝑉) matrices into small, manageable blocks (tiles). These tiles are sized specifically to fit into the SRAM, the high-speed “workbench” right next to the GPU cores. You can visualize this like a kernel in a CNN.</li>
+                    <li><strong>Loading the Workbench:</strong> The GPU pulls one block of 𝑄 and one block of 𝐾 from the HBM into the SRAM. Because these blocks are small, this transfer is efficient. Once they are on the workbench, the GPU performs the matrix multiplication (𝑄 × 𝐾) at lightning speed.</li>
+                    <li><strong>The Online Softmax Trick:</strong> As it processes each block, it keeps track of two local variables: the running maximum and the running sum of exponentials. When a new block is processed, the GPU uses these variables to "rescale" the previous weights.</li>
+                    <li><strong>Computing the Weighted Sum:</strong> Once the partial softmax for the current block is ready, the GPU pulls the corresponding block of 𝑉 into SRAM. It multiplies the partial scores by these values to get a partial output. This preserves information with high scores and effectively mutes the rest, adding this "weighted" data to the final output.</li>
+                    <li><strong>The Final Write-Back:</strong> The final <em>output</em> is written to HBM chunk-by-chunk as each row finishes, not all at once.</li>
                 </ol>
             </div>
         </div>
@@ -341,5 +381,5 @@ li { margin-bottom: 5px; }
 
 </div>
 </div>
-
-</body> </html>
+</body>
+</html>
