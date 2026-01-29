@@ -167,7 +167,40 @@
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes scanFade { from { opacity: 0; } to { opacity: 1; } }
 
-    /* --- VIEWPORT / MODAL STYLES (ADDED) --- */
+    /* --- GLOBAL INTERACTIVE ELEMENTS (BUTTONS) --- */
+    /* Added to fix "missing eye button" issue when loading external files */
+    
+    .eye-btn {
+        position: relative;
+        width: 28px; height: 28px;
+        background: #000;
+        border: 1px solid var(--accent-color);
+        cursor: pointer;
+        padding: 4px;
+        display: inline-flex;
+        align-items: center; justify-content: center;
+        margin-left: 8px;
+        vertical-align: bottom;
+        transition: transform 0.1s;
+    }
+
+    .eye-btn svg { 
+        width: 100%; 
+        height: 100%; 
+        fill: var(--accent-color); 
+    }
+
+    .eye-btn:hover {
+        background: var(--accent-color);
+        transform: translate(-1px, -1px);
+        box-shadow: 2px 2px 0px var(--dim-color);
+    }
+
+    .eye-btn:hover svg { 
+        fill: #000; 
+    }
+
+    /* --- VIEWPORT / MODAL STYLES --- */
     .retro-viewport {
         position: fixed;
         top: 50%; left: 50%;
