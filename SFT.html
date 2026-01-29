@@ -79,7 +79,7 @@
         word-wrap: break-word;
     }
 
-    h3 { margin-top: 0; color: var(--accent-color); text-transform: uppercase; }
+    h3, h4, h5 { margin-top: 20px; color: var(--accent-color); text-transform: uppercase; }
     strong { color: var(--accent-color); text-decoration: underline; }
     em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
 
@@ -136,6 +136,25 @@
     }
     .section-content { padding: 20px; }
 
+    /* Nested Accordions */
+    details.nested-accordion {
+        margin: 10px 0 10px 15px;
+        border-left: 2px solid var(--dim-color);
+        background: #020502;
+    }
+    details.nested-accordion > summary {
+        font-family: var(--font-main);
+        font-size: 0.95rem;
+        padding: 8px 12px;
+        background-color: #051505;
+        cursor: pointer;
+        list-style: none;
+        color: #80ff9e;
+    }
+    details.nested-accordion > summary:hover {
+        color: var(--accent-color);
+    }
+
     /* Subsections */
     .subsection {
         margin-bottom: 25px;
@@ -168,77 +187,6 @@
         white-space: pre-wrap;
     }
 
-    /* --- INTERACTIVE: EYE BUTTON & VIEWPORT --- */
-    
-    .eye-btn {
-        position: relative;
-        width: 28px; height: 28px;
-        background: #000;
-        border: 1px solid var(--accent-color);
-        cursor: pointer;
-        padding: 4px;
-        display: inline-flex;
-        align-items: center; justify-content: center;
-        margin-left: 8px;
-        vertical-align: bottom;
-        transition: transform 0.1s;
-    }
-    .eye-btn svg { width: 100%; height: 100%; fill: var(--accent-color); }
-    .eye-btn:hover {
-        background: var(--accent-color);
-        transform: translate(-1px, -1px);
-        box-shadow: 2px 2px 0px var(--dim-color);
-    }
-    .eye-btn:hover svg { fill: #000; }
-
-    .dither-bg {
-        background-image: 
-            linear-gradient(45deg, var(--dim-color) 25%, transparent 25%), 
-            linear-gradient(-45deg, var(--dim-color) 25%, transparent 25%), 
-            linear-gradient(45deg, transparent 75%, var(--dim-color) 75%), 
-            linear-gradient(-45deg, transparent 75%, var(--dim-color) 75%);
-        background-size: 4px 4px;
-    }
-
-    .retro-viewport {
-        position: fixed;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        width: 80vw; height: 80vh;
-        max-width: 900px; max-height: 700px;
-        background-color: #000;
-        border: 2px solid var(--accent-color);
-        box-shadow: 0 0 50px rgba(0, 50, 0, 0.8);
-        display: flex; flex-direction: column;
-        z-index: 10000;
-        visibility: hidden; opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.2s;
-        resize: both; overflow: hidden;
-    }
-    .retro-viewport.active { visibility: visible; opacity: 1; pointer-events: auto; }
-
-    .vp-header {
-        background: var(--accent-color);
-        color: #000;
-        padding: 5px 10px;
-        font-weight: bold;
-        font-family: var(--font-header);
-        display: flex; justify-content: space-between;
-        align-items: center;
-        border-bottom: 2px solid #000;
-        cursor: default;
-    }
-    .vp-close {
-        background: #000; color: var(--accent-color);
-        border: 1px solid #000; font-weight: 900; 
-        cursor: pointer; font-family: var(--font-main);
-    }
-    .vp-close:hover { background: #fff; color: #000; }
-    
-    .vp-body { flex-grow: 1; position: relative; background: #000; }
-    .vp-body iframe { width: 100%; height: 100%; border: none; }
-
     /* --- RESPONSIVE --- */
     @media (max-width: 600px) {
         h1 { font-size: 1.8rem; border-bottom-width: 3px; }
@@ -247,7 +195,6 @@
         .container { padding: 10px; border: none; }
         .part-content, .section-content { padding: 10px; }
         p { text-align: left; }
-        .retro-viewport { width: 95vw; height: 60vh; }
     }
 </style>
 </head>
@@ -305,8 +252,6 @@
             <div class="accordion-content">
                 <p>In practice, these steps are the "safeguards" of a pipeline, ensuring the model doesn't just memorize patterns or "leak" answers. Engineers use <strong>MinHash LSH</strong> to scale this across millions of rows efficiently. <strong>Fuzzy Deduplication</strong> identifies "near-misses"—like the same recipe with different line breaks—and deletes them to prevent the model from overfitting on repetitive content. <strong>Decontamination</strong> acts as a "cheat check," where the training set is compared against benchmark test sets (like MMLU); any training sample too similar to a test question is purged to ensure the final evaluation measures true reasoning, not memorization.</p>
     
-                
-    
                 <h3>Exact Deduplication</h3>
                 <p><strong>Exact deduplication</strong> removes identical entries by normalizing data and comparing unique hash codes (e.g., <strong>SHA-256</strong>). If hashes match, the data is considered a duplicate.</p>
                 <ul>
@@ -329,8 +274,6 @@
     
                 <h4>2. Jaccard Similarity Index</h4>
                 <p>The <strong>Jaccard Similarity Index</strong> measures the resemblance between two sets. It is calculated by dividing the size of the <strong>intersection</strong> (shared shingles) by the size of the <strong>union</strong> (total unique shingles).</p>
-    
-                
     
                 <blockquote>
                     The formula for Jaccard Similarity is:
@@ -407,30 +350,42 @@
                 <p>In this context, <strong>data augmentation</strong> refers to the process of increasing both the quantity and the quality of data samples. While generation creates data from scratch, augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
                 <hr>
                 
-                <h4>1. Evol-Instruct (Upgrading the Input)</h4>
-                <p><strong>Evol-Instruct</strong> focuses on the <strong>Question</strong>. It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
-                <ul>
-                    <li><strong>In-Depth Evolving (Making it Harder):</strong> Increases the difficulty of a specific prompt.
+                                <details class="nested-accordion">
+                    <summary>1. Evol-Instruct (Upgrading the Prompt)</summary>
+                    <div class="accordion-content">
+                        <p><strong>Evol-Instruct</strong> focuses on the <strong>Question</strong>. It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
+                        
+                        <h5>Evolution Strategies:</h5>
                         <ul>
-                            <li><em>Constraints:</em> Adding strict rules or limits.</li>
-                            <li><em>Deepening:</em> Asking for comprehensive analysis rather than simple facts.</li>
-                            <li><em>Concretizing:</em> Making vague concepts specific.</li>
-                            <li><em>Reasoning Steps:</em> Demanding multi-step logic.</li>
-                            <li><em>Complicating Input:</em> Adding complex formats like code or JSON.</li>
+                            <li><strong>In-Depth Evolving (Making it Harder):</strong> Increases the difficulty of a specific prompt.
+                                <ul>
+                                    <li><em>Constraints:</em> Adding strict rules or limits.</li>
+                                    <li><em>Deepening:</em> Asking for comprehensive analysis rather than simple facts.</li>
+                                    <li><em>Concretizing:</em> Making vague concepts specific.</li>
+                                    <li><em>Reasoning Steps:</em> Demanding multi-step logic.</li>
+                                    <li><em>Complicating Input:</em> Adding complex formats like code or JSON.</li>
+                                </ul>
+                            </li>
+                            <li><strong>In-Breadth Evolving (Making it Diverse):</strong> Increases variety. It generates completely new, unique instructions inspired by the original ones to cover rare or niche topics.</li>
                         </ul>
-                    </li>
-                    <li><strong>In-Breadth Evolving (Making it Diverse):</strong> Increases variety. It generates completely new, unique instructions inspired by the original ones, focusing on rare or niche topics to prevent the dataset from being repetitive.</li>
-                </ul>
+                    </div>
+                </details>
+
+                                <details class="nested-accordion">
+                    <summary>2. UltraFeedback (Upgrading the Output)</summary>
+                    <div class="accordion-content">
+                        <p><strong>UltraFeedback</strong> upgrades the <strong>Answer</strong>. It keeps the prompt the same but generates multiple responses from different models, using an <strong>LLM as a Judge</strong> to select the best one.</p>
+                        
+                        <h5>The Workflow:</h5>
+                        <ul>
+                            <li><strong>The Inputs:</strong> Generate multiple answers (e.g., 4) for one question using different models.</li>
+                            <li><strong>The Rubric:</strong> Provide a "Judge" LLM with a specific scorecard (e.g., "Score 1-5 on technical accuracy and safety").</li>
+                            <li><strong>The Selection:</strong> The Judge evaluates the responses against the rubric and keeps only the highest-scoring answer for the final dataset.</li>
+                        </ul>
+                    </div>
+                </details>
         
-                <h4>2. UltraFeedback (Upgrading the Output)</h4>
-                <p><strong>UltraFeedback</strong> upgrades the <strong>Answer</strong>. It keeps the prompt the same but generates multiple responses from different models. An <strong>LLM as a Judge</strong> then rates these responses to select the highest-quality answer for training.</p>
-                <ul>
-                    <li><strong>The Inputs:</strong> You generate multiple answers (e.g., 4) for one question using different models.</li>
-                    <li><strong>The Rubric:</strong> You give a "Judge" LLM a specific scorecard (e.g., "Score 1-5 on adherence to military safety protocols").</li>
-                    <li><strong>The Selection:</strong> The Judge reads the text, scores it based on that rubric, and keeps only the highest-scoring answer.</li>
-                </ul>
-        
-                <p><em><strong>Summary:</strong> One builds better prompts (Evol-Instruct); the other curates better answers (UltraFeedback).</em></p>
+                <p style="margin-top: 15px;"><em><strong>Summary:</strong> One builds better prompts (Evol-Instruct); the other curates better answers (UltraFeedback).</em></p>
             </div>
         </details>
     </div>
@@ -508,7 +463,7 @@
             
             <div class="subsection">
                 <span class="subsection-title">LoRA - Low Rank Adaptation</span>
-                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen. </p>
+                                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen. </p>
                 
                 <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. At this stage, the model is standard. You must "freeze" the model, ensuring no original parameters will be updated during training. The PEFT library handles this freezing automatically when you apply the configuration.</p>
                 
@@ -529,7 +484,7 @@
 
             <div class="subsection">
                 <span class="subsection-title">QLoRA</span>
-                <p>Think of QLoRA as LoRA with a world-class packing strategy. It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware.</p>
+                                <p>Think of QLoRA as LoRA with a world-class packing strategy. It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware.</p>
                 <p><strong>Quantization</strong> is the process of reducing the precision of a model’s numerical values to save memory and speed up processing. In computing, numbers are stored with a specific "bit-depth." High precision (32-bit) uses a massive range of decimals for extreme accuracy. Reducing precision means shortening those numbers—moving from long decimals to smaller ones or integers (like 8-bit or 4-bit). </p>
                 
                 <p><strong>1. Base Model Preparation (4-bit Quantization):</strong> Load the base model using 4-bit NormalFloat (NF4). Unlike standard LoRA, which often uses 16-bit or 8-bit, QLoRA compresses the frozen weights ($W$) into a specialized 4-bit format. This NF4 data type is mathematically optimized for normally distributed weights, ensuring minimal information loss while slashing VRAM requirements by up to 75% compared to full-precision tuning.</p>
@@ -552,7 +507,7 @@
             
             <div class="subsection">
                 <span class="subsection-title">Direct Preference Optimization (DPO)</span>
-                <p>Maximize the accuracy, diversity, and complexity of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
+                                <p>Maximize the accuracy, diversity, and complexity of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
                 
                 <p><strong>Data Quantity:</strong> DPO is sample-efficient, meaning it requires significantly less data than SFT to fundamentally change a model’s behavior.</p>
                 <ul>
