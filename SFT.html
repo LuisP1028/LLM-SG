@@ -1,10 +1,18 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Part IV: Supervised Fine-Tuning // Study Guide</title>
+<script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']]
+        }
+    };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
 <style>
     :root {
         --bg-color: #000000;
@@ -248,33 +256,41 @@
 <div class="scanlines"></div>
 <div class="container">
 <h1>Part IV: Supervised Fine-Tuning</h1>
-code
-Code
 <div class="part-content">
     
-    <details class="section">
-        <summary>1. Preparations for SFT & Data Curation</summary>
-        <div class="section-content">
-            <p>Refines the model’s capabilities using carefully curated pairs of instructions and corresponding answers.</p>
-            
-            <div class="subsection">
-                <span class="subsection-title">Essential Dimensions</span>
+    <details class="section" open> <summary>1. Preparations for SFT & Data Curation</summary> <div class="section-content"> <p>Refines the model’s capabilities using carefully curated pairs of instructions and corresponding answers.</p>
+
+        <details class="subsection-accordion">
+            <summary>Essential Dimensions of Data</summary>
+            <div class="accordion-content">
                 <ul>
-                    <li><strong>Accuracy:</strong> Accuracy ensures that the data is factually correct and directly answers the user's specific instruction. It is crucial for building trust, as the model must learn to provide reliable, true information rather than incorrect facts or irrelevant responses.</li>
-                    <li><strong>Diversity:</strong> Diversity means the dataset must cover a wide variety of topics, writing styles, and lengths. It should represent the many different ways people will actually use the model. This variety helps the AI become flexible enough to handle new situations and valid requests.</li>
-                    <li><strong>Complexity:</strong> Complexity avoids easy or trivial examples that do not challenge the model. Instead, the data should include difficult tasks and multi-step reasoning problems. Training on harder material pushes the AI to develop the logic needed to solve real-world problems.</li>
-                    <li><strong>Data Quantity:</strong> The Hugging Face Hub contains numerous instruction datasets, which can be general-purpose or designed for particular tasks or domains.</li>
+                    <li>
+                        <strong>Accuracy:</strong> Accuracy ensures that the data is factually correct and directly answers the user's specific instruction. It is crucial for building trust, as the model must learn to provide reliable, true information rather than incorrect facts or irrelevant responses.
+                    </li>
+                    <li>
+                        <strong>Diversity:</strong> Diversity means the dataset must cover a wide variety of topics, writing styles, and lengths. It should represent the many different ways people will actually use the model. This variety helps the AI become flexible enough to handle new situations and valid requests.
+                    </li>
+                    <li>
+                        <strong>Complexity:</strong> Complexity avoids easy or trivial examples that do not challenge the model. Instead, the data should include difficult tasks and multi-step reasoning problems. Training on harder material pushes the AI to develop the logic needed to solve real-world problems.
+                    </li>
+                    <li>
+                        <strong>Data Quantity:</strong> The Hugging Face Hub contains numerous instruction datasets, which can be general-purpose or designed for particular tasks or domains.
+                    </li>
                 </ul>
             </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Task vs. Domain Specific Models</span>
-                <p><strong>Task-specific</strong> models focus on performing a single action, such as translation or summarization, often requiring less data and smaller model sizes. For task specific models, data curation often involves collecting examples of the desired task from existing datasets or creating new ones.</p>
+        </details>
+    
+        <details class="subsection-accordion">
+            <summary>Task vs. Domain Specific Models</summary>
+            <div class="accordion-content">
+                <p><strong>Task-specific</strong> models focus on performing a single action, such as translation or summarization, often requiring less data and smaller model sizes. For task-specific models, data curation often involves collecting examples of the desired task from existing datasets or creating new ones.</p>
                 <p><strong>Domain-specific</strong> models, however, focus on mastering a specific industry, like law or medicine. They prioritize specialized knowledge and vocabulary, with data needs varying based on the field's complexity. Domains that are well-represented in the original training data may require less fine-tuning, while those that are more specialized or underrepresented may need more extensive datasets.</p>
             </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Data Curation</span>
+        </details>
+    
+        <details class="subsection-accordion">
+            <summary>Data Curation: Rule-Based Filtering</summary>
+            <div class="accordion-content">
                 <p><strong>Rule-based filtering</strong> is a quality control method that uses explicit, pre-set rules to automatically keep or remove data samples. It aims to maintain high standards by strictly enforcing specific criteria. Its speed and efficiency allow for rapid application to large volumes of data, making it highly scalable.</p>
                 <ul>
                     <li><strong>Length filtering:</strong> This rule manages data quality by setting minimum and maximum size limits. It removes responses that are too short to be meaningful or too long and repetitive, though the specific limits depend on the task (e.g., a summary vs. a detailed explanation).</li>
@@ -282,80 +298,142 @@ Code
                     <li><strong>Format checking:</strong> This rule validates the structure of the data. It ensures that samples, particularly technical ones like computer code or JSON, follow specific formatting requirements so they remain consistent and usable.</li>
                 </ul>
             </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Data Deduplication</span>
+        </details>
+    
+        <details class="subsection-accordion">
+            <summary>Data Deduplication & Decontamination</summary>
+            <div class="accordion-content">
+                <p>In practice, these steps are the "safeguards" of a pipeline, ensuring the model doesn't just memorize patterns or "leak" answers. Engineers use <strong>MinHash LSH</strong> to scale this across millions of rows efficiently. <strong>Fuzzy Deduplication</strong> identifies "near-misses"—like the same recipe with different line breaks—and deletes them to prevent the model from overfitting on repetitive content. <strong>Decontamination</strong> acts as a "cheat check," where the training set is compared against benchmark test sets (like MMLU); any training sample too similar to a test question is purged to ensure the final evaluation measures true reasoning, not memorization.</p>
+    
                 
-                <p>
-                    <strong>Exact Deduplication:</strong>
-                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='SFT/exact_dedup.html'; vp.classList.add('active');">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </button>
-                    Exact deduplication removes identical entries by normalizing data and comparing unique hash codes (e.g., SHA-256). If hashes match, data is duplicated. While precise, this method only catches exact copies and misses slightly modified or semantically similar content.
-                </p>
-            
-                <p>
-                    <strong>Fuzzy Deduplication:</strong>
-                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='SFT/fuzzy_dedup.html'; vp.classList.add('active');">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </button>
-                    Fuzzy deduplication detects near-duplicates using MinHash. It breaks data into shingle fingerprints and checks Jaccard similarity to efficiently spot matches. Shingles are overlapping subsequences (often n-grams of words or characters) used to convert a text document into a mathematical set. For example, "red car" might become the set {"red", "ed ", " ca", "car"}. Jaccard similarity measures the resemblance between two such sets. It is calculated by dividing the size of the intersection (shared shingles) by the size of the union (total unique shingles). A score of 1.0 indicates identical sets, while 0.0 means no overlap.
-                </p>
-            </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Data Decontamination</span>
-                <p>Applies the tools from data deduplication with a specific boundary: it ensures no material from the test/evaluation set exists within the training set. Adapting these methods changes the target: compare training data against the test set to find overlaps.</p>
+    
+                <h3>Exact Deduplication</h3>
+                <p><strong>Exact deduplication</strong> removes identical entries by normalizing data and comparing unique hash codes (e.g., <strong>SHA-256</strong>). If hashes match, the data is considered a duplicate.</p>
                 <ul>
-                    <li><strong>Exact:</strong> Compute hashes (e.g., SHA-256) for both sets. If a training hash matches a test hash, delete the training sample.</li>
-                    <li><strong>Fuzzy:</strong> Use MinHash or N-grams to find training samples similar to test samples. If similarity exceeds a threshold, remove the training data to prevent leakage.</li>
+                    <li><strong>Precision:</strong> Extremely high for identical copies.</li>
+                    <li><strong>Limitation:</strong> It is "brittle"—it misses documents with even a single character difference, typos, or semantically similar content.</li>
+                </ul>
+    
+                <hr>
+    
+                <h3>Fuzzy Deduplication</h3>
+                <p><strong>Fuzzy deduplication</strong> detects <em>near-duplicates</em> using <strong>MinHash</strong>. This process involves breaking data into "shingle" fingerprints to compare documents that are similar but not identical.</p>
+    
+                <h4>1. Shingling & N-grams</h4>
+                <p><strong>Shingles</strong> are overlapping subsequences used to convert text into a mathematical set. For example, the phrase "red car" might become the set: <code>{"red", "ed ", " ca", "car"}</code>.</p>
+                <p>These are often categorized as <strong>n-grams</strong> (contiguous sequences of <em>n</em> items):</p>
+                <ul>
+                    <li><strong>Character n-gram:</strong> "Code" (n=3) -> <code>{"Cod", "ode"}</code></li>
+                    <li><strong>Word n-gram:</strong> "My code runs" (n=2) ->  <code>{"My code", "code runs"}</code></li>
+                </ul>
+    
+                <h4>2. Jaccard Similarity Index</h4>
+                <p>The <strong>Jaccard Similarity Index</strong> measures the resemblance between two sets. It is calculated by dividing the size of the <strong>intersection</strong> (shared shingles) by the size of the <strong>union</strong> (total unique shingles).</p>
+    
+                
+    
+                <blockquote>
+                    The formula for Jaccard Similarity is:
+                    $$J(A, B) = \frac{|A \cap B|}{|A \cup B|}$$
+                </blockquote>
+    
+                <ul>
+                    <li>A score of <strong>1.0</strong> indicates identical sets (complete overlap).</li>
+                    <li>A score of <strong>0.0</strong> indicates no overlap whatsoever.</li>
                 </ul>
             </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Data Quality Evaluation</span>
-                <p>Data quality evaluation measures attributes like accuracy, diversity, and complexity to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use LLM-as-a-judge workflows to automate this assessment.</p>
-                <p><strong>LLM-as-a-judge</strong> strategy involves prompting LLMs to evaluate the quality of each sample:</p>
+        </details>
+    
+        <details class="subsection-accordion">
+            <summary>Data Quality Evaluation (LLM-as-a-Judge)</summary>
+            <div class="accordion-content">
+                <p>Measures attributes like accuracy, diversity, and complexity to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use <strong>LLM-as-a-judge</strong> workflows to automate this assessment.</p>
+        
+                <h3>LLM-as-a-Judge: Scoring vs. Ranking</h3>
+                <p>When using an LLM to evaluate preference data, there are two primary methods:</p>
                 <ul>
-                    <li><strong>Domain Specificity:</strong> For specialized fields (e.g., medicine), a model trained on that niche often evaluates technical context better than a "smarter," general-purpose model.</li>
-                    <li><strong>Scoring Method:</strong> Comparative assessment (ranking "A is better than B") is more reliable than absolute scoring (rating 1–5). Models find it easier to distinguish relative quality than to adhere to an arbitrary numeric standard.</li>
+                    <li><strong>Absolute Scoring:</strong> The LLM assigns a 1–5 or "Good/Bad" rating to a single response. It’s fast but often inconsistent across different prompts or sessions.</li>
+                    <li><strong>Pairwise Ranking [Best]:</strong> The LLM compares two responses (A vs. B) to pick a winner. This is the gold standard for DPO because it mimics human decision-making and produces more stable, relative signals.</li>
                 </ul>
-                
-                <span class="subsection-title">Biases of LLM-as-a-judge</span>
+        
+                <h3>Boosting Evaluation Accuracy</h3>
                 <ul>
-                     <li><strong>Position Bias:</strong> Favoring the first answer presented.</li>
-                     <li><strong>Verbosity Bias:</strong> Preferring longer responses.</li>
-                     <li><strong>Self-Preference:</strong> Rating their own model family higher.</li>
+                    <li><strong>CoT + Pairwise Ranking:</strong> Use when the task is highly subjective or creative (e.g., poetry, persona-mimicry).
+                        <br><em>Strength:</em> Forces logical justification. Since no "answer key" exists, the judge's own reasoning process ensures it weighs complex trade-offs—like creativity vs. clarity—before picking a winner. It prevents reliance on "vibes" or length by building an independent logical path.
+                    </li>
+                    <li><strong>Ground Truth + Pairwise Ranking:</strong> Use when there is a definitive "correct" answer (e.g., Python scripts, calculus, or history).
+                        <br><em>Strength:</em> Acts as an immutable anchor. It eliminates hallucinations by providing the judge with the "answer key," forcing it to penalize confident but incorrect logic. It shifts the task from "Which sounds better?" to "Which is more correct?"
+                    </li>
+                    <li><strong>The Rubric + Pairwise Ranking:</strong> Use when the task is constrained by specific requirements but lacks a single "right" answer (e.g., "Summarize this for a 5-year-old").
+                        <br><em>Strength:</em> Prevents "goalpost shifting." By defining the ideal criteria first, the judge resists favoring superficial traits like politeness or length over actual compliance, leading to a much cleaner training signal.
+                    </li>
+                </ul>
+        
+                <p><strong>Biases of LLM-as-a-judge:</strong></p>
+                <ul>
+                    <li><strong>Position Bias:</strong> Favoring the first answer presented.</li>
+                    <li><strong>Verbosity Bias:</strong> Preferring longer responses.</li>
+                    <li><strong>Self-Preference:</strong> Rating their own model family higher.</li>
                 </ul>
                 <p>Counter these by randomizing order, length normalization, and using diverse judges.</p>
-
-                <p><strong>Reward Models:</strong> Choose a reward model when evaluating massive datasets where inference latency and cost are critical constraints. A reward model is structurally modified: it replaces the text-generating layer with a linear head to directly output a raw numerical scalar score. One narrates quality; the other calculates it. LLM-as-a-judge uses standard text generation; it is prompted to "speak" the result (e.g., generating the token "5"). Use LLM-as-a-judge for explainability or zero-shot tasks; use Reward Models for ranking pipelines (like RLHF) that need a stable, continuous signal.</p>
-                <p><strong>Encoder Only Models:</strong> Encoder-only models (like BERT) are optimized to convert text into embeddings, making them ideal for rapid classification.</p>
+        
+                <h3>Reinforcement Learning from Human Feedback (RLHF)</h3>
+                <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
+        
+                <ol>
+                    <li><strong>The Reward Model (Learning "Taste"):</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
+                    <li><strong>Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
+                    <li><strong>How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the <strong>Advantage</strong>: how much better this response was compared to the model's average.
+                        <ul>
+                            <li><strong>Positive score:</strong> The model is nudged to produce similar outputs.</li>
+                            <li><strong>Negative score:</strong> The model is nudged away.</li>
+                        </ul>
+                    </li>
+                </ol>
             </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Data Exploration & Generation</span>
-                <p><strong>Data Exploration:</strong> Statistical analysis uses NLP libraries like NLTK and spaCy to scan text for vocabulary diversity and bias via tokenization. Tools like Matplotlib and Seaborn visualize this data. Topic clustering automatically groups similar documents to uncover hidden themes and trends within large datasets. It converts text into numerical embeddings using sentence transformers. Algorithms like DBSCAN then group these vectors based on their proximity in this mathematical space.</p>
-                <p><strong>Data Generation:</strong> When the available instruction datasets are not sufficient, creating custom data becomes necessary. Synthetic data pipelines generate and validate training sets. They tune attributes to fill gaps but need oversight to stop inherited errors and ensure diversity.</p>
-                <p>Data generation builds custom datasets starting with a <strong>taxonomy</strong>. Taxonomy refers to both the organized map of skills—breaking a broad domain into specific sub-capabilities to ensure full coverage—and the specific seed instructions used to prompt the model. Taxonomy is the <em>what</em> (the list of skills/topics). Seed is the <em>how</em> (the prompt template used to generate the data).</p>
+        </details>
+    
+        <details class="subsection-accordion">
+            <summary>Data Exploration & Generation</summary>
+            <div class="accordion-content">
+                <p><strong>Data Exploration:</strong> Statistical analysis uses NLP libraries like NLTK and spaCy. Topic clustering converts text into numerical embeddings using sentence transformers (e.g., DBSCAN) to group vectors based on proximity.</p>
+                <p><strong>Data Generation:</strong> Synthetic data pipelines generate and validate training sets starting with a <strong>taxonomy</strong> (the organized map of skills) and <strong>seeds</strong> (the prompt templates used to generate the data).</p>
             </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Data Augmentation</span>
-                <p>In this context, data augmentation refers to the process of increasing both the quantity and the quality of data samples. Generation creates data from scratch. Augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
-                <p><strong>Evol-Instruct:</strong></p>
+        </details>
+    
+        <details class="subsection-accordion">
+            <summary>Data Augmentation (Evol-Instruct & UltraFeedback)</summary>
+            <div class="accordion-content">
+                <p>In this context, <strong>data augmentation</strong> refers to the process of increasing both the quantity and the quality of data samples. While generation creates data from scratch, augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
+                <hr>
+                
+                <h4>1. Evol-Instruct (Upgrading the Input)</h4>
+                <p><strong>Evol-Instruct</strong> focuses on the <strong>Question</strong>. It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
                 <ul>
-                    <li><strong>In-Depth Evolving (Making it Harder):</strong> This increases the difficulty of a specific prompt to force the model to think harder. Techniques include Constraints, Deepening, Concretizing , Reasoning Steps, and Complicating Input.</li>
-                    <li><strong>In-Breadth Evolving (Making it Diverse):</strong> This increases variety. It generates completely new, unique instructions inspired by the original ones, focusing on rare or niche topics to prevent the dataset from being repetitive.</li>
+                    <li><strong>In-Depth Evolving (Making it Harder):</strong> Increases the difficulty of a specific prompt.
+                        <ul>
+                            <li><em>Constraints:</em> Adding strict rules or limits.</li>
+                            <li><em>Deepening:</em> Asking for comprehensive analysis rather than simple facts.</li>
+                            <li><em>Concretizing:</em> Making vague concepts specific.</li>
+                            <li><em>Reasoning Steps:</em> Demanding multi-step logic.</li>
+                            <li><em>Complicating Input:</em> Adding complex formats like code or JSON.</li>
+                        </ul>
+                    </li>
+                    <li><strong>In-Breadth Evolving (Making it Diverse):</strong> Increases variety. It generates completely new, unique instructions inspired by the original ones, focusing on rare or niche topics to prevent the dataset from being repetitive.</li>
                 </ul>
-                <p><strong>UltraFeedback:</strong> Evol-Instruct upgrades the Question (Input). UltraFeedback upgrades the Answer (Output). It keeps the prompt the same but generates multiple responses from different models. An LLM AS A JUDGE then rates these responses, adhering to your constraints, to select the highest-quality answer for training. One builds better prompts; the other curates better answers.</p>
-                <p><strong>Example:</strong> The Inputs: You generate 4 different answers for one question using different models. The Rubric: You give a "Judge" LLM a specific scorecard. The Selection: The Judge reads the text, scores it based on that rubric, and keeps only the highest-scoring answer.</p>
+        
+                <h4>2. UltraFeedback (Upgrading the Output)</h4>
+                <p><strong>UltraFeedback</strong> upgrades the <strong>Answer</strong>. It keeps the prompt the same but generates multiple responses from different models. An <strong>LLM as a Judge</strong> then rates these responses to select the highest-quality answer for training.</p>
+                <ul>
+                    <li><strong>The Inputs:</strong> You generate multiple answers (e.g., 4) for one question using different models.</li>
+                    <li><strong>The Rubric:</strong> You give a "Judge" LLM a specific scorecard (e.g., "Score 1-5 on adherence to military safety protocols").</li>
+                    <li><strong>The Selection:</strong> The Judge reads the text, scores it based on that rubric, and keeps only the highest-scoring answer.</li>
+                </ul>
+        
+                <p><em><strong>Summary:</strong> One builds better prompts (Evol-Instruct); the other curates better answers (UltraFeedback).</em></p>
             </div>
-        </div>
+        </details>
+    </div>
     </details>
 
     <details class="section">
