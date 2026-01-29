@@ -240,24 +240,25 @@ A messaging system buffers the logs to ensure data safety if the target goes dow
                 
                 <div class="subsection">
                     <span class="subsection-title">Schedulers</span>
-                    <p><strong>Linear:</strong> Drops learning rate at a constant rate. Predictable, steady cooling.</p>
-                    <p><strong>Cosine:</strong> Bell-curve decay. Stays high longer, drops fast, ends with a very slow tail. Allows for precise fine-tuning in final steps.</p>
+                    <p><strong>Linear Scheduler:</strong> A <strong>Linear Scheduler</strong> drops the learning rate at a fixed, constant rate. After warmup, it follows a straight line to zero, offering predictable, steady cooling as the model trains.</p>
+                    <p><strong>Cosine Scheduler:</strong> A <strong>Cosine Scheduler</strong> follows a bell-curve decay. It stays high longer, then drops fast before a very slow "tail" at the end, allowing for extremely precise fine-tuning in the final steps.</p>
                 </div>
 
                 <div class="subsection">
-                    <span class="subsection-title">Efficiency & Context</span>
-                    <p><strong>Batch Size & Accumulation:</strong> Large batches give smoother gradients but eat VRAM. <em>Gradient Accumulation</em> mimics large batches by summing gradients over small "mini-batches".</p>
-                    <p><strong>Packing (Multipack):</strong> Stitches multiple short examples into one sequence to prevent VRAM waste on padding. Uses <strong>attention masks</strong> to "wall off" samples so the model doesn't confuse contexts.</p>
+                    <span class="subsection-title">Batch Size</span>
+                    <p><strong>Batch size</strong> is the number of data samples processed before the model updates its internal weights. Larger batches provide smoother, more accurate gradient estimates but demand high VRAM. If memory is tight, <strong>gradient accumulation</strong> mimics large batches by summing gradients over multiple small "mini-batches" before updating.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Maximum Length and Packing</span>
+                    <p><strong>Maximum Sequence Length</strong> defines the token limit for a single input. Anything longer is truncated, while shorter inputs are often "padded" with empty tokens to match the length, which wastes VRAM.</p>
+                    <p><strong>Packing</strong> (or "Multipack") fixes this inefficiency by stitching multiple short examples into a single sequence up to the maximum length. Instead of processing 500 tokens of data and 1500 tokens of useless padding, packing fills that slot with other real samples. To prevent the model from confusing these unrelated texts, <strong>attention masks</strong> are used to "wall off" each sample, ensuring the model only looks at tokens within the same original context.</p>
                 </div>
 
                 <div class="subsection">
                     <span class="subsection-title">Optimizers</span>
-                    <p><strong>AdamW:</strong> The gold standard. Uses "moments" and weight decay.</p>
-                    <ul>
-                        <li><em>32-bit:</em> Highest precision.</li>
-                        <li><em>8-bit:</em> Quantized. Saves massive VRAM with similar quality.</li>
-                    </ul>
-                    <p><strong>Paged Optimizers:</strong> Offload state to CPU RAM when GPU is full (prevents OOM crashes).</p>
+                    <p><strong>AdamW (8-bit & 32-bit):</strong> <strong>AdamW</strong> is the gold standard for LLMs. It uses "moments"—a memory of past gradients—to smooth updates and applies <strong>weight decay</strong> to prevent overfitting. While the 32-bit version is most precise, the <strong>8-bit version</strong> quantizes these moments to save massive amounts of VRAM. It provides the same convergence quality as full precision but allows you to train much larger models on consumer hardware.</p>
+                    <p><strong>Paged & Standard Torch Optimizers — QLoRA Optimizers:</strong> <strong>Paged Optimizers</strong> (like Paged AdamW) act as a safety net; they offload optimizer states to CPU RAM when the GPU VRAM is full, preventing "Out of Memory" crashes. Conversely, <strong>adamw_torch</strong> is the uncompressed, 32-bit baseline. It offers the highest mathematical precision and is the best choice if your hardware has enough VRAM to handle the full weight of the optimizer's state without quantization.</p>
                 </div>
 
             </div>
