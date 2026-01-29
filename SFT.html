@@ -204,29 +204,22 @@
 <div class="container">
 <h1>Part IV: Supervised Fine-Tuning</h1>
 <div class="part-content">
-    
-    <details class="section" open> <summary>1. Preparations for SFT & Data Curation</summary> <div class="section-content"> <p>Refines the model’s capabilities using carefully curated pairs of instructions and corresponding answers.</p>
 
+    <details class="section" open> <summary>1. Data Strategy & Acquisition</summary> <div class="section-content"> 
+        <p>Defining the raw material and strategic goals before processing begins.</p>
+        
         <details class="nested-accordion">
             <summary>Essential Dimensions of Data</summary>
             <div class="accordion-content">
                 <ul>
-                    <li>
-                        <strong>Accuracy:</strong> Accuracy ensures that the data is factually correct and directly answers the user's specific instruction. It is crucial for building trust, as the model must learn to provide reliable, true information rather than incorrect facts or irrelevant responses.
-                    </li>
-                    <li>
-                        <strong>Diversity:</strong> Diversity means the dataset must cover a wide variety of topics, writing styles, and lengths. It should represent the many different ways people will actually use the model. This variety helps the AI become flexible enough to handle new situations and valid requests.
-                    </li>
-                    <li>
-                        <strong>Complexity:</strong> Complexity avoids easy or trivial examples that do not challenge the model. Instead, the data should include difficult tasks and multi-step reasoning problems. Training on harder material pushes the AI to develop the logic needed to solve real-world problems.
-                    </li>
-                    <li>
-                        <strong>Data Quantity:</strong> The Hugging Face Hub contains numerous instruction datasets, which can be general-purpose or designed for particular tasks or domains.
-                    </li>
+                    <li><strong>Accuracy:</strong> Accuracy ensures that the data is factually correct and directly answers the user's specific instruction. It is crucial for building trust, as the model must learn to provide reliable, true information rather than incorrect facts or irrelevant responses.</li>
+                    <li><strong>Diversity:</strong> Diversity means the dataset must cover a wide variety of topics, writing styles, and lengths. It should represent the many different ways people will actually use the model. This variety helps the AI become flexible enough to handle new situations and valid requests.</li>
+                    <li><strong>Complexity:</strong> Complexity avoids easy or trivial examples that do not challenge the model. Instead, the data should include difficult tasks and multi-step reasoning problems. Training on harder material pushes the AI to develop the logic needed to solve real-world problems.</li>
+                    <li><strong>Data Quantity:</strong> The Hugging Face Hub contains numerous instruction datasets, which can be general-purpose or designed for particular tasks or domains.</li>
                 </ul>
             </div>
         </details>
-    
+
         <details class="nested-accordion">
             <summary>Task vs. Domain Specific Models</summary>
             <div class="accordion-content">
@@ -234,7 +227,118 @@
                 <p><strong>Domain-specific</strong> models, however, focus on mastering a specific industry, like law or medicine. They prioritize specialized knowledge and vocabulary, with data needs varying based on the field's complexity. Domains that are well-represented in the original training data may require less fine-tuning, while those that are more specialized or underrepresented may need more extensive datasets.</p>
             </div>
         </details>
-    
+
+        <details class="nested-accordion">
+            <summary>Data Exploration & Generation</summary>
+            <div class="accordion-content">
+                <h4>Data Exploration</h4>
+                <p><strong>Statistical Analysis:</strong> Uses NLP libraries like NLTK and spaCy to scan text for vocabulary diversity and bias via tokenization. Tools like Matplotlib and Seaborn visualize this data (e.g., histograms) to highlight language patterns.</p>
+                <p><strong>Topic Clustering:</strong> Automatically groups similar documents to uncover hidden themes and trends within large datasets. It converts text into numerical embeddings (vectors) using sentence transformers. Algorithms like DBSCAN then group these vectors based on their proximity in this mathematical space.</p>
+                
+                <hr />
+                
+                <h4>Data Generation</h4>
+                <p>When available instruction datasets are not sufficient, custom data creation is necessary. Synthetic data pipelines generate and validate training sets, tuning attributes to fill gaps while requiring oversight to prevent inherited errors.</p>
+                <p><strong>How It Works:</strong> Data generation builds custom datasets starting with a <strong>taxonomy</strong>.</p>
+                <ul>
+                    <li><strong>Taxonomy (The "What"):</strong> The organized map of skills—breaking a broad domain into specific sub-capabilities to ensure full coverage (e.g., coding → debugging → loops).</li>
+                    <li><strong>Seed (The "How"):</strong> The specific seed instructions (prompt templates) used to generate the data.</li>
+                </ul>
+                <p>These elements combined aid in the generation of massive instruction-response pairs.</p>
+            </div>
+        </details>
+
+        <details class="nested-accordion">
+            <summary>Data Augmentation (Evol-Instruct & UltraFeedback)</summary>
+            <div class="accordion-content">
+                <p>In this context, <strong>data augmentation</strong> refers to the process of increasing both the quantity and the quality of data samples. While generation creates data from scratch, augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
+                                <hr>
+                
+                <details class="nested-accordion">
+                    <summary>1. Evol-Instruct (Upgrading the Prompt)</summary>
+                    <div class="accordion-content">
+                        <p><strong>Evol-Instruct</strong> focuses on the <strong>Question</strong>. It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
+                        
+                        <h5>Evolution Strategies:</h5>
+                        <ul>
+                            <li><strong>In-Depth Evolving (Making it Harder):</strong> Increases the difficulty of a specific prompt.
+                                <ul>
+                                    <li><em>Constraints:</em> Adding strict rules or limits.</li>
+                                    <li><em>Deepening:</em> Asking for comprehensive analysis rather than simple facts.</li>
+                                    <li><em>Concretizing:</em> Making vague concepts specific.</li>
+                                    <li><em>Reasoning Steps:</em> Demanding multi-step logic.</li>
+                                    <li><em>Complicating Input:</em> Adding complex formats like code or JSON.</li>
+                                </ul>
+                            </li>
+                            <li><strong>In-Breadth Evolving (Making it Diverse):</strong> Increases variety. It generates completely new, unique instructions inspired by the original ones to cover rare or niche topics.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="nested-accordion">
+                    <summary>2. UltraFeedback (Upgrading the Output)</summary>
+                    <div class="accordion-content">
+                        <p><strong>UltraFeedback</strong> upgrades the <strong>Answer</strong>. It keeps the prompt the same but generates multiple responses from different models, using an <strong>LLM as a Judge</strong> to select the best one.</p>
+                        
+                        <h5>The Workflow:</h5>
+                        <ul>
+                            <li><strong>The Inputs:</strong> Generate multiple answers (e.g., 4) for one question using different models.</li>
+                            <li><strong>The Rubric:</strong> Provide a "Judge" LLM with a specific scorecard (e.g., "Score 1-5 on technical accuracy and safety").</li>
+                            <li><strong>The Selection:</strong> The Judge evaluates the responses against the rubric and keeps only the highest-scoring answer for the final dataset.</li>
+                        </ul>
+                    </div>
+                </details>
+        
+                <p style="margin-top: 15px;"><em><strong>Summary:</strong> One builds better prompts (Evol-Instruct); the other curates better answers (UltraFeedback).</em></p>
+
+                <details class="nested-accordion">
+                    <summary>3. Evol Instruct Examples</summary>
+                    <div class="accordion-content">
+                        <div class="subsection">
+                            <span class="subsection-title">Infrastructure</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Inspect the bridge for damage.</li>
+                                <li><strong>In-Depth (Constraint):</strong> Inspect the bridge for micro-fractures in the support pylons using thermal imaging data, citing specific ISO safety standards for load-bearing capacity.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Develop a predictive maintenance schedule for an aging underground sewer network based on soil acidity levels.</li>
+                            </ul>
+                        </div>
+            
+                        <div class="subsection">
+                            <span class="subsection-title">Defense</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Analyze satellite imagery.</li>
+                                <li><strong>In-Depth (Complicating Input):</strong> Analyze the provided raw JSON telemetry from a surveillance drone to identify camouflaged vehicle heat signatures, ignoring background radiation noise.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Formulate a jamming protocol to disrupt enemy communication channels during a high-altitude paratrooper insertion.</li>
+                            </ul>
+                        </div>
+            
+                        <div class="subsection">
+                            <span class="subsection-title">Healthcare</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Diagnose the patient's fever.</li>
+                                <li><strong>In-Depth (Reasoning):</strong> Diagnose the fever in a post-transplant patient exhibiting rejection signs, differentiating it from a bacterial infection using the provided blood panel results.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Outline a triage procedure for a mass-casualty event involving exposure to a rare neurotoxin in a metropolitan area.</li>
+                            </ul>
+                        </div>
+            
+                        <div class="subsection">
+                            <span class="subsection-title">Aerospace</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Check the landing gear.</li>
+                                <li><strong>In-Depth (Constraint):</strong> Troubleshoot the landing gear hydraulic failure occurring specifically at -40°C, proposing a fix that adds no more than 5kg of weight to the assembly.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Calculate the trajectory correction burn required for a probe entering a polar orbit around Europa.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </details>
+    </div>
+    </details>
+
+    <details class="section"> <summary>2. Data Curation & Refinement</summary> <div class="section-content"> 
+        <p>Filtering and evaluating the raw data to ensure high quality before packaging.</p>
+
         <details class="nested-accordion">
             <summary>Data Curation: Rule-Based Filtering</summary>
             <div class="accordion-content">
@@ -251,7 +355,7 @@
             <summary>Data Deduplication & Decontamination</summary>
             <div class="accordion-content">
                 <p>In practice, these steps are the "safeguards" of a pipeline, ensuring the model doesn't just memorize patterns or "leak" answers. Engineers use <strong>MinHash LSH</strong> to scale this across millions of rows efficiently. <strong>Fuzzy Deduplication</strong> identifies "near-misses"—like the same recipe with different line breaks—and deletes them to prevent the model from overfitting on repetitive content. <strong>Decontamination</strong> acts as a "cheat check," where the training set is compared against benchmark test sets (like MMLU); any training sample too similar to a test question is purged to ensure the final evaluation measures true reasoning, not memorization.</p>
-    
+                
                 <details class="nested-accordion">
                     <summary>Exact Deduplication</summary>
                     <div class="accordion-content">
@@ -297,7 +401,7 @@
             <summary>Data Quality Evaluation (LLM-as-a-judge)</summary>
             <div class="accordion-content">
                 <p>Measures attributes like accuracy, diversity, and complexity to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use <strong>LLM-as-a-judge</strong> workflows to automate this assessment.</p>
-        
+                        
                 <details class="nested-accordion">
                     <summary>LLM-as-a-Judge: Scoring vs. Ranking</summary>
                     <div class="accordion-content">
@@ -384,137 +488,15 @@
         
                     </div>
                 </details>
-        
-                <details class="nested-accordion">
-                    <summary>Reinforcement Learning from Human Feedback (RLHF)</summary>
-                    <div class="accordion-content">
-                        <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
-                        <ol>
-                            <li><strong>The Reward Model (Learning "Taste"):</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
-                            <li><strong>Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
-                            <li><strong>How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the <strong>Advantage</strong>: how much better this response was compared to the model's average.
-                                <ul>
-                                    <li><strong>Positive score:</strong> The model is nudged to produce similar outputs.</li>
-                                    <li><strong>Negative score:</strong> The model is nudged away.</li>
-                                </ul>
-                            </li>
-                        </ol>
-                    </div>
-                </details>
             </div>
-        </details>
-    
-        <details class="nested-accordion">
-            <summary>Data Exploration & Generation</summary>
-            <div class="accordion-content">
-                <h4>Data Exploration</h4>
-                <p><strong>Statistical Analysis:</strong> Uses NLP libraries like NLTK and spaCy to scan text for vocabulary diversity and bias via tokenization. Tools like Matplotlib and Seaborn visualize this data (e.g., histograms) to highlight language patterns.</p>
-                <p><strong>Topic Clustering:</strong> Automatically groups similar documents to uncover hidden themes and trends within large datasets. It converts text into numerical embeddings (vectors) using sentence transformers. Algorithms like DBSCAN then group these vectors based on their proximity in this mathematical space.</p>
-                
-                <hr />
-                
-                <h4>Data Generation</h4>
-                <p>When available instruction datasets are not sufficient, custom data creation is necessary. Synthetic data pipelines generate and validate training sets, tuning attributes to fill gaps while requiring oversight to prevent inherited errors.</p>
-                <p><strong>How It Works:</strong> Data generation builds custom datasets starting with a <strong>taxonomy</strong>.</p>
-                <ul>
-                    <li><strong>Taxonomy (The "What"):</strong> The organized map of skills—breaking a broad domain into specific sub-capabilities to ensure full coverage (e.g., coding → debugging → loops).</li>
-                    <li><strong>Seed (The "How"):</strong> The specific seed instructions (prompt templates) used to generate the data.</li>
-                </ul>
-                <p>These elements combined aid in the generation of massive instruction-response pairs.</p>
-            </div>
-        </details>
-    
-        <details class="nested-accordion">
-            <summary>Data Augmentation (Evol-Instruct & UltraFeedback)</summary>
-            <div class="accordion-content">
-                <p>In this context, <strong>data augmentation</strong> refers to the process of increasing both the quantity and the quality of data samples. While generation creates data from scratch, augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
-                <hr>
-                
-                <details class="nested-accordion">
-                    <summary>1. Evol-Instruct (Upgrading the Prompt)</summary>
-                    <div class="accordion-content">
-                        <p><strong>Evol-Instruct</strong> focuses on the <strong>Question</strong>. It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
-                        
-                        <h5>Evolution Strategies:</h5>
-                        <ul>
-                            <li><strong>In-Depth Evolving (Making it Harder):</strong> Increases the difficulty of a specific prompt.
-                                <ul>
-                                    <li><em>Constraints:</em> Adding strict rules or limits.</li>
-                                    <li><em>Deepening:</em> Asking for comprehensive analysis rather than simple facts.</li>
-                                    <li><em>Concretizing:</em> Making vague concepts specific.</li>
-                                    <li><em>Reasoning Steps:</em> Demanding multi-step logic.</li>
-                                    <li><em>Complicating Input:</em> Adding complex formats like code or JSON.</li>
-                                </ul>
-                            </li>
-                            <li><strong>In-Breadth Evolving (Making it Diverse):</strong> Increases variety. It generates completely new, unique instructions inspired by the original ones to cover rare or niche topics.</li>
-                        </ul>
-                    </div>
-                </details>
-
-                <details class="nested-accordion">
-                    <summary>2. UltraFeedback (Upgrading the Output)</summary>
-                    <div class="accordion-content">
-                        <p><strong>UltraFeedback</strong> upgrades the <strong>Answer</strong>. It keeps the prompt the same but generates multiple responses from different models, using an <strong>LLM as a Judge</strong> to select the best one.</p>
-                        
-                        <h5>The Workflow:</h5>
-                        <ul>
-                            <li><strong>The Inputs:</strong> Generate multiple answers (e.g., 4) for one question using different models.</li>
-                            <li><strong>The Rubric:</strong> Provide a "Judge" LLM with a specific scorecard (e.g., "Score 1-5 on technical accuracy and safety").</li>
-                            <li><strong>The Selection:</strong> The Judge evaluates the responses against the rubric and keeps only the highest-scoring answer for the final dataset.</li>
-                        </ul>
-                    </div>
-                </details>
-        
-                <p style="margin-top: 15px;"><em><strong>Summary:</strong> One builds better prompts (Evol-Instruct); the other curates better answers (UltraFeedback).</em></p>
-
-                <details class="nested-accordion">
-                    <summary>Evol Instruct Examples</summary>
-                    <div class="accordion-content">
-                        <div class="subsection">
-                            <span class="subsection-title">Infrastructure</span>
-                            <ul>
-                                <li><strong>Base Instruction:</strong> Inspect the bridge for damage.</li>
-                                <li><strong>In-Depth (Constraint):</strong> Inspect the bridge for micro-fractures in the support pylons using thermal imaging data, citing specific ISO safety standards for load-bearing capacity.</li>
-                                <li><strong>In-Breadth (New Topic):</strong> Develop a predictive maintenance schedule for an aging underground sewer network based on soil acidity levels.</li>
-                            </ul>
-                        </div>
-            
-                        <div class="subsection">
-                            <span class="subsection-title">Defense</span>
-                            <ul>
-                                <li><strong>Base Instruction:</strong> Analyze satellite imagery.</li>
-                                <li><strong>In-Depth (Complicating Input):</strong> Analyze the provided raw JSON telemetry from a surveillance drone to identify camouflaged vehicle heat signatures, ignoring background radiation noise.</li>
-                                <li><strong>In-Breadth (New Topic):</strong> Formulate a jamming protocol to disrupt enemy communication channels during a high-altitude paratrooper insertion.</li>
-                            </ul>
-                        </div>
-            
-                        <div class="subsection">
-                            <span class="subsection-title">Healthcare</span>
-                            <ul>
-                                <li><strong>Base Instruction:</strong> Diagnose the patient's fever.</li>
-                                <li><strong>In-Depth (Reasoning):</strong> Diagnose the fever in a post-transplant patient exhibiting rejection signs, differentiating it from a bacterial infection using the provided blood panel results.</li>
-                                <li><strong>In-Breadth (New Topic):</strong> Outline a triage procedure for a mass-casualty event involving exposure to a rare neurotoxin in a metropolitan area.</li>
-                            </ul>
-                        </div>
-            
-                        <div class="subsection">
-                            <span class="subsection-title">Aerospace</span>
-                            <ul>
-                                <li><strong>Base Instruction:</strong> Check the landing gear.</li>
-                                <li><strong>In-Depth (Constraint):</strong> Troubleshoot the landing gear hydraulic failure occurring specifically at -40°C, proposing a fix that adds no more than 5kg of weight to the assembly.</li>
-                                <li><strong>In-Breadth (New Topic):</strong> Calculate the trajectory correction burn required for a probe entering a polar orbit around Europa.</li>
-                            </ul>
-                        </div>
-                    </div>
-                </details>
-                </div>
         </details>
     </div>
     </details>
 
     <details class="section">
-        <summary>2. Creating an Instruction Dataset</summary>
+        <summary>3. Dataset Construction</summary>
         <div class="section-content">
+            <p>Packaging the curated data into machine-readable formats for training.</p>
             
             <div class="subsection">
                 <span class="subsection-title">Instruction Dataset Formats</span>
@@ -538,79 +520,102 @@
     </details>
 
     <details class="section">
-        <summary>3. Fine Tuning Methods (LoRA & QLoRA)</summary>
+        <summary>4. Training & Alignment</summary>
         <div class="section-content">
+            <p>Execution of the training process and alignment with human preferences.</p>
             
-            <div class="subsection">
-                <span class="subsection-title">LoRA - Low Rank Adaptation</span>
-                                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen. </p>
-                
-                <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. At this stage, the model is standard. You must "freeze" the model, ensuring no original parameters will be updated during training. The PEFT library handles this freezing automatically when you apply the configuration.</p>
-                
-                <p><strong>2. Configuration (The Ontology):</strong> You must define a LoraConfig object to dictate how the adaptation works.</p>
-                <ul>
-                    <li><strong>r (Rank):</strong> Set the dimension of the low-rank matrices ($A$ and $B$). Start with 8 or 16. Higher ranks (e.g., 64) allow for more complex learning but increase VRAM usage.</li>
-                    <li><strong>lora_alpha (Alpha):</strong> Set the scaling factor. A standard heuristic is $\alpha = 2 \times r$ (e.g., if rank is 16, set alpha to 32). This ensures the update is strong enough to influence the model.</li>
-                    <li><strong>target_modules:</strong> List the specific layers to attach LoRA to. For Style/Format: Target ["q_proj", "v_proj"] (Attention Query/Value). For Reasoning/Facts: Target ["gate_proj", "up_proj", "down_proj"] (MLP layers) in addition to attention.</li>
-                    <li>Matrix $A$ compresses the input down to the small rank (r). Matrix $B$ expands it back up to the original size.</li>
-                </ul>
-                
-                <p><strong>3. Model Injection:</strong> Apply the configuration to create the parallel adapter structure. Result: This attaches small, trainable matrices ($A$ and $B$) to the frozen layers. Initially representing zero change, $A$ and $B$ are updated during backpropagation to learn the delta ($\Delta W$)—the precise mathematical offset required to steer the model's output. Because $A$ and $B$ are structurally small (low-rank), they capture this task-specific adjustment using only a fraction of the total parameters.</p>
-                
-                <p><strong>4. Training (Fine-Tuning):</strong> Run your standard training loop (e.g., using Hugging Face Trainer). During backpropagation, the optimizer ignores the frozen base weights and only updates the specific LoRA matrices you injected. This prevents "catastrophic forgetting" of the base model's knowledge.</p>
-                
-                <p><strong>5. Merging & Inference:</strong> Save only the Adapter (the LoRA weights), which is small (usually <100MB). To use the model, load the Base Model again and strictly "merge" the saved Adapter weights into it. The math is: $W_{final} = W_{base} + (B \times A \times \alpha/r)$. We add the results together because LoRA is an additive modification rather than a replacement. In the Transformer architecture, the original weights ($W$) represent the model's vast, general knowledge. When you fine-tune for a specific task, you don't want to discard that foundation; you want to nudge it.</p>
-            </div>
+            <details class="nested-accordion">
+                <summary>Fine Tuning Methods (LoRA & QLoRA)</summary>
+                <div class="accordion-content">
+                    <div class="subsection">
+                        <span class="subsection-title">LoRA - Low Rank Adaptation</span>
+                                                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen. </p>
+                        
+                        <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. At this stage, the model is standard. You must "freeze" the model, ensuring no original parameters will be updated during training. The PEFT library handles this freezing automatically when you apply the configuration.</p>
+                        
+                        <p><strong>2. Configuration (The Ontology):</strong> You must define a LoraConfig object to dictate how the adaptation works.</p>
+                        <ul>
+                            <li><strong>r (Rank):</strong> Set the dimension of the low-rank matrices ($A$ and $B$). Start with 8 or 16. Higher ranks (e.g., 64) allow for more complex learning but increase VRAM usage.</li>
+                            <li><strong>lora_alpha (Alpha):</strong> Set the scaling factor. A standard heuristic is $\alpha = 2 \times r$ (e.g., if rank is 16, set alpha to 32). This ensures the update is strong enough to influence the model.</li>
+                            <li><strong>target_modules:</strong> List the specific layers to attach LoRA to. For Style/Format: Target ["q_proj", "v_proj"] (Attention Query/Value). For Reasoning/Facts: Target ["gate_proj", "up_proj", "down_proj"] (MLP layers) in addition to attention.</li>
+                            <li>Matrix $A$ compresses the input down to the small rank (r). Matrix $B$ expands it back up to the original size.</li>
+                        </ul>
+                        
+                        <p><strong>3. Model Injection:</strong> Apply the configuration to create the parallel adapter structure. Result: This attaches small, trainable matrices ($A$ and $B$) to the frozen layers. Initially representing zero change, $A$ and $B$ are updated during backpropagation to learn the delta ($\Delta W$)—the precise mathematical offset required to steer the model's output. Because $A$ and $B$ are structurally small (low-rank), they capture this task-specific adjustment using only a fraction of the total parameters.</p>
+                        
+                        <p><strong>4. Training (Fine-Tuning):</strong> Run your standard training loop (e.g., using Hugging Face Trainer). During backpropagation, the optimizer ignores the frozen base weights and only updates the specific LoRA matrices you injected. This prevents "catastrophic forgetting" of the base model's knowledge.</p>
+                        
+                        <p><strong>5. Merging & Inference:</strong> Save only the Adapter (the LoRA weights), which is small (usually <100MB). To use the model, load the Base Model again and strictly "merge" the saved Adapter weights into it. The math is: $W_{final} = W_{base} + (B \times A \times \alpha/r)$. We add the results together because LoRA is an additive modification rather than a replacement. In the Transformer architecture, the original weights ($W$) represent the model's vast, general knowledge. When you fine-tune for a specific task, you don't want to discard that foundation; you want to nudge it.</p>
+                    </div>
 
-            <div class="subsection">
-                <span class="subsection-title">QLoRA</span>
-                                <p>Think of QLoRA as LoRA with a world-class packing strategy. It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware.</p>
-                <p><strong>Quantization</strong> is the process of reducing the precision of a model’s numerical values to save memory and speed up processing. In computing, numbers are stored with a specific "bit-depth." High precision (32-bit) uses a massive range of decimals for extreme accuracy. Reducing precision means shortening those numbers—moving from long decimals to smaller ones or integers (like 8-bit or 4-bit). </p>
-                
-                <p><strong>1. Base Model Preparation (4-bit Quantization):</strong> Load the base model using 4-bit NormalFloat (NF4). Unlike standard LoRA, which often uses 16-bit or 8-bit, QLoRA compresses the frozen weights ($W$) into a specialized 4-bit format. This NF4 data type is mathematically optimized for normally distributed weights, ensuring minimal information loss while slashing VRAM requirements by up to 75% compared to full-precision tuning.</p>
-                
-                <p><strong>2. Configuration (The Ontology):</strong> The LoraConfig remains largely the same, but with two critical QLoRA-specific additions handled via BitsAndBytesConfig: Double Quantization (This quantizes the quantization constants themselves, saving ~0.37 bits per parameter). Paged Optimizers (This acts as a "safety valve." If you hit a memory spike, QLoRA offloads the optimizer states to the CPU RAM to prevent "Out of Memory" crashes).</p>
-                
-                <p><strong>3. Matrix Injection & The Adapter:</strong> Inject the trainable matrices $A$ and $B$ alongside the frozen model. The base model remains in its 4-bit "frozen" state. The adapters ($A$ and $B$) are created in high-resolution Bfloat. During the forward pass, the model performs a "temporary inflation": it dequantizes 4-bit weights into 16-bit just long enough to perform math with the adapters, then "deflates" them back to 4-bit storage.</p>
-                
-                <p><strong>4. Training (The Computational Trade-off):</strong> During backpropagation, only the high-precision adapters are updated. The base model acts like a static, low-resolution anchor. Because the system has to constantly inflate (dequantize) and deflate (re-quantize) the base weights for every calculation, it takes about 30% longer than standard LoRA. You are essentially sacrificing processing speed to ensure the model fits on a smaller GPU.</p>
-                
-                <p><strong>5. Merging & Inference:</strong> You still only save the tiny Adapter weights (<100MB). $W_{final} = Dequantize(W_{4bit}) + (B \times A \times \alpha/r)$. Because the base model is quantized, you typically do not “hard merge” the weights into a single 4-bit file for production if you want to maintain maximum precision. Instead, you load the base 4-bit model and the adapter separately at runtime.</p>
-            </div>
-        </div>
-    </details>
+                    <div class="subsection">
+                        <span class="subsection-title">QLoRA</span>
+                                                <p>Think of QLoRA as LoRA with a world-class packing strategy. It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware.</p>
+                        <p><strong>Quantization</strong> is the process of reducing the precision of a model’s numerical values to save memory and speed up processing. In computing, numbers are stored with a specific "bit-depth." High precision (32-bit) uses a massive range of decimals for extreme accuracy. Reducing precision means shortening those numbers—moving from long decimals to smaller ones or integers (like 8-bit or 4-bit). </p>
+                        
+                        <p><strong>1. Base Model Preparation (4-bit Quantization):</strong> Load the base model using 4-bit NormalFloat (NF4). Unlike standard LoRA, which often uses 16-bit or 8-bit, QLoRA compresses the frozen weights ($W$) into a specialized 4-bit format. This NF4 data type is mathematically optimized for normally distributed weights, ensuring minimal information loss while slashing VRAM requirements by up to 75% compared to full-precision tuning.</p>
+                        
+                        <p><strong>2. Configuration (The Ontology):</strong> The LoraConfig remains largely the same, but with two critical QLoRA-specific additions handled via BitsAndBytesConfig: Double Quantization (This quantizes the quantization constants themselves, saving ~0.37 bits per parameter). Paged Optimizers (This acts as a "safety valve." If you hit a memory spike, QLoRA offloads the optimizer states to the CPU RAM to prevent "Out of Memory" crashes).</p>
+                        
+                        <p><strong>3. Matrix Injection & The Adapter:</strong> Inject the trainable matrices $A$ and $B$ alongside the frozen model. The base model remains in its 4-bit "frozen" state. The adapters ($A$ and $B$) are created in high-resolution Bfloat. During the forward pass, the model performs a "temporary inflation": it dequantizes 4-bit weights into 16-bit just long enough to perform math with the adapters, then "deflates" them back to 4-bit storage.</p>
+                        
+                        <p><strong>4. Training (The Computational Trade-off):</strong> During backpropagation, only the high-precision adapters are updated. The base model acts like a static, low-resolution anchor. Because the system has to constantly inflate (dequantize) and deflate (re-quantize) the base weights for every calculation, it takes about 30% longer than standard LoRA. You are essentially sacrificing processing speed to ensure the model fits on a smaller GPU.</p>
+                        
+                        <p><strong>5. Merging & Inference:</strong> You still only save the tiny Adapter weights (<100MB). $W_{final} = Dequantize(W_{4bit}) + (B \times A \times \alpha/r)$. Because the base model is quantized, you typically do not “hard merge” the weights into a single 4-bit file for production if you want to maintain maximum precision. Instead, you load the base 4-bit model and the adapter separately at runtime.</p>
+                    </div>
+                </div>
+            </details>
 
-    <details class="section">
-        <summary>4. Preference Alignment (DPO)</summary>
-        <div class="section-content">
-            <p>Preference alignment addresses the shortcomings of SFT by incorporating direct human or AI feedback into the training process. If SFT is the foundation of competence (getting the answer right), preference data is the layer of alignment (getting the answer right for the specific user, context, or value system).</p>
-            
-            <div class="subsection">
-                <span class="subsection-title">Direct Preference Optimization (DPO)</span>
-                                <p>Maximize the accuracy, diversity, and complexity of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
-                
-                <p><strong>Data Quantity:</strong> DPO is sample-efficient, meaning it requires significantly less data than SFT to fundamentally change a model’s behavior.</p>
-                <ul>
-                    <li><strong>General-Purpose (The Giants):</strong> Industry leaders use millions of pairs (often synthetic) to push the limits of reasoning and global safety.</li>
-                    <li><strong>Open-Source Standard:</strong> 10k–100k samples are typically used to boost benchmark scores or "heal" a model’s logic after it has been merged or pruned.</li>
-                    <li><strong>Task-Specific (The Sniper):</strong> Narrow objectives—like changing a model's persona or enforcing a specific writing style—can be achieved with as few as 100–10,000 pairs.</li>
-                </ul>
-            </div>
+            <details class="nested-accordion">
+                <summary>Reinforcement Learning from Human Feedback (RLHF)</summary>
+                <div class="accordion-content">
+                    <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
+                    <ol>
+                        <li><strong>The Reward Model (Learning "Taste"):</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
+                        <li><strong>Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
+                        <li><strong>How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the <strong>Advantage</strong>: how much better this response was compared to the model's average.
+                            <ul>
+                                <li><strong>Positive score:</strong> The model is nudged to produce similar outputs.</li>
+                                <li><strong>Negative score:</strong> The model is nudged away.</li>
+                            </ul>
+                        </li>
+                    </ol>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">Generating Preferences</span>
-                <ul>
-                    <li><strong>LLM-Human:</strong> AI generates options, humans rank them. This is a high-value hybrid; it is easier for humans to judge quality than to create it from scratch, ensuring efficiency and accuracy.</li>
-                    <li><strong>LLM-LLM (Synthetic):</strong> Fully automated. It is the most scalable and cheapest option but requires strict oversight to avoid amplifying model biases.</li>
-                </ul>
-                <p><strong>Model Contrasting:</strong> You prompt two models with one input: a "teacher" (e.g., GPT-4) and a smaller model. The teacher’s output is labeled chosen and the smaller one rejected. This creates a clear signal of high-quality reasoning versus mediocre attempts, teaching the target model to recognize the specific "delta" in quality, logic, and formatting.</p>
-                <p><strong>Human-AI Benchmarking in Practice:</strong> In practice, you take a "gold standard" response written by a human and pair it with a draft from your model. You label the human version as preferred and the AI version as rejected.</p>
-                <ul>
-                     <li><strong>Authenticity:</strong> It forces the model to move past generic "AI-speak" and adopt a specific human tone.</li>
-                     <li><strong>Edge Cases:</strong> It identifies where models fail at nuanced tasks, like humor or high-level professional jargon.</li>
-                     <li><strong>Style Mimicry:</strong> Essential when you need a model to sound like a specific brand or technical expert.</li>
-                </ul>
-            </div>
+            <details class="nested-accordion">
+                <summary>Preference Alignment (DPO)</summary>
+                <div class="accordion-content">
+                    <p>Preference alignment addresses the shortcomings of SFT by incorporating direct human or AI feedback into the training process. If SFT is the foundation of competence (getting the answer right), preference data is the layer of alignment (getting the answer right for the specific user, context, or value system).</p>
+                    
+                    <div class="subsection">
+                        <span class="subsection-title">Direct Preference Optimization (DPO)</span>
+                                                <p>Maximize the accuracy, diversity, and complexity of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
+                        
+                        <p><strong>Data Quantity:</strong> DPO is sample-efficient, meaning it requires significantly less data than SFT to fundamentally change a model’s behavior.</p>
+                        <ul>
+                            <li><strong>General-Purpose (The Giants):</strong> Industry leaders use millions of pairs (often synthetic) to push the limits of reasoning and global safety.</li>
+                            <li><strong>Open-Source Standard:</strong> 10k–100k samples are typically used to boost benchmark scores or "heal" a model’s logic after it has been merged or pruned.</li>
+                            <li><strong>Task-Specific (The Sniper):</strong> Narrow objectives—like changing a model's persona or enforcing a specific writing style—can be achieved with as few as 100–10,000 pairs.</li>
+                        </ul>
+                    </div>
+        
+                    <div class="subsection">
+                        <span class="subsection-title">Generating Preferences</span>
+                        <ul>
+                            <li><strong>LLM-Human:</strong> AI generates options, humans rank them. This is a high-value hybrid; it is easier for humans to judge quality than to create it from scratch, ensuring efficiency and accuracy.</li>
+                            <li><strong>LLM-LLM (Synthetic):</strong> Fully automated. It is the most scalable and cheapest option but requires strict oversight to avoid amplifying model biases.</li>
+                        </ul>
+                        <p><strong>Model Contrasting:</strong> You prompt two models with one input: a "teacher" (e.g., GPT-4) and a smaller model. The teacher’s output is labeled chosen and the smaller one rejected. This creates a clear signal of high-quality reasoning versus mediocre attempts, teaching the target model to recognize the specific "delta" in quality, logic, and formatting.</p>
+                        <p><strong>Human-AI Benchmarking in Practice:</strong> In practice, you take a "gold standard" response written by a human and pair it with a draft from your model. You label the human version as preferred and the AI version as rejected.</p>
+                        <ul>
+                             <li><strong>Authenticity:</strong> It forces the model to move past generic "AI-speak" and adopt a specific human tone.</li>
+                             <li><strong>Edge Cases:</strong> It identifies where models fail at nuanced tasks, like humor or high-level professional jargon.</li>
+                             <li><strong>Style Mimicry:</strong> Essential when you need a model to sound like a specific brand or technical expert.</li>
+                        </ul>
+                    </div>
+                </div>
+            </details>
         </div>
     </details>
 
