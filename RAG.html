@@ -335,28 +335,28 @@
                 <hr style="border: 0; border-top: 1px dashed var(--dim-color); margin: 20px 0;">
                 <ul>
                     <li>
-                        <strong>Fixed-size Chunking:</strong> Slices text into hard segments based on a strict token or character limit (e.g., 512 tokens). While computationally efficient, it ignores semantic structure, often breaking sentences mid-thought. To mitigate context loss at the edges, a "sliding window" overlap (10-20%) is applied.
+                        <strong>Fixed-size Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/fixedsize_chunk'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Slices text into hard segments based on a strict token or character limit (e.g., 512 tokens). While computationally efficient, it ignores semantic structure, often breaking sentences mid-thought. To mitigate context loss at the edges, a "sliding window" overlap (10-20%) is applied.
                         <ul>
                             <li><em>Example:</em> Processing a raw server log file. You blindly cut the text every 500 characters, regardless of where the line ends.</li>
                             <li><em>When to use:</em> Ideal for uniform data streams or simple tasks where computational speed is the priority and semantic context is less critical (e.g., n-gram analysis).</li>
                         </ul>
                     </li>
                     <li>
-                        <strong>Recursive Chunking:</strong> Iteratively breaks down text using a hierarchy of separators to fit specific size limits. It attempts to split by largest structural elements first (like paragraphs), then sentences, then words.
+                        <strong>Recursive Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/recursive_chunk.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Iteratively breaks down text using a hierarchy of separators to fit specific size limits. It attempts to split by largest structural elements first (like paragraphs), then sentences, then words.
                         <ul>
                             <li><em>Example:</em> An article is split first by double newlines (paragraphs). If a paragraph is still too big, it splits by periods (sentences).</li>
                             <li><em>When to use:</em> The "default" best choice for general prose, articles, and essays. It respects natural reading flow, keeping related ideas (paragraphs) intact.</li>
                         </ul>
                     </li>
                     <li>
-                        <strong>Content-aware / Syntactic Chunking:</strong> Leverages the distinct formatting logic of the source file to define boundaries. For code, it splits by functions or classes; for Markdown or HTML, it splits by headers or tags.
+                        <strong>Content-aware / Syntactic Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/Syntactic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Leverages the distinct formatting logic of the source file to define boundaries. For code, it splits by functions or classes; for Markdown or HTML, it splits by headers or tags.
                         <ul>
                             <li><em>Example:</em> Splitting a Python script by <code>def</code> blocks or an HTML file by <code>&lt;div&gt;</code> tags, ensuring no function is cut in half.</li>
                             <li><em>When to use:</em> Essential for structured documents like Code, Markdown, or JSON. It prevents breaking syntax, ensuring the retrieved chunk is valid and executable.</li>
                         </ul>
                     </li>
                     <li>
-                        <strong>Semantic Chunking:</strong> Semantic chunking splits text into sentences and converts them to embeddings to assess similarity (usually via cosine). Chunks grow as long as sentences stay semantically close; once distance exceeds a threshold, a new chunk starts. This linear process preserves document order and context for accurate retrieval.
+                        <strong>Semantic Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/semantic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Semantic chunking splits text into sentences and converts them to embeddings to assess similarity (usually via cosine). Chunks grow as long as sentences stay semantically close; once distance exceeds a threshold, a new chunk starts. This linear process preserves document order and context for accurate retrieval.
                         <ul>
                             <li><em>Example:</em> A transcript moves from discussing "Weather" to "Stocks." The system detects the topic shift via embeddings and cuts the chunk exactly there.</li>
                             <li><em>When to use:</em> Best for RAG systems requiring high precision. It ensures a chunk contains only one distinct concept, reducing noise for the LLM.</li>
