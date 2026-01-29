@@ -302,12 +302,12 @@
                 <div class="subsection">
                     <span class="subsection-title">Push vs. Pull Strategies</span>
                     <div class="code-block">
-PUSH:
+PUSH: Sync
 In the Push strategy, the source database actively detects changes and immediately transmits them to the target system.
 This ensures near real-time synchronization.
 To prevent data loss if the target is offline, a messaging system acts as a buffer to hold data until the target is ready.
 
-PULL:
+PULL: Periodic Polling
 In the Pull strategy, the source database is passive, simply logging changes.
 The target system periodically polls (requests) these logs to update itself.
 While this reduces load on the source, it introduces latency.
