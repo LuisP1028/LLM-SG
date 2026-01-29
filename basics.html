@@ -349,9 +349,25 @@ A messaging system buffers the logs to ensure data safety if the target goes dow
             </div>
         </details>
 
-        <!-- ============================================== -->
-        <!-- SECTION 4: TRAINING PARAMETERS -->
-        <!-- ============================================== -->
+        <details class="section">
+            <summary>3. The Feature Pipeline & Data Storage</summary>
+            <div class="section-content">
+                <div class="subsection">
+                    <span class="subsection-title">The Feature Pipeline</span>
+                    <p>It processes data types differently (e.g. articles, posts, and code).</p>
+                    <p>It contains three main processing steps necessary for fine-tuning and RAG: cleaning, chunking, and embedding. </p>
+                    <p>It creates two snapshots of the digital data, one after cleaning (used for fine-tuning) and one after embedding (used for RAG).</p>
+                    <p>It uses a logical feature store instead of a specialized feature store.</p>
+                </div>
+                <div class="subsection">
+                    <span class="subsection-title">Data Storage</span>
+                    <p><strong>Specialized Feature Store:</strong> Vital when injecting <strong>real-time structured data</strong> into prompts.</p>
+                    <p><strong>Logical Feature Store:</strong> Useful for storing "generalized knowledge" about "x". The relationship: Logical provides general knowledge. Specialized stores inject live context to filter or personalize that knowledge. </p>
+                    <p><strong>Artifacts:</strong> Versioned, trackable packages of data or models created during development. They act as "saved snapshots" that bundle a file with its history.</p>
+                </div>
+            </div>
+        </details>
+
         <details class="section">
             <summary>4. Training Parameters</summary>
             <div class="section-content">

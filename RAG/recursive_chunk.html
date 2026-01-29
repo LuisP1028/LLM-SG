@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RECURSIVE_CHUNKER // v1.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --deep-black: #000000;
+            --dim-green: #1a4d0f;
+            --scan-line-color: rgba(0, 0, 0, 0.5);
+            --crt-bloom: 0 0 5px var(--neon-green), 0 0 10px var(--neon-green);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--deep-black);
+            color: var(--neon-green);
+            font-family: 'VT323', monospace;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- DITHERPUNK AESTHETICS --- */
+        
+        /* The Checkerboard Dither Background */
+        .dither-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            background-image: 
+                linear-gradient(45deg, var(--deep-black) 25%, transparent 25%), 
+                linear-gradient(-45deg, var(--deep-black) 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, var(--deep-black) 75%), 
+                linear-gradient(-45deg, transparent 75%, var(--deep-black) 75%);
+            background-size: 4px 4px;
+            background-color: #0a1f05; /* Very dark green base */
+            opacity: 0.5;
+        }
+
+        /* CRT Scanlines */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.4) 50%,
+                rgba(0,0,0,0.4)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+            animation: scanlineScroll 0.2s linear infinite;
+        }
+
+        /* Screen Flicker */
+        .flicker-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(57, 255, 20, 0.02);
+            pointer-events: none;
+            z-index: 99;
+            animation: flicker 0.15s infinite;
+        }
+
+        /* --- LAYOUT --- */
+
+        header {
+            border-bottom: 2px solid var(--neon-green);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            text-shadow: var(--crt-bloom);
+            background: var(--deep-black);
+            z-index: 10;
+        }
+
+        .main-stage {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: calc(100vh - 50px);
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            border: 2px solid var(--neon-green);
+            height: 100%;
+            position: relative;
+            background: rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+        }
+
+        .col-header {
+            background: var(--neon-green);
+            color: var(--deep-black);
+            padding: 5px 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        .col-content {
+            padding: 10px;
+            overflow-y: hidden; /* Programmatic scroll mainly */
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Column Specifics */
+        #col-raw { width: 20%; }
+        #col-proc { width: 55%; border-style: dashed; }
+        #col-final { width: 25%; }
+
+        /* The Limit Line */
+        #limit-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: repeating-linear-gradient(
+                to right,
+                var(--neon-green),
+                var(--neon-green) 10px,
+                var(--deep-black) 10px,
+                var(--deep-black) 20px
+            );
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        #limit-label {
+            position: absolute;
+            top: calc(50% - 25px);
+            right: 10px;
+            background: var(--deep-black);
+            border: 1px solid var(--neon-green);
+            padding: 2px 5px;
+            font-size: 0.9rem;
+        }
+
+        /* --- DATA BLOCKS --- */
+        
+        .block {
+            border: 1px solid var(--neon-green);
+            padding: 8px;
+            font-size: 1.1rem;
+            line-height: 1.2;
+            word-break: break-word;
+            opacity: 0; /* Fade in on creation */
+            animation: fadeIn 0.3s forwards;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .block.source-text {
+            color: var(--dim-green);
+            border-color: var(--dim-green);
+        }
+
+        /* Processing State Styles */
+        .block.processing {
+            border: 2px solid var(--neon-green);
+            box-shadow: var(--crt-bloom);
+        }
+
+        .block.error {
+            background-color: var(--neon-green);
+            color: var(--deep-black);
+            font-weight: bold;
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        
+        /* The "Slice" effect animation */
+        .slicing::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--deep-black);
+            animation: sliceAnim 0.3s ease-out;
+        }
+
+        .block.finalized {
+            border: 1px solid var(--neon-green);
+            font-size: 1rem;
+            background: rgba(57, 255, 20, 0.05);
+        }
+
+        /* Status Readout */
+        #status-display {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: calc(100% - 20px);
+            background: var(--deep-black);
+            border: 1px solid var(--neon-green);
+            padding: 5px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+
+        /* --- ANIMATIONS --- */
+
+        @keyframes scanlineScroll {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 0% 100%; }
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.97; }
+            5% { opacity: 0.85; }
+            10% { opacity: 0.97; }
+            100% { opacity: 0.97; }
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        @keyframes sliceAnim {
+            0% { width: 0; }
+            100% { width: 100%; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="dither-bg"></div>
+    <div class="scanlines"></div>
+    <div class="flicker-overlay"></div>
+
+    <header>
+        <span>Recursive_Chunker.exe</span>
+        <span id="global-timer">00:00:00</span>
+    </header>
+
+    <div class="main-stage">
+        
+        <div class="column" id="col-raw">
+            <div class="col-header">INPUT_BUFFER</div>
+            <div class="col-content" id="raw-container">
+                </div>
+        </div>
+
+        <div class="column" id="col-proc">
+            <div class="col-header">PROCESSING_CORE</div>
+            <div id="limit-line"></div>
+            <div id="limit-label">MAX_SIZE: 180 CHARS</div>
+            <div class="col-content" id="proc-container" style="justify-content: center; align-items: center;">
+                </div>
+            <div id="status-display">SYS: WAITING_FOR_INPUT...</div>
+        </div>
+
+        <div class="column" id="col-final">
+            <div class="col-header">FINAL_STACK</div>
+            <div class="col-content" id="final-container">
+                </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const MAX_CHARS = 180;
+        const DELAY_FAST = 800;
+        const DELAY_SLOW = 1500;
+
+        // --- DUMMY DATA ---
+        // A tech-babble text to fit the theme
+        const RAW_TEXT = `The recursive chunking algorithm initiates a heuristic scan of the data monolith.
+
+It attempts to preserve semantic coherence by identifying high-level structural delimiters first. If a segment exceeds the buffer capacity, the protocol escalates.
+
+The secondary sub-routine targets sentence boundaries. Periods, exclamation marks, and question marks serve as cut-points. This is usually sufficient for standard data streams. However, in cases of extreme density, a tertiary failsafe is engaged.
+
+The tertiary failsafe atomizes the stream into individual lexical units. Words are stripped of context to fit the rigid memory allocation slots of the mainframe.`;
+
+        // --- DOM ELEMENTS ---
+        const rawContainer = document.getElementById('raw-container');
+        const procContainer = document.getElementById('proc-container');
+        const finalContainer = document.getElementById('final-container');
+        const statusDisplay = document.getElementById('status-display');
+        const timerDisplay = document.getElementById('global-timer');
+
+        // --- UTILITIES ---
+        const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        
+        function updateStatus(msg) {
+            statusDisplay.innerText = `SYS: ${msg}`;
+            statusDisplay.style.background = '#0a1f05';
+            setTimeout(() => { statusDisplay.style.background = '#000'; }, 100);
+        }
+
+        function updateTimer() {
+            const now = new Date();
+            timerDisplay.innerText = now.toTimeString().split(' ')[0];
+        }
+        setInterval(updateTimer, 1000);
+
+        // --- CORE LOGIC ---
+
+        class ChunkingEngine {
+            constructor() {
+                this.queue = [];
+                this.init();
+            }
+
+            init() {
+                // Visualize Raw Text in Column A
+                const rawBlock = document.createElement('div');
+                rawBlock.className = 'block source-text';
+                rawBlock.innerText = RAW_TEXT;
+                rawContainer.appendChild(rawBlock);
+                
+                // Start the loop
+                setTimeout(() => this.injectBlock(RAW_TEXT), 2000);
+            }
+
+            async injectBlock(text) {
+                // Move from Raw to Process
+                updateStatus("INJECTING_PAYLOAD...");
+                
+                // Clear Process Container
+                procContainer.innerHTML = '';
+
+                const blockEl = document.createElement('div');
+                blockEl.className = 'block processing';
+                blockEl.innerText = text;
+                procContainer.appendChild(blockEl);
+
+                await wait(DELAY_FAST);
+                this.evaluateBlock(text, blockEl, 'paragraph');
+            }
+
+            async evaluateBlock(text, element, mode) {
+                const len = text.length;
+                updateStatus(`ANALYZING_SIZE... [${len}/${MAX_CHARS}]`);
+
+                // VISUAL CUE: Check Size
+                if (len <= MAX_CHARS) {
+                    // SUCCESS
+                    element.style.borderColor = '#39ff14';
+                    element.style.background = 'rgba(57, 255, 20, 0.2)';
+                    updateStatus("SIZE_CHECK: PASS");
+                    await wait(DELAY_FAST);
+                    this.finalizeBlock(text);
+                } else {
+                    // FAIL
+                    element.classList.add('error'); // Invert Colors
+                    updateStatus("SIZE_CHECK: FAIL // OVERFLOW");
+                    await wait(DELAY_SLOW);
+                    this.splitBlock(text, element, mode);
+                }
+            }
+
+            async splitBlock(text, element, mode) {
+                let separator, nextMode, visualLabel;
+
+                // HIERARCHY LOGIC
+                if (mode === 'paragraph') {
+                    // Try to split by double newline
+                    if (text.includes('\n\n')) {
+                        separator = '\n\n';
+                        nextMode = 'paragraph'; // Keep trying paragraph on children
+                        visualLabel = "SPLIT_PROTOCOL: PARAGRAPH";
+                    } else {
+                        // Fallback immediately if no paragraphs found
+                        nextMode = 'sentence';
+                        visualLabel = "NO_PARA_BREAKS // ESCALATING...";
+                        updateStatus(visualLabel);
+                        await wait(1000);
+                        this.splitBlock(text, element, 'sentence');
+                        return;
+                    }
+                } else if (mode === 'sentence') {
+                    // Regex split for sentences is complex, doing simple period split for demo
+                    // In real chunking, we'd use a regex, but here strict period is fine
+                    if (text.match(/[.!?]\s/)) {
+                        // We split by period followed by space to preserve structure roughly
+                        // For the visual demo, we will use a custom splitter function below
+                        separator = 'SENTENCE_RX'; 
+                        nextMode = 'sentence'; // Recursive check
+                        visualLabel = "SPLIT_PROTOCOL: SENTENCE";
+                    } else {
+                        nextMode = 'word';
+                        visualLabel = "NO_SENT_BREAKS // ESCALATING...";
+                        updateStatus(visualLabel);
+                        await wait(1000);
+                        this.splitBlock(text, element, 'word');
+                        return;
+                    }
+                } else {
+                    // Word Mode (The Nuclear Option)
+                    separator = ' ';
+                    nextMode = 'word';
+                    visualLabel = "SPLIT_PROTOCOL: WORD (EMERGENCY)";
+                }
+
+                updateStatus(visualLabel);
+                element.classList.add('slicing'); // Visual Line Cut
+                await wait(DELAY_FAST);
+
+                // PERFORM THE SPLIT
+                let parts = [];
+                
+                if (mode === 'word') {
+                     // Hard split at midpoint for words to ensure it fits eventually
+                     const mid = Math.floor(text.length / 2);
+                     const splitIndex = text.lastIndexOf(' ', mid);
+                     if(splitIndex === -1) {
+                        // One giant word? Just Force break (rare)
+                        parts = [text.substring(0, MAX_CHARS), text.substring(MAX_CHARS)];
+                     } else {
+                        parts = [text.substring(0, splitIndex), text.substring(splitIndex + 1)];
+                     }
+                } else if (separator === 'SENTENCE_RX') {
+                     // Split by first major sentence break to visualize iteration
+                     // Finding the split closest to the middle is better for visualization
+                     // but for recursive logic, usually we split the whole thing.
+                     // Let's split into two halves based on the nearest period to middle
+                     const idealSplit = Math.floor(text.length / 2);
+                     const periodSpot = text.indexOf('. ', idealSplit > 20 ? idealSplit - 20 : 0);
+                     
+                     if (periodSpot !== -1) {
+                         parts = [text.substring(0, periodSpot + 1), text.substring(periodSpot + 2)];
+                     } else {
+                         // Fallback to finding ANY period
+                         const anyPeriod = text.indexOf('. ');
+                         if(anyPeriod !== -1) {
+                             parts = [text.substring(0, anyPeriod + 1), text.substring(anyPeriod + 2)];
+                         } else {
+                             // Force word split
+                             this.splitBlock(text, element, 'word');
+                             return;
+                         }
+                     }
+                } else {
+                    // Paragraph split
+                    // We split into the FIRST paragraph and the REST
+                    const splitIdx = text.indexOf('\n\n');
+                    parts = [text.substring(0, splitIdx), text.substring(splitIdx + 2)];
+                }
+
+                // RECURSION VISUALIZATION
+                // We process Part 1 first. If Part 1 fits, it goes to final. 
+                // Then we process Part 2.
+                // To visualize this, we clear the big block and spawn Part 1.
+                
+                // Clear current
+                procContainer.innerHTML = '';
+                
+                // We need to queue these actions.
+                // We will handle Part 1 (Left side) now.
+                // We put Part 2 (Right side) into a holding variable/queue to process after Part 1 is totally resolved.
+                
+                // For this linear demo, let's create a recursive stack effect.
+                // We will process 'parts[0]' immediately.
+                // We append 'parts[1]' to a "pending" stack.
+                
+                this.queue.unshift({ text: parts[1], mode: mode }); // Push "The Rest" to front of queue to handle immediately after "The First" is done? 
+                // Actually, Depth First: Process Part 0 fully. Then Part 1.
+                
+                // Run Part 0
+                this.injectBlock(parts[0]);
+            }
+
+            finalizeBlock(text) {
+                // Clear Process Stage
+                procContainer.innerHTML = '';
+                
+                // Create Element in Final
+                const finalEl = document.createElement('div');
+                finalEl.className = 'block finalized';
+                finalEl.innerText = text;
+                finalContainer.appendChild(finalEl);
+                finalContainer.scrollTop = finalContainer.scrollHeight; // Auto scroll
+
+                // CHECK QUEUE
+                if (this.queue.length > 0) {
+                    const next = this.queue.shift();
+                    setTimeout(() => {
+                        this.injectBlock(next.text);
+                    }, 500);
+                } else {
+                    updateStatus("JOB_COMPLETE. SYSTEM IDLE.");
+                    // Restart for demo purposes?
+                    setTimeout(() => {
+                        finalContainer.innerHTML = '';
+                        this.init();
+                    }, 4000);
+                }
+            }
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            const engine = new ChunkingEngine();
+        };
+
+    </script>
+</body>
+</html>

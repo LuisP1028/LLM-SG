@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -248,8 +247,7 @@
 <div class="scanlines"></div>
 <div class="container">
 <h1>Part III: RAG Architectures</h1>
-code
-Code
+
 <div class="part-content">
         
         <details class="section">
@@ -320,27 +318,9 @@ Code
             </div>
         </details>
 
-        <details class="section">
-            <summary>3. The Feature Pipeline & Data Storage</summary>
-            <div class="section-content">
-                <div class="subsection">
-                    <span class="subsection-title">The Feature Pipeline</span>
-                    <p>It processes data types differently (e.g. articles, posts, and code).</p>
-                    <p>It contains three main processing steps necessary for fine-tuning and RAG: cleaning, chunking, and embedding.</p>
-                    <p>It creates two snapshots of the digital data, one after cleaning (used for fine-tuning) and one after embedding (used for RAG).</p>
-                    <p>It uses a logical feature store instead of a specialized feature store.</p>
-                </div>
-                <div class="subsection">
-                    <span class="subsection-title">Data Storage</span>
-                    <p><strong>Specialized Feature Store:</strong> Vital when injecting <strong>real-time structured data</strong> into prompts.</p>
-                    <p><strong>Logical Feature Store:</strong> Useful for storing "generalized knowledge" about "x". The relationship: Logical provides general knowledge. Specialized stores inject live context to filter or personalize that knowledge.</p>
-                    <p><strong>Artifacts:</strong> Versioned, trackable packages of data or models created during development. They act as "saved snapshots" that bundle a file with its history.</p>
-                </div>
-            </div>
-        </details>
 
         <details class="section">
-            <summary>4. RAG Ingestion: Walkthrough</summary>
+            <summary>3. RAG Ingestion: Walkthrough</summary>
             <div class="section-content">
                 <ol>
                     <li><strong>Pull in the raw data (Data extraction/Ingestion):</strong> Collect documents from databases, PDFs, APIs, etc.</li>
@@ -355,7 +335,7 @@ Code
         </details>
 
         <details class="section">
-            <summary>5. Indexing Methods in a Vector Database</summary>
+            <summary>4. Indexing Methods in a Vector Database</summary>
             <div class="section-content">
                 <p><strong>What is a Vector DB:</strong> Traditional databases look for exact word matches, but vector DBs find data that is <em>similar</em> to your query. They organize information as numeric vectors using specialized indexes.</p>
                 
@@ -407,7 +387,7 @@ Code
         </details>
 
         <details class="section">
-            <summary>6. Vanilla RAG Optimization</summary>
+            <summary>5. Vanilla RAG Optimization</summary>
             <div class="section-content">
                 <div class="subsection">
                     <span class="subsection-title">1. Pre-retrieval Methods</span>
@@ -440,8 +420,7 @@ Update: Tweak weights so Query lands closer to Positive.</div>
 <p><strong>Hybrid Search:</strong> Blends vector search with keyword-based search.</p>
 <p><strong>Filtered Vector Search:</strong> Leverages metadata indexes to narrow search space.</p>
 </div>
-code
-Code
+
 <div class="subsection">
                   <span class="subsection-title">3. Post-retrieval</span>
                   <p>Filters noise from results and compresses context (Reranking).</p>
@@ -450,7 +429,7 @@ Code
       </details>
 
       <details class="section">
-          <summary>7. RAG Evaluation</summary>
+          <summary>6. RAG Evaluation</summary>
           <div class="section-content">
               <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: Retrieval and Generation.</p>
               
@@ -472,7 +451,7 @@ Code
       </details>
 
       <details class="section">
-          <summary>8. RAG: Embedding</summary>
+          <summary>7. RAG: Embedding</summary>
           <div class="section-content">
               <p><strong>Dense Embeddings:</strong> Foundation for semantic search. Captures abstract meaning (e.g., "dog" matches "canine").</p>
               <p><strong>Sparse Embeddings:</strong> Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
@@ -482,7 +461,7 @@ Code
       </details>
 
       <details class="section">
-          <summary>9. RAG Inference Pipeline</summary>
+          <summary>8. RAG Inference Pipeline</summary>
           <div class="section-content">
               <ol>
                   <li><strong>Pre-Retrieval: Refining the Intent:</strong> Cleans text, performs Query Expansion, and uses Self-querying to extract metadata.</li>
@@ -496,7 +475,7 @@ Code
       </details>
 
       <details class="section">
-          <summary>10. End to End Optimized RAG Inference Flow</summary>
+          <summary>9. End to End Optimized RAG Inference Flow</summary>
           <div class="section-content">
               <div class="subsection">
                   <span class="subsection-title">1. The Core RAG Synthesis</span>
@@ -526,7 +505,7 @@ Code
       </details>
 
       <details class="section">
-          <summary>11. Self-Querying / Filtered Vector Searching</summary>
+          <summary>10. Self-Querying / Filtered Vector Searching</summary>
           <div class="section-content">
               <div class="subsection">
                   <span class="subsection-title">Process</span>
@@ -549,7 +528,7 @@ Code
       </details>
 
       <details class="section">
-          <summary>12. Query Expansion / Reranking</summary>
+          <summary>11. Query Expansion / Reranking</summary>
           <div class="section-content">
               <div class="subsection">
                   <span class="subsection-title">Query Expansion</span>
@@ -572,7 +551,7 @@ Code
       </details>
 
       <details class="section">
-          <summary>13. When It's Appropriate</summary>
+          <summary>12. When It's Appropriate</summary>
           <div class="section-content">
               <p><strong>Query Expansion:</strong> Use when finding "x" and synonyms. Goal: <strong>Recall</strong>.</p>
               <p><strong>Self-Querying:</strong> Use when finding "x" with strict constraints "y". Goal: <strong>Precision & Security</strong>.</p>

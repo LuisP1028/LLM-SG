@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Syntactic Chunking // Ditherpunk Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --term-green: #00FF41;
+            --term-dim: #003b0f;
+            --font-mono: 'Courier New', Courier, monospace;
+            --scan-line-color: rgba(0, 255, 65, 0.05);
+            --dither-dot-size: 3px;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--term-green);
+            font-family: var(--font-mono);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- CRT & Dither Effects --- */
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg, 
+                rgba(255, 0, 0, 0.06), 
+                rgba(0, 255, 0, 0.02), 
+                rgba(0, 0, 255, 0.06)
+            );
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.6;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.97; }
+            5% { opacity: 0.95; }
+            10% { opacity: 0.9; }
+            15% { opacity: 0.95; }
+            20% { opacity: 0.99; }
+            50% { opacity: 0.95; }
+            100% { opacity: 0.98; }
+        }
+
+        .screen-flicker {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 255, 65, 0.02);
+            animation: flicker 0.15s infinite;
+            pointer-events: none;
+            z-index: 998;
+        }
+
+        /* --- Dither Pattern Helper --- */
+        .dither-bg {
+            background-image: radial-gradient(var(--term-green) 1px, transparent 1px);
+            background-size: var(--dither-dot-size) var(--dither-dot-size);
+            opacity: 0.2;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+        }
+
+        /* --- Main Layout --- */
+        header {
+            border-bottom: 2px solid var(--term-green);
+            padding: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .status-bar {
+            font-size: 0.8rem;
+            animation: blink 1s step-end infinite;
+        }
+
+        .stage {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            height: 100%;
+            gap: 2px;
+            background-color: var(--term-green); /* Grid lines color */
+        }
+
+        .lane {
+            background-color: var(--bg-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        .lane-header {
+            text-align: center;
+            border-bottom: 1px dashed var(--term-green);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* --- Data Blocks (Chunks) --- */
+        .chunk {
+            border: 1px solid var(--term-green);
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            font-size: 0.8rem;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+            background: var(--bg-color);
+            box-shadow: 4px 4px 0px 0px var(--term-dim);
+        }
+
+        .chunk.active {
+            border: 2px solid var(--term-green);
+            background-color: var(--term-dim);
+            box-shadow: 6px 6px 0px 0px var(--term-green);
+            transform: scale(1.02);
+        }
+
+        .chunk code {
+            display: block;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+
+        .chunk .type-tag {
+            position: absolute;
+            top: -8px;
+            right: 10px;
+            background: var(--bg-color);
+            border: 1px solid var(--term-green);
+            padding: 0 4px;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+        }
+
+        /* --- Lane 2 Specifics: The Scanner --- */
+        #lane-process {
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scanner-bracket {
+            position: absolute;
+            width: 100%;
+            height: 0;
+            border-top: 2px solid var(--term-green);
+            border-bottom: 2px solid var(--term-green);
+            left: 0;
+            transition: height 0.3s ease-out;
+            opacity: 0;
+            background: rgba(0, 255, 65, 0.05);
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .scanner-label {
+            position: absolute;
+            right: 5px;
+            bottom: -20px;
+            font-size: 0.7rem;
+            background: var(--term-green);
+            color: var(--bg-color);
+            padding: 2px 5px;
+            opacity: 0;
+        }
+
+        /* --- Lane 3 Specifics: The Stack --- */
+        #stack-container {
+            display: flex;
+            flex-direction: column-reverse; /* New items at bottom visual, but flow up */
+            gap: 10px;
+            height: 100%;
+            justify-content: flex-start;
+        }
+
+        /* --- Animation Classes --- */
+        @keyframes scan-sweep {
+            0% { width: 0%; opacity: 0; }
+            50% { width: 100%; opacity: 1; }
+            100% { width: 100%; opacity: 0; }
+        }
+
+        .scanning-line {
+            height: 2px;
+            background: var(--term-green);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: none;
+        }
+
+        .chunk-processed {
+            opacity: 0.5;
+            transform: translateX(100%);
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        /* --- Utilities --- */
+        .hidden { display: none; }
+
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+    <div class="screen-flicker"></div>
+
+    <header>
+        <div>Syntactic_Slicer v1.0</div>
+        <div class="status-bar">SYS.READY // AWAITING STREAM</div>
+    </header>
+
+    <div class="stage">
+        <div class="lane" id="lane-input">
+            <div class="dither-bg"></div>
+            <div class="lane-header">Raw Stream [Input]</div>
+            <div id="input-feed">
+                </div>
+        </div>
+
+        <div class="lane" id="lane-process">
+            <div class="lane-header" style="position:absolute; top: 1rem; width: 100%;">Logic Lens [Scan]</div>
+            
+            <div class="scanner-bracket" id="scanner">
+                <div class="scanner-label" id="scanner-label">SYNTAX VALIDATED</div>
+            </div>
+            
+            <div id="process-stage" style="width: 90%;"></div>
+        </div>
+
+        <div class="lane" id="lane-output">
+            <div class="dither-bg"></div>
+            <div class="lane-header">Struct_Stack [Output]</div>
+            <div id="stack-container">
+                </div>
+        </div>
+    </div>
+
+<script>
+    // --- Data Source ---
+    // Simulating a file with mixed content (Code, Markdown, HTML)
+    const sourceData = [
+        { type: 'MD', content: '# DOCUMENT_INIT\nAuthor: System\nDate: 2024-X' },
+        { type: 'PY', content: 'def scan_buffer(stream):\n    if not stream:\n        return False\n    return True' },
+        { type: 'HTML', content: '<div class="container">\n  <span id="loader"></span>\n</div>' },
+        { type: 'MD', content: '## ANALYSIS_LOG\n- Stream detected\n- Parsing initiated\n- Logic engaged' },
+        { type: 'JS', content: 'const chunk = (data) => {\n  const limit = findLimit(data);\n  return data.slice(0, limit);\n}' },
+        { type: 'PY', content: 'class Node:\n    def __init__(self, val):\n        self.val = val\n        self.next = None' },
+        { type: 'MD', content: '> NOTE: Fixed-size splitting\n> breaks context.\n> Syntactic splitting preserves it.' },
+        { type: 'HTML', content: '<section>\n  <h2>Results</h2>\n  <p>Data valid.</p>\n</section>' }
+    ];
+
+    let currentIndex = 0;
+    const inputFeed = document.getElementById('input-feed');
+    const processStage = document.getElementById('process-stage');
+    const stackContainer = document.getElementById('stack-container');
+    const scanner = document.getElementById('scanner');
+    const scannerLabel = document.getElementById('scanner-label');
+    const statusText = document.querySelector('.status-bar');
+
+    // Helper to create a DOM element for a chunk
+    function createChunkElement(dataObj) {
+        const div = document.createElement('div');
+        div.className = 'chunk';
+        div.innerHTML = `
+            <span class="type-tag">${dataObj.type}</span>
+            <code>${escapeHtml(dataObj.content)}</code>
+        `;
+        return div;
+    }
+
+    function escapeHtml(text) {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // --- The Animation Loop ---
+    
+    // 1. Spawn in Input Lane
+    function spawnItem() {
+        const data = sourceData[currentIndex];
+        const el = createChunkElement(data);
+        
+        // Add to input feed
+        inputFeed.appendChild(el);
+        
+        // Update index for infinite loop
+        currentIndex = (currentIndex + 1) % sourceData.length;
+
+        // Animate entrance
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-20px)';
+        requestAnimationFrame(() => {
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0)';
+        });
+
+        statusText.textContent = `READING_STREAM... [BLOCK_${currentIndex}]`;
+
+        // Wait, then move to process
+        setTimeout(() => moveToProcess(el, data), 1500);
+    }
+
+    // 2. Move to Logic Lens (Middle Lane)
+    function moveToProcess(el, data) {
+        // Remove from input, add to process stage
+        // To make it smooth, we clone the node position, but for simplicity here we just move DOM
+        el.remove();
+        processStage.innerHTML = ''; // Clear previous
+        processStage.appendChild(el);
+
+        statusText.textContent = `ANALYZING SYNTAX... [${data.type}]`;
+        el.classList.add('active');
+
+        // Trigger Scanner Animation
+        performScan(el);
+    }
+
+    // 3. The Scanning Visual Logic
+    function performScan(el) {
+        const height = el.offsetHeight;
+        
+        // Reset scanner
+        scanner.style.height = '0px';
+        scanner.style.opacity = '1';
+        scanner.style.top = '50%'; // Start from center
+        scanner.style.transform = 'translateY(-50%)'; // Center vertically relative to parent
+        scannerLabel.style.opacity = '0';
+
+        // Animate Scanner expansion (The "Syntactic Check")
+        setTimeout(() => {
+            scanner.style.transition = 'all 0.6s cubic-bezier(0.22, 1, 0.36, 1)';
+            scanner.style.height = (height + 20) + 'px'; // Expand to fit content + padding
+        }, 100);
+
+        // Scan Complete
+        setTimeout(() => {
+            scannerLabel.style.opacity = '1';
+            scanner.style.boxShadow = '0 0 10px var(--term-green)';
+            statusText.textContent = `BOUNDARY DETECTED. PRESERVING LOGIC.`;
+            
+            // Wait a beat, then cut/stack
+            setTimeout(() => stackItem(el), 1200);
+        }, 800);
+    }
+
+    // 4. Move to Stack (Output Lane)
+    function stackItem(el) {
+        // Visual cleanup of scanner
+        scanner.style.opacity = '0';
+        scanner.style.boxShadow = 'none';
+        
+        // Move element
+        el.remove();
+        el.classList.remove('active');
+        
+        // Prepend to stack (so it builds upwards visually or downwards depending on CSS)
+        // We use prepend so newest is at top, but container is flex-col-reverse so it sits at bottom
+        // Actually, let's just append for standard stack behavior
+        const clone = el.cloneNode(true);
+        stackContainer.prepend(clone); 
+
+        statusText.textContent = `CHUNK STORED.`;
+
+        // Maintain stack size (remove old ones to prevent DOM overload)
+        if (stackContainer.children.length > 5) {
+            stackContainer.lastElementChild.remove();
+        }
+
+        // Restart Loop
+        setTimeout(spawnItem, 1000);
+    }
+
+    // --- Initialization ---
+    // Start the process
+    window.onload = () => {
+        setTimeout(spawnItem, 500);
+    };
+
+</script>
+</body>
+</html>
