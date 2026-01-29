@@ -443,20 +443,6 @@ Update: Tweak weights so Query lands closer to Positive.</div>
       </details>
 
       <details class="section">
-          <summary>8. RAG Inference Pipeline</summary>
-          <div class="section-content">
-              <ol>
-                  <li><strong>Pre-Retrieval: Refining the Intent:</strong> Cleans text, performs Query Expansion, and uses Self-querying to extract metadata.</li>
-                  <li><strong>Embedding & Metadata Mapping:</strong> Converts queries to numerical vectors aligning with stored documents.</li>
-                  <li><strong>Grounded & Filtered Search:</strong> Executes Filtered Vector Search using extracted metadata.</li>
-                  <li><strong>Concurrent Retrieval & Flattening:</strong> Searches data silos simultaneously; deduplicates results.</li>
-                  <li><strong>Post-Retrieval: Reranking:</strong> Scores results for relevance, discarding noise.</li>
-                  <li><strong>Augmented Generation & References:</strong> Sends context-rich package to LLM with metadata for citations.</li>
-              </ol>
-          </div>
-      </details>
-
-      <details class="section">
           <summary>9. End to End Optimized RAG Inference Flow</summary>
           <div class="section-content">
               <div class="subsection">
