@@ -331,28 +331,49 @@ Code
                 
                 <div class="subsection">
                     <span class="subsection-title">HNSW (Hierarchical Navigable Small World)</span>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/HNSW.html'; vp.classList.add('active');">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
                     <p>Constructs a multi-layered graph structure. Upper layers contain sparse nodes for rapid "greedy" traversal. Lower layers are denser for fine-grained navigation. Ensures logarithmic search complexity trading high memory usage for speed.</p>
                 </div>
-
+        
                 <div class="subsection">
                     <span class="subsection-title">LSH (Locality-Sensitive Hashing)</span>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/LSH.html'; vp.classList.add('active');">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
                     <p>Projects vectors onto random hyperplanes to generate binary signatures. Vectors on the same side land in the same "bucket". Querying becomes an O(1) lookup.</p>
                 </div>
-
+        
                 <div class="subsection">
                     <span class="subsection-title">Product Quantization (PQ)</span>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/PQ.html'; vp.classList.add('active');">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
                     <ul>
                         <li>Quantization approximates precise values using limited "centroids."</li>
                         <li>PQ is vital when datasets exceed RAM limits. It acts as a rapid <strong>pre-filter</strong>.</li>
                         <li>Breaks vectors into sub-parts, quantizing each to create a compact code. The <strong>Signature Matrix</strong> stores these compressed IDs.</li>
                     </ul>
                 </div>
-
+        
                 <div class="subsection">
                     <span class="subsection-title">Random Projection (RP)</span>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/random_projection.html'; vp.classList.add('active');">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
                     <p>Reduces dimensionality by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
                 </div>
             </div>
+        </details>
         </details>
 
         <details class="section">
