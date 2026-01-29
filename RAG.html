@@ -481,10 +481,10 @@
                                 <strong>Entity Resolution:</strong> This step identifies the specific row. It maps extracted names (like "Paul") to unique IDs (UUIDs). By resolving "the author" into a precise database entry, it prevents identity confusion and ensures the system targets the exact record intended.
                             </li>
                             <li>
-                                <strong>Query Enrichment:</strong> This step builds the final command. It merges semantic text with hard metadata filters from Step 3. This creates a composite query, instructing the database to find "vibes" only within the strict boundaries of the verified identifiers.
+                                <strong>Query Enrichment:</strong> This step builds the dual-input command. Instead of merging them, it generates a Semantic Vector (the "seeker") and bundles it alongside the Metadata Filters (the "boundaries"). The database receives two distinct instructions: Search using this vector, but ONLY inside this specific fence.
                             </li>
                             <li>
-                                <strong>Filtered Retrieval:</strong> The execution phase. It uses metadata as a strict gatekeeper to prune non-matching documents before running semantic similarity. This guarantees 100% adherence to business logic (like permissions) while maintaining high relevance.
+                                <strong>Filtered Retrieval:</strong> The execution phase. The database applies the Metadata Filters first, masking all non-compliant documents (the "Gate"). The Semantic Vector then calculates similarity only against the remaining "open" candidates, ensuring the search never even "sees" restricted data.
                             </li>
                         </ol>
                     
