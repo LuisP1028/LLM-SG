@@ -141,40 +141,38 @@
 <div class="dither-layer"></div>
 <div class="scanlines"></div>
 
-<div class="container">
-    <h1>Part I: Basics</h1>
+<div class="container"> <h1>Part I: Basics</h1>
 
-    <!-- MAIN CONTENT BUCKET -->
     <div class="part-content">
         
-        <!-- ============================================== -->
-        <!-- SECTION 1: THE RETRIEVAL PIPELINE -->
-        <!-- ============================================== -->
         <details class="section">
             <summary>1. The Retrieval Pipeline</summary>
             <div class="section-content">
                 
                 <div class="subsection">
-                    <p><strong>The Flow:</strong> Question → Vector → Database Match → Context Extraction → LLM Prompt.</p>
+                    <span class="subsection-title">Core Mechanism</span>
+                    <p>The retrieval pipeline finds relevant information to answer your question. In essence: your input gets converted to a vector, that vector is matched against a database of vectors, the best matches are retrieved, and those matches become the knowledge base for generating your answer.</p>
                     <ol>
-                        <li><strong>Vectorization:</strong> The user input is converted into a list of numbers (vector) capturing semantic meaning.</li>
-                        <li><strong>Similarity Search:</strong> The system compares this vector against the database to find the <em>K</em> most similar records.</li>
-                        <li><strong>Augmentation:</strong> Matching info is extracted and appended to the prompt, acting as the knowledge base for the answer.</li>
+                        <li>When you ask something, the system converts your question into a vector—a list of numbers that captures the meaning of what you said. Your vector database already contains vectors of all your stored information. Each piece of information has been converted into its own vector.</li>
+                        <li>The retrieval step compares your question's vector against all the vectors in the database. It finds the K most similar ones—meaning it identifies which stored information has vectors closest to your question's vector.</li>
+                        <li>These matching pieces of information are then extracted and added to the prompt sent to the language model. This gives the LLM the specific context it needs to generate an accurate, relevant answer to your question.</li>
                     </ol>
                 </div>
-
+    
                 <div class="subsection">
                     <span class="subsection-title">Distance Metrics</span>
-                    <p>How we measure the "gap" between vectors determines what is considered relevant.</p>
+                    <p>DISTANCE METRICS: Manhattan catches dimension-specific deviations without amplification. Euclidean catches overall spatial distance with emphasis on larger gaps. Cosine catches conceptual similarity regardless of size.</p>
                     <ul>
-                        <li><strong>Manhattan (Dimensional):</strong> Treats dimensions independently. Good when criteria are separate. Prevents single-dimension domination.</li>
-                        <li><strong>Euclidean (Magnitude):</strong> Measures spatial distance. Sensitive to overall magnitude; squaring amplifies large gaps.</li>
-                        <li><strong>Cosine (Similarity):</strong> Measures <em>directional alignment</em> only. Ignores magnitude/scale. Best for semantic meaning.</li>
+                        <li>[Dimensional Differences] Manhattan: Treats each dimension independently and equally. Prevents any single dimension from dominating through squaring. Good when each dimension represents an independent criterion that matters separately.</li>
+                        <li>[Magnitude] Euclidean: Sensitive to overall magnitude differences between vectors. Squaring amplifies larger differences. Good when the total distance in space matters and dimensions interact.</li>
+                        <li>[Similarity] Cosine: Ignores magnitude entirely, only measures directional alignment. Two vectors pointing the same way are similar regardless of length. Good when semantic meaning (direction) matters but scale doesn't.</li>
                     </ul>
                 </div>
-
+    
             </div>
         </details>
+    </div>
+    </div>
 
         <!-- ============================================== -->
         <!-- SECTION 2: CDC ARCHITECTURE -->
