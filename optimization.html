@@ -354,8 +354,7 @@ Step 3: [3, 1, hidden_dim]
                     <li><strong>Value (𝑉):</strong> Contains the actual features of each token.</li>
                 </ul>
             </div>
-            
-    <details class="section">
+        </div> </details> <details class="section">
         <summary>2. Model Parallelism</summary>
         <div class="section-content">
             <div class="subsection">
@@ -422,9 +421,7 @@ Step 3: [3, 1, hidden_dim]
                     <li><strong>INT8 (Quantization):</strong> An 8-bit integer format. Using techniques like <strong>absmax</strong>, you can compress high-precision weights into 8-bit buckets, drastically reducing VRAM usage at the cost of some "granularity" in the numbers.</li>
                 </ul>
             </div>
-        </div>
-    </details>
-
+            
             <div class="subsection">
                 <span class="subsection-title">Quantization Methods</span>
                 <p><strong>Post-Training Quantization (PTQ):</strong> PTQ is a straightforward technique where the weights of a pre-trained model are directly converted to a lower precision format without any retraining.</p>
@@ -461,8 +458,7 @@ Step 3: [3, 1, hidden_dim]
                 </ol>
                 <p>The COMPUTATIONAL SAVINGS isn’t in the final addition; it’s in the <strong>matrix multiplication</strong>, which is the heaviest part of the workload.</p>
             </div>
-
-    <details class="section">
+        </div> </details> <details class="section">
         <summary>4. Optimized Attention Mechanisms</summary>
         <div class="section-content">
             <div class="subsection">
