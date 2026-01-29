@@ -604,37 +604,64 @@
                         <p><strong>RAGAS (Retrieval-Augmented Generation Assessment)</strong> is a framework used to quantify the performance of your RAG pipeline. Ragas uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between the <strong>Question</strong>, the <strong>Context</strong> (retrieved facts), and the <strong>Answer</strong>.</p>
                         
                         <details class="subsection">
-                            <summary>1. Faithfulness</summary>
+                            <summary>1. Faithfulness [EVALUATE LLM -> HALLUCINATION METRIC]</summary>
                             <div class="subsection-content">
-                                <p><strong>Core Concept:</strong> Faithfulness is the primary metric for detecting hallucinations. It strictly measures <strong>grounding</strong>: the extent to which the generated answer is derived <em>only</em> from the retrieved context, ignoring the model's pre-trained world knowledge.</p>
+                                <p><strong>Core Concept:</strong> It strictly measures <strong>grounding</strong>: the extent to which the generated answer is derived <em>only</em> from the retrieved context, ignoring the model's pre-trained world knowledge.</p>
+                                
                                 <p><strong>The "Judge" Process:</strong> RAGAS employs a two-step prompting strategy:</p>
-                                <ul>
-                                    <li><strong>Statement Extraction:</strong> The LLM breaks the answer into atomic statements (simple, standalone claims) to prevent complex sentences from hiding inaccuracies.</li>
-                                    <li><strong>Verification:</strong> The LLM acts as a binary classifier, cross-referencing each atomic statement against the Contexts to see if it can be inferred entirely from the provided text.</li>
-                                </ul>
+                                
+                                <div class="process-step">
+                                    <p><strong>1. Statement Extraction:</strong> The "Judge" LLM acts as a deconstructor. It takes a complex, multi-sentence response and strips it down into a list of atomic claims—single, verifiable facts. By isolating these individual threads, the model prevents a single correct statement from "masking" a hallucination hidden within the same sentence, ensuring every specific piece of information is exposed for scrutiny.</p>
+                                    <blockquote>
+                                        <strong>Example:</strong><br>
+                                        <em>Generated Answer:</em> "The sky is blue because of Rayleigh scattering and it's 70°F."<br>
+                                        <em>Atomic Claims:</em>
+                                        <ul>
+                                            <li>(A) "The sky is blue."</li>
+                                            <li>(B) "The reason is Rayleigh scattering."</li>
+                                            <li>(C) "The temperature is 70°F."</li>
+                                        </ul>
+                                    </blockquote>
+                                </div>
+                        
+                                <div class="process-step">
+                                    <p><strong>2. Verification:</strong> The LLM now acts as a binary auditor. It takes each atomic claim and holds it up against the provided Context (and only the context). It asks: "Is this specific fact supported by the text?" If the context explicitly confirms the claim, it receives a 1 (True); if the context is silent or contradicts it, it receives a 0 (False).</p>
+                                    <blockquote>
+                                        <strong>Example:</strong><br>
+                                        <em>Retrieved Context:</em> "Atmospheric scattering causes a blue hue."<br>
+                                        <em>Audit Results:</em>
+                                        <ul>
+                                            <li>(A) Verified (Atmospheric scattering/blue hue).</li>
+                                            <li>(B) Verified (Rayleigh is the specific scattering type implied).</li>
+                                            <li>(C) Hallucination (The context does not mention temperature).</li>
+                                        </ul>
+                                    </blockquote>
+                                </div>
+                        
                                 <p><strong>The Calculation:</strong> <code>Faithfulness = # of verified statements / total number of statements</code></p>
+                                <p><em>Calculation for example: 2 verified / 3 total = 0.66 Faithfulness.</em></p>
+                                
                                 <p><strong>Why It Matters:</strong> Critical for enterprise applications (like legal or medical bots). If the context doesn't say it, the model shouldn't say it, even if it is true in the real world.</p>
                             </div>
                         </details>
         
                         <details class="subsection">
-                            <summary>2. Answer Relevancy</summary>
+                            <summary>2. Answer Relevancy [EVALUATE LLM]</summary>
                             <div class="subsection-content">
-                                <p><strong>Core Concept:</strong> Measures the pertinence of the response to the user's initial query. Unlike Faithfulness, this does <em>not</em> check factual correctness; it penalizes incomplete, redundant, or drifting answers.</p>
-                                <p><strong>The "Judge" Process (Reverse Engineering):</strong> Relies on vector embeddings rather than direct text comparison:</p>
+                                <p><strong>Core Concept:</strong> To measure Answer Relevancy, the "Judge" uses a Reverse Engineering strategy to see if the answer actually addresses the user's intent:</p>
+                                <p><strong>The "Judge" Process (Reverse Engineering):</strong></p>
                                 <ul>
-                                    <li><strong>Question Generation:</strong> The LLM analyzes the generated Answer and attempts to generate questions that <em>would</em> result in this answer.</li>
-                                    <li><strong>Embedding Similarity:</strong> RAGAS converts the Original User Question and Generated Questions into vector embeddings and calculates the cosine similarity.</li>
+                                    <li><strong>Question Generation:</strong> The LLM acts as an inverted strategist. It ignores the original user query and examines only the generated answer, attempting to reverse-engineer the intent. It generates several potential questions that would logically lead to that specific answer, revealing what the model actually addressed.</li>
+                                    <li><strong>Embedding Similarity:</strong> RAGAS converts the Original Query and the Generated Questions into high-dimensional vector embeddings. It then calculates the Cosine Similarity (the angle) between them.</li>
                                 </ul>
-                                <p><strong>The Calculation:</strong> The score is the mean cosine similarity. A score closer to 1 means the generated answer maps perfectly back to the original intent.</p>
-                                <p><strong>Why It Matters:</strong> A low score indicates the model is "hedging" or providing generic summaries (e.g., answering "What is the capital of France?" with a generic history of France) rather than directly answering the specific prompt.</p>
+                                <p><strong>The Calculation:</strong> The final score is the mean cosine similarity of all generated questions. A score near 1.0 indicates the answer is a direct hit, while a low score suggests the model is "hedging" or providing a generic summary that doesn't target the prompt.</p>                                
                             </div>
                         </details>
         
                         <details class="subsection">
-                            <summary>3. Context Precision</summary>
+                            <summary>3. Context Precision [EVALUATE RETRIEVER]</summary>
                             <div class="subsection-content">
-                                <p><strong>Core Concept:</strong> Evaluates if the most relevant text segments ("chunks") are ranked at the top. Since LLMs have limited context windows, the retriever must prioritize high-value excerpts.</p>
+                                <p><strong>Core Concept:</strong> In Context Precision, the "chunks" being measured are the specific text segments returned by your retriever for a given query.</p>
                                 <p><strong>The "Judge" Process:</strong></p>
                                 <ul>
                                     <li><strong>Verification:</strong> The LLM compares retrieved chunks against Ground Truth to classify them as Relevant or Irrelevant.</li>
