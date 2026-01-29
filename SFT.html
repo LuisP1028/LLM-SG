@@ -207,7 +207,7 @@
     
     <details class="section" open> <summary>1. Preparations for SFT & Data Curation</summary> <div class="section-content"> <p>Refines the model’s capabilities using carefully curated pairs of instructions and corresponding answers.</p>
 
-        <details class="subsection-accordion">
+        <details class="nested-accordion">
             <summary>Essential Dimensions of Data</summary>
             <div class="accordion-content">
                 <ul>
@@ -227,7 +227,7 @@
             </div>
         </details>
     
-        <details class="subsection-accordion">
+        <details class="nested-accordion">
             <summary>Task vs. Domain Specific Models</summary>
             <div class="accordion-content">
                 <p><strong>Task-specific</strong> models focus on performing a single action, such as translation or summarization, often requiring less data and smaller model sizes. For task-specific models, data curation often involves collecting examples of the desired task from existing datasets or creating new ones.</p>
@@ -235,7 +235,7 @@
             </div>
         </details>
     
-        <details class="subsection-accordion">
+        <details class="nested-accordion">
             <summary>Data Curation: Rule-Based Filtering</summary>
             <div class="accordion-content">
                 <p><strong>Rule-based filtering</strong> is a quality control method that uses explicit, pre-set rules to automatically keep or remove data samples. It aims to maintain high standards by strictly enforcing specific criteria. Its speed and efficiency allow for rapid application to large volumes of data, making it highly scalable.</p>
@@ -247,96 +247,164 @@
             </div>
         </details>
     
-        <details class="subsection-accordion">
+        <details class="nested-accordion">
             <summary>Data Deduplication & Decontamination</summary>
             <div class="accordion-content">
                 <p>In practice, these steps are the "safeguards" of a pipeline, ensuring the model doesn't just memorize patterns or "leak" answers. Engineers use <strong>MinHash LSH</strong> to scale this across millions of rows efficiently. <strong>Fuzzy Deduplication</strong> identifies "near-misses"—like the same recipe with different line breaks—and deletes them to prevent the model from overfitting on repetitive content. <strong>Decontamination</strong> acts as a "cheat check," where the training set is compared against benchmark test sets (like MMLU); any training sample too similar to a test question is purged to ensure the final evaluation measures true reasoning, not memorization.</p>
     
-                <h3>Exact Deduplication</h3>
-                <p><strong>Exact deduplication</strong> removes identical entries by normalizing data and comparing unique hash codes (e.g., <strong>SHA-256</strong>). If hashes match, the data is considered a duplicate.</p>
-                <ul>
-                    <li><strong>Precision:</strong> Extremely high for identical copies.</li>
-                    <li><strong>Limitation:</strong> It is "brittle"—it misses documents with even a single character difference, typos, or semantically similar content.</li>
-                </ul>
+                <details class="nested-accordion">
+                    <summary>Exact Deduplication</summary>
+                    <div class="accordion-content">
+                        <p><strong>Exact deduplication</strong> removes identical entries by normalizing data and comparing unique hash codes (e.g., <strong>SHA-256</strong>). If hashes match, the data is considered a duplicate.</p>
+                        <ul>
+                            <li><strong>Precision:</strong> Extremely high for identical copies.</li>
+                            <li><strong>Limitation:</strong> It is "brittle"—it misses documents with even a single character difference, typos, or semantically similar content.</li>
+                        </ul>
+                    </div>
+                </details>
     
-                <hr>
-    
-                <h3>Fuzzy Deduplication</h3>
-                <p><strong>Fuzzy deduplication</strong> detects <em>near-duplicates</em> using <strong>MinHash</strong>. This process involves breaking data into "shingle" fingerprints to compare documents that are similar but not identical.</p>
-    
-                <h4>1. Shingling & N-grams</h4>
-                <p><strong>Shingles</strong> are overlapping subsequences used to convert text into a mathematical set. For example, the phrase "red car" might become the set: <code>{"red", "ed ", " ca", "car"}</code>.</p>
-                <p>These are often categorized as <strong>n-grams</strong> (contiguous sequences of <em>n</em> items):</p>
-                <ul>
-                    <li><strong>Character n-gram:</strong> "Code" (n=3) -> <code>{"Cod", "ode"}</code></li>
-                    <li><strong>Word n-gram:</strong> "My code runs" (n=2) ->  <code>{"My code", "code runs"}</code></li>
-                </ul>
-    
-                <h4>2. Jaccard Similarity Index</h4>
-                <p>The <strong>Jaccard Similarity Index</strong> measures the resemblance between two sets. It is calculated by dividing the size of the <strong>intersection</strong> (shared shingles) by the size of the <strong>union</strong> (total unique shingles).</p>
-    
-                <blockquote>
-                    The formula for Jaccard Similarity is:
-                    $$J(A, B) = \frac{|A \cap B|}{|A \cup B|}$$
-                </blockquote>
-    
-                <ul>
-                    <li>A score of <strong>1.0</strong> indicates identical sets (complete overlap).</li>
-                    <li>A score of <strong>0.0</strong> indicates no overlap whatsoever.</li>
-                </ul>
+                <details class="nested-accordion">
+                    <summary>Fuzzy Deduplication</summary>
+                    <div class="accordion-content">
+                        <p><strong>Fuzzy deduplication</strong> detects <em>near-duplicates</em> using <strong>MinHash</strong>. This process involves breaking data into "shingle" fingerprints to compare documents that are similar but not identical.</p>
+            
+                        <h4>1. Shingling & N-grams</h4>
+                        <p><strong>Shingles</strong> are overlapping subsequences used to convert text into a mathematical set. For example, the phrase "red car" might become the set: <code>{"red", "ed ", " ca", "car"}</code>.</p>
+                        <p>These are often categorized as <strong>n-grams</strong> (contiguous sequences of <em>n</em> items):</p>
+                        <ul>
+                            <li><strong>Character n-gram:</strong> "Code" (n=3) -> <code>{"Cod", "ode"}</code></li>
+                            <li><strong>Word n-gram:</strong> "My code runs" (n=2) ->  <code>{"My code", "code runs"}</code></li>
+                        </ul>
+            
+                        <h4>2. Jaccard Similarity Index</h4>
+                        <p>The <strong>Jaccard Similarity Index</strong> measures the resemblance between two sets. It is calculated by dividing the size of the <strong>intersection</strong> (shared shingles) by the size of the <strong>union</strong> (total unique shingles).</p>
+            
+                        <blockquote>
+                            The formula for Jaccard Similarity is:
+                            $$J(A, B) = \frac{|A \cap B|}{|A \cup B|}$$
+                        </blockquote>
+            
+                        <ul>
+                            <li>A score of <strong>1.0</strong> indicates identical sets (complete overlap).</li>
+                            <li>A score of <strong>0.0</strong> indicates no overlap whatsoever.</li>
+                        </ul>
+                    </div>
+                </details>
             </div>
         </details>
     
-        <details class="subsection-accordion">
-            <summary>Data Quality Evaluation (LLM-as-a-Judge)</summary>
+        <details class="nested-accordion">
+            <summary>Data Quality Evaluation (LLM-as-a-judge)</summary>
             <div class="accordion-content">
                 <p>Measures attributes like accuracy, diversity, and complexity to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use <strong>LLM-as-a-judge</strong> workflows to automate this assessment.</p>
         
-                <h3>LLM-as-a-Judge: Scoring vs. Ranking</h3>
-                <p>When using an LLM to evaluate preference data, there are two primary methods:</p>
-                <ul>
-                    <li><strong>Absolute Scoring:</strong> The LLM assigns a 1–5 or "Good/Bad" rating to a single response. It’s fast but often inconsistent across different prompts or sessions.</li>
-                    <li><strong>Pairwise Ranking [Best]:</strong> The LLM compares two responses (A vs. B) to pick a winner. This is the gold standard for DPO because it mimics human decision-making and produces more stable, relative signals.</li>
-                </ul>
-        
-                <h3>Boosting Evaluation Accuracy</h3>
-                <ul>
-                    <li><strong>CoT + Pairwise Ranking:</strong> Use when the task is highly subjective or creative (e.g., poetry, persona-mimicry).
-                        <br><em>Strength:</em> Forces logical justification. Since no "answer key" exists, the judge's own reasoning process ensures it weighs complex trade-offs—like creativity vs. clarity—before picking a winner. It prevents reliance on "vibes" or length by building an independent logical path.
-                    </li>
-                    <li><strong>Ground Truth + Pairwise Ranking:</strong> Use when there is a definitive "correct" answer (e.g., Python scripts, calculus, or history).
-                        <br><em>Strength:</em> Acts as an immutable anchor. It eliminates hallucinations by providing the judge with the "answer key," forcing it to penalize confident but incorrect logic. It shifts the task from "Which sounds better?" to "Which is more correct?"
-                    </li>
-                    <li><strong>The Rubric + Pairwise Ranking:</strong> Use when the task is constrained by specific requirements but lacks a single "right" answer (e.g., "Summarize this for a 5-year-old").
-                        <br><em>Strength:</em> Prevents "goalpost shifting." By defining the ideal criteria first, the judge resists favoring superficial traits like politeness or length over actual compliance, leading to a much cleaner training signal.
-                    </li>
-                </ul>
-        
-                <p><strong>Biases of LLM-as-a-judge:</strong></p>
-                <ul>
-                    <li><strong>Position Bias:</strong> Favoring the first answer presented.</li>
-                    <li><strong>Verbosity Bias:</strong> Preferring longer responses.</li>
-                    <li><strong>Self-Preference:</strong> Rating their own model family higher.</li>
-                </ul>
-                <p>Counter these by randomizing order, length normalization, and using diverse judges.</p>
-        
-                <h3>Reinforcement Learning from Human Feedback (RLHF)</h3>
-                <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
-        
-                <ol>
-                    <li><strong>The Reward Model (Learning "Taste"):</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
-                    <li><strong>Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
-                    <li><strong>How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the <strong>Advantage</strong>: how much better this response was compared to the model's average.
+                <details class="nested-accordion">
+                    <summary>LLM-as-a-Judge: Scoring vs. Ranking</summary>
+                    <div class="accordion-content">
+                        <p>When using an LLM to evaluate preference data, there are two primary methods:</p>
                         <ul>
-                            <li><strong>Positive score:</strong> The model is nudged to produce similar outputs.</li>
-                            <li><strong>Negative score:</strong> The model is nudged away.</li>
+                            <li><strong>Absolute Scoring:</strong> The LLM assigns a 1–5 or "Good/Bad" rating to a single response. It’s fast but often inconsistent across different prompts or sessions.</li>
+                            <li><strong>Pairwise Ranking [Best]:</strong> The LLM compares two responses (A vs. B) to pick a winner. This is the gold standard for DPO because it mimics human decision-making and produces more stable, relative signals.</li>
                         </ul>
-                    </li>
-                </ol>
+                    </div>
+                </details>
+        
+                <details class="nested-accordion">
+                    <summary>Boosting Evaluation Accuracy</summary>
+                    <div class="accordion-content">
+                        <ul>
+                            <li><strong>CoT + Pairwise Ranking:</strong> Use when the task is highly subjective or creative (e.g., poetry, persona-mimicry).
+                                <br><em>Strength:</em> Forces logical justification. Since no "answer key" exists, the judge's own reasoning process ensures it weighs complex trade-offs—like creativity vs. clarity—before picking a winner. It prevents reliance on "vibes" or length by building an independent logical path.
+                            </li>
+                            <li><strong>Ground Truth + Pairwise Ranking:</strong> Use when there is a definitive "correct" answer (e.g., Python scripts, calculus, or history).
+                                <br><em>Strength:</em> Acts as an immutable anchor. It eliminates hallucinations by providing the judge with the "answer key," forcing it to penalize confident but incorrect logic. It shifts the task from "Which sounds better?" to "Which is more correct?"
+                            </li>
+                            <li><strong>The Rubric + Pairwise Ranking:</strong> Use when the task is constrained by specific requirements but lacks a single "right" answer (e.g., "Summarize this for a 5-year-old").
+                                <br><em>Strength:</em> Prevents "goalpost shifting." By defining the ideal criteria first, the judge resists favoring superficial traits like politeness or length over actual compliance, leading to a much cleaner training signal.
+                            </li>
+                        </ul>
+                        <p><strong>Biases of LLM-as-a-judge:</strong></p>
+                        <ul>
+                            <li><strong>Position Bias:</strong> Favoring the first answer presented.</li>
+                            <li><strong>Verbosity Bias:</strong> Preferring longer responses.</li>
+                            <li><strong>Self-Preference:</strong> Rating their own model family higher.</li>
+                        </ul>
+                        <p>Counter these by randomizing order, length normalization, and using diverse judges.</p>        
+                        <details class="nested-accordion">
+                            <summary>Domain-Specific Implementation Examples</summary>
+                            <div class="accordion-content">
+                                <ol>
+                                    <li><strong>Software Engineering (Ground Truth + Pairwise):</strong>
+                                        <ul>
+                                            <li><strong>The Packet:</strong> Prompt (Fibonacci function), Response A (Recursive/Slow), Response B (Iterative/Syntax Error), Ground Truth (Verified Textbook Script).</li>
+                                            <li><strong>The Ingestion:</strong> The Judge compares A and B against the Ground Truth. It identifies B's syntax error despite its "advanced" appearance and selects A for the SFT training set.</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Medical/BioTech (The Rubric + Pairwise):</strong>
+                                        <ul>
+                                            <li><strong>The Packet:</strong> Prompt (Summarize clinical trial), Response A (Jargon-heavy), Response B (Missing safety warnings), The Rubric (8th-grade level, must include contraindications).</li>
+                                            <li><strong>The Ingestion:</strong> The Judge checks both against the Rubric. Both are flagged for failure; the Judge may reject both or pick the "least bad" for further refinement.</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Roleplay/Persona (CoT + Pairwise):</strong>
+                                        <ul>
+                                            <li><strong>The Packet:</strong> Prompt (Request for comfort), Response A (Empathetic/Generic), Response B (Stoic/Principled), Instruction (Use Chain of Thought).</li>
+                                            <li><strong>Internal Reasoning:</strong> "A is empathetic but lacks the 'Stoic' persona. B uses Stoic principles regarding control. B matches the specific domain requirement." Winner: B.</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                            </div>
+                        </details>
+        
+                        <details class="nested-accordion">
+                            <summary>Task-Specific Implementation Examples</summary>
+                            <div class="accordion-content">
+                                <ol>
+                                    <li><strong>Mathematical Reasoning (Ground Truth + Pairwise):</strong>
+                                        <ul>
+                                            <li><strong>The Packet:</strong> Prompt (Derivative of $\sin(x^2)$), Response A (Answer only), Response B (Correct steps, sign error), Ground Truth (Step-by-step key).</li>
+                                            <li><strong>The Ingestion:</strong> The Judge aligns both against the Ground Truth. It rejects A for failing to show work and flags B for factual error.</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Data Extraction (The Rubric + Pairwise):</strong>
+                                        <ul>
+                                            <li><strong>The Packet:</strong> Prompt (Extract contract entities), Response A (Conversational paragraph), Response B (Clean JSON), The Rubric (Valid JSON, specific keys, no filler).</li>
+                                            <li><strong>The Ingestion:</strong> The Judge ignores accuracy momentarily to check Rubric constraints. Response A fails; Response B passes all points and is selected.</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>Creative Writing/Style Transfer (CoT + Pairwise):</strong>
+                                        <ul>
+                                            <li><strong>The Packet:</strong> Prompt (Rewrite manual in '1950s Noir'), Response A (Slang only), Response B (Atmospheric narrative with technical accuracy).</li>
+                                            <li><strong>Internal Reasoning:</strong> "A is brief but lacks narrative depth. B maintains the technical requirement (grounded outlet) while committing to the genre's tropes." Winner: B.</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                            </div>
+                        </details>
+        
+                    </div>
+                </details>
+        
+                <details class="nested-accordion">
+                    <summary>Reinforcement Learning from Human Feedback (RLHF)</summary>
+                    <div class="accordion-content">
+                        <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
+                        <ol>
+                            <li><strong>The Reward Model (Learning "Taste"):</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
+                            <li><strong>Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
+                            <li><strong>How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the <strong>Advantage</strong>: how much better this response was compared to the model's average.
+                                <ul>
+                                    <li><strong>Positive score:</strong> The model is nudged to produce similar outputs.</li>
+                                    <li><strong>Negative score:</strong> The model is nudged away.</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+                </details>
             </div>
         </details>
     
-        <details class="subsection-accordion">
+        <details class="nested-accordion">
             <summary>Data Exploration & Generation</summary>
             <div class="accordion-content">
                 <p><strong>Data Exploration:</strong> Statistical analysis uses NLP libraries like NLTK and spaCy. Topic clustering converts text into numerical embeddings using sentence transformers (e.g., DBSCAN) to group vectors based on proximity.</p>
@@ -344,7 +412,7 @@
             </div>
         </details>
     
-        <details class="subsection-accordion">
+        <details class="nested-accordion">
             <summary>Data Augmentation (Evol-Instruct & UltraFeedback)</summary>
             <div class="accordion-content">
                 <p>In this context, <strong>data augmentation</strong> refers to the process of increasing both the quantity and the quality of data samples. While generation creates data from scratch, augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
