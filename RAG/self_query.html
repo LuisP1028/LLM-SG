@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtered Vector Search // DITHERPUNK_VISUALIZER</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --term-green: #00FF00;
+            --term-dim: #003300;
+            --term-off: #1a1a1a;
+            --scanline-color: rgba(0, 0, 0, 0.5);
+            --font-stack: 'Courier New', Courier, monospace;
+            --border-thick: 2px;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--term-green);
+            font-family: var(--font-stack);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- DITHER & CRT EFFECTS --- */
+        #dither-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.15;
+        }
+
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        /* --- LAYOUT --- */
+        header {
+            padding: 20px;
+            border-bottom: var(--border-thick) solid var(--term-green);
+            display: flex;
+            justify-content: space-between;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            background: var(--bg-color);
+            z-index: 10;
+        }
+
+        .status-bar {
+            font-size: 0.8rem;
+            animation: blink 1s infinite;
+        }
+
+        .main-stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-evenly;
+            position: relative;
+            padding: 20px;
+            z-index: 5;
+        }
+
+        /* --- COMPONENTS --- */
+        
+        /* 1. INPUT ZONE */
+        .zone-input {
+            width: 15%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .terminal-box {
+            border: var(--border-thick) solid var(--term-green);
+            padding: 10px;
+            background: black;
+            box-shadow: 4px 4px 0px var(--term-dim);
+        }
+
+        .label {
+            background: var(--term-green);
+            color: black;
+            padding: 2px 5px;
+            font-weight: bold;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            display: inline-block;
+            margin-bottom: 5px;
+        }
+
+        #user-query {
+            min-height: 60px;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 14px;
+            background: var(--term-green);
+            animation: blink 0.5s step-end infinite alternate;
+        }
+
+        /* 2. PROCESS ZONE (The Split) */
+        .zone-process {
+            width: 30%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 60%;
+            position: relative;
+        }
+
+        .track {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            height: 60px;
+        }
+
+        .track-label {
+            position: absolute;
+            left: -60px;
+            font-size: 0.7rem;
+            opacity: 0.7;
+            text-align: right;
+            width: 50px;
+        }
+
+        /* Tokens that move */
+        .token {
+            border: 1px solid var(--term-green);
+            padding: 5px 10px;
+            font-size: 0.7rem;
+            background: black;
+            position: absolute;
+            transition: all 0.5s ease;
+            opacity: 0;
+            white-space: nowrap;
+            z-index: 20;
+        }
+
+        .token.vector {
+            border-radius: 50%; /* Abstract shape */
+            box-shadow: 0 0 10px var(--term-green);
+        }
+
+        .token.meta {
+            border-radius: 0; /* Rigid shape */
+            border-style: dashed;
+        }
+
+        /* Processing Stations */
+        .station {
+            border: 1px dotted var(--term-green);
+            padding: 5px;
+            color: var(--term-dim);
+            font-size: 0.6rem;
+            width: 100px;
+            text-align: center;
+            margin-left: 50px;
+            transition: color 0.3s, border-color 0.3s;
+        }
+        .station.active {
+            color: var(--term-green);
+            border-style: solid;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        /* 3. DATABASE ZONE */
+        .zone-db {
+            width: 30%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .db-container {
+            border: var(--border-thick) solid var(--term-green);
+            padding: 5px;
+            width: 100%;
+            aspect-ratio: 1/1;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+            background: #000;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .db-node {
+            background-color: var(--term-green);
+            opacity: 0.3;
+            transition: opacity 0.5s, background-color 0.3s, transform 0.3s;
+        }
+
+        .db-node.active-candidate {
+            opacity: 1; /* These survived the filter */
+            background-color: var(--term-green);
+            box-shadow: 0 0 2px var(--term-green);
+        }
+
+        .db-node.masked {
+            opacity: 0.05; /* These were pruned */
+            background-color: var(--term-dim);
+        }
+
+        .db-node.hit {
+            background-color: #fff !important;
+            opacity: 1 !important;
+            transform: scale(1.5);
+            z-index: 100;
+            box-shadow: 0 0 15px #fff;
+        }
+
+        .filter-shield {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.8) 10px, rgba(0,0,0,0.8) 20px);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            z-index: 10;
+            border: 2px solid var(--term-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .filter-shield.active {
+            opacity: 1;
+        }
+        .shield-label {
+            background: black;
+            border: 1px solid var(--term-green);
+            padding: 5px;
+            font-size: 0.8rem;
+            transform: rotate(-15deg);
+        }
+
+        /* --- SVG CONNECTORS --- */
+        #connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        path {
+            stroke: var(--term-green);
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 10;
+            opacity: 0.3;
+        }
+        path.active-path {
+            opacity: 1;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to { stroke-dashoffset: -20; }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Result Modal */
+        #result-modal {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            border: var(--border-thick) solid var(--term-green);
+            background: black;
+            padding: 20px;
+            max-width: 300px;
+            transform: translateY(150%);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 999;
+            box-shadow: 10px 10px 0 var(--term-dim);
+        }
+        #result-modal.show {
+            transform: translateY(0);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <canvas id="dither-overlay"></canvas>
+
+    <header>
+        <div>Vector_Pipeline_v1.0</div>
+        <div class="status-bar" id="status-text">SYSTEM READY</div>
+    </header>
+
+    <div class="main-stage">
+        
+        <svg id="connections">
+            </svg>
+
+        <div class="zone-input">
+            <div class="label">Step 1: Ingestion</div>
+            <div class="terminal-box">
+                <div id="user-query"><span class="cursor"></span></div>
+            </div>
+        </div>
+
+        <div class="zone-process">
+            <div class="track" id="track-vector">
+                <div class="track-label">SEMANTIC</div>
+                <div class="token vector" id="token-vector">Vector</div>
+            </div>
+
+            <div class="track" id="track-meta">
+                <div class="track-label">METADATA</div>
+                <div class="station" id="station-extract">EXTRACT<br>Schema</div>
+                <div class="station" id="station-resolve">RESOLVE<br>Entity</div>
+                
+                <div class="token meta" id="token-meta">Raw</div>
+            </div>
+        </div>
+
+        <div class="zone-db">
+            <div class="label">Step 4-5: Filtered Retrieval</div>
+            <div class="db-container" id="db-grid">
+                <div class="filter-shield" id="filter-shield">
+                    <div class="shield-label">METADATA GATE</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="result-modal">
+        <div class="label">RETRIEVAL SUCCESS</div>
+        <p>> DOC_ID: 2024_SOLAR_RPT</p>
+        <p>> SIMILARITY: 0.98</p>
+        <p>> METADATA: VERIFIED</p>
+    </div>
+
+    <script>
+        // --- 1. DITHER NOISE GENERATION ---
+        const canvas = document.getElementById('dither-overlay');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            generateNoise();
+        }
+
+        function generateNoise() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const idata = ctx.createImageData(w, h);
+            const buffer32 = new Uint32Array(idata.data.buffer);
+            const len = buffer32.length;
+
+            for (let i = 0; i < len; i++) {
+                if (Math.random() < 0.5) {
+                    // Black pixel with alpha
+                    buffer32[i] = 0xff000000; 
+                } else {
+                    // Transparent
+                    buffer32[i] = 0x00000000;
+                }
+            }
+            ctx.putImageData(idata, 0, 0);
+        }
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            drawConnectors();
+        });
+        resizeCanvas();
+
+        // --- 2. SETUP PIPELINE ---
+        const queryText = "Show me 2024 reports by Paul";
+        const queryEl = document.getElementById('user-query');
+        const statusEl = document.getElementById('status-text');
+        
+        // Tokens
+        const tokenVec = document.getElementById('token-vector');
+        const tokenMeta = document.getElementById('token-meta');
+        
+        // Stations
+        const stExtract = document.getElementById('station-extract');
+        const stResolve = document.getElementById('station-resolve');
+
+        // DB
+        const dbGrid = document.getElementById('db-grid');
+        const filterShield = document.getElementById('filter-shield');
+        const resultModal = document.getElementById('result-modal');
+
+        // Generate Grid Nodes
+        const nodes = [];
+        for(let i=0; i<100; i++) {
+            const d = document.createElement('div');
+            d.className = 'db-node';
+            // Randomly assign metadata properties for the visual logic
+            // We pretend ~20% are valid (Year 2024)
+            d.dataset.valid = Math.random() > 0.8 ? "true" : "false"; 
+            dbGrid.appendChild(d);
+            nodes.push(d);
+        }
+        // Ensure shield is on top
+        dbGrid.appendChild(filterShield);
+
+        // Helper: SVG Connector Drawer
+        function drawConnectors() {
+            const svg = document.getElementById('connections');
+            // Simplified logic: Just draw lines for effect, strict coordinates are hard in pure resizing HTML
+            // We will rely on CSS structure mostly, but let's draw a split line
+            
+            const inputRect = document.querySelector('.terminal-box').getBoundingClientRect();
+            const vecRect = document.querySelector('#track-vector').getBoundingClientRect();
+            const metaRect = document.querySelector('#track-meta').getBoundingClientRect();
+            
+            // Calculating generic paths
+            const startX = inputRect.right;
+            const startY = inputRect.top + (inputRect.height/2);
+            
+            const pathStr = `
+                M ${startX} ${startY} 
+                C ${startX + 50} ${startY}, ${startX + 50} ${vecRect.top + 30}, ${vecRect.left} ${vecRect.top + 30}
+                M ${startX} ${startY} 
+                C ${startX + 50} ${startY}, ${startX + 50} ${metaRect.top + 30}, ${metaRect.left} ${metaRect.top + 30}
+            `;
+            
+            svg.innerHTML = `<path d="${pathStr}" class="active-path" />`;
+        }
+
+        setTimeout(drawConnectors, 100);
+
+        // --- 3. ANIMATION LOOP ---
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+        async function runPipeline() {
+            // RESET
+            statusEl.innerText = "SYSTEM: WAITING";
+            queryEl.innerHTML = '<span class="cursor"></span>';
+            tokenVec.style.opacity = 0;
+            tokenVec.style.left = '0';
+            tokenMeta.style.opacity = 0;
+            tokenMeta.style.left = '0';
+            tokenMeta.innerText = "Raw";
+            stExtract.classList.remove('active');
+            stResolve.classList.remove('active');
+            filterShield.classList.remove('active');
+            resultModal.classList.remove('show');
+            nodes.forEach(n => {
+                n.className = 'db-node';
+            });
+
+            await sleep(1000);
+
+            // STEP 1: INGESTION
+            statusEl.innerText = "PROCESS: INGESTING NATURAL LANGUAGE";
+            let currentTxt = "";
+            for(let char of queryText) {
+                currentTxt += char;
+                queryEl.innerHTML = currentTxt + '<span class="cursor"></span>';
+                await sleep(50);
+            }
+            await sleep(500);
+
+            // STEP 2: BIFURCATION
+            statusEl.innerText = "PROCESS: SEMANTIC/METADATA SPLIT";
+            tokenVec.style.opacity = 1;
+            tokenMeta.style.opacity = 1;
+            
+            // Move tokens slightly into track
+            tokenVec.style.transform = "translateX(50px)";
+            tokenMeta.style.transform = "translateX(20px)"; // Start slow
+            await sleep(800);
+
+            // STEP 3: PROCESSING (METADATA)
+            // Extract
+            statusEl.innerText = "META: SCHEMA EXTRACTION";
+            tokenMeta.style.transform = "translateX(80px)"; // Move to station 1
+            stExtract.classList.add('active');
+            await sleep(500);
+            tokenMeta.innerText = "Year:2024";
+            await sleep(500);
+            stExtract.classList.remove('active');
+
+            // Resolve
+            statusEl.innerText = "META: ENTITY RESOLUTION";
+            tokenMeta.style.transform = "translateX(230px)"; // Move to station 2
+            stResolve.classList.add('active');
+            await sleep(500);
+            tokenMeta.innerText = "{ID:8842}";
+            await sleep(500);
+            stResolve.classList.remove('active');
+
+            // STEP 4: FILTER GATE (PRUNING)
+            statusEl.innerText = "DB: EXECUTING PRE-FILTER";
+            // Move meta token into DB
+            tokenMeta.style.transition = "all 0.5s ease";
+            tokenMeta.style.opacity = 0; // "Absorbed" by the shield
+            
+            filterShield.classList.add('active');
+            await sleep(400);
+
+            // Visual Pruning
+            nodes.forEach(n => {
+                if(n.dataset.valid === "false") {
+                    n.classList.add('masked');
+                } else {
+                    n.classList.add('active-candidate');
+                }
+            });
+            await sleep(800);
+
+            // STEP 5: VECTOR SEARCH
+            statusEl.innerText = "VECTOR: SIMILARITY SEARCH (COSINE)";
+            // Move vector token to the DB
+            // We calculate distance to center of DB
+            tokenVec.style.transition = "all 1s ease-in-out";
+            const dbRect = dbGrid.getBoundingClientRect();
+            const trackRect = document.getElementById('track-vector').getBoundingClientRect();
+            
+            const xDist = dbRect.left - trackRect.left + (dbRect.width / 2);
+            tokenVec.style.transform = `translateX(${xDist}px) translateY(100px)`; // Dive down into DB
+            
+            await sleep(1000);
+            
+            // Find a valid node to "Hit"
+            const candidates = nodes.filter(n => n.dataset.valid === "true");
+            const winner = candidates[Math.floor(Math.random() * candidates.length)];
+            
+            winner.classList.add('hit');
+            statusEl.innerText = "SUCCESS: DOCUMENT RETRIEVED";
+            
+            await sleep(500);
+            resultModal.classList.add('show');
+
+            await sleep(3000);
+            runPipeline(); // Loop
+        }
+
+        // Start
+        runPipeline();
+
+    </script>
+</body>
+</html>
