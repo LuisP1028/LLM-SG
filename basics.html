@@ -177,70 +177,71 @@
         <!-- ============================================== -->
         <!-- SECTION 2: CDC ARCHITECTURE -->
         <!-- ============================================== -->
-        <details class="section">
-            <summary>2. CDC (Change Data Capture)</summary>
-            <div class="section-content">
-                
-                <div class="subsection">
-                    <span class="subsection-title">The Role of CDC</span>
-                    <p>Links the <strong>Data Warehouse (Source)</strong> to the <strong>Feature Store (Target)</strong>.</p>
-                    <p>It captures raw data changes (transaction logs) to trigger transformation logic immediately. This updates computed features in real-time, avoiding slow bulk re-processing.</p>
-                </div>
+        <details class="section"> <summary>2. CDC (Change Data Capture)</summary> <div class="section-content">
 
-                <div class="subsection">
-                    <span class="subsection-title">Push vs. Pull Strategies</span>
-                    <div class="code-block">
-PUSH (Active):
-- Source detects change -> Transmits immediately.
-- Result: Near real-time sync.
-- Safety: Messaging system acts as a buffer.
-
-PULL (Passive):
-- Source logs changes -> Target periodically requests (polls).
-- Result: Reduces source load, introduces latency.
-- Safety: Logs are buffered for safety.
-                    </div>
-                </div>
-
+            <div class="subsection">
+                <span class="subsection-title">The Role of CDC</span>
+                <p>CDC links the data warehouse (source) and feature store (target) by monitoring the warehouse's transaction logs for specific events.</p>
+                <p>CDC captures the raw data change to trigger the transformation logic immediately. This updates the computed features in the feature store in real-time, avoiding slow bulk re-processing. In other words, when an operation is performed on the data warehouse affecting the transformations performed in the feature store; the affected features in the feature store are immediately recomputed.</p>
             </div>
-        </details>
 
-        <!-- ============================================== -->
-        <!-- SECTION 3: CDC IMPLEMENTATION TYPES -->
-        <!-- ============================================== -->
-        <details class="section">
-            <summary>3. CDC Implementation Types</summary>
-            <div class="section-content">
-                
-                <div class="subsection">
-                    <span class="subsection-title">Trigger-Based (Precision)</span>
-                    <p><strong>Mechanism:</strong> Pre-defined SQL triggers execute on data change, writing details to a tracking table.</p>
-                    <ul>
-                        <li><em>Pros:</em> Captures everything (including deletes). Free, built-in, easy to implement.</li>
-                        <li><em>Cons:</em> Slows down every data entry (extra write operations). Best for strict auditing on light workloads.</li>
-                    </ul>
-                </div>
+            <div class="subsection">
+                <span class="subsection-title">Push vs. Pull Strategies</span>
+                <div class="code-block">
+PUSH:
 
-                <div class="subsection">
-                    <span class="subsection-title">Log-Based (Performance)</span>
-                    <p><strong>Mechanism:</strong> Parses immutable binary transaction logs (WAL) at the <strong>storage layer</strong>.</p>
-                    <ul>
-                        <li><em>Pros:</em> The "Gold Standard." Zero load on the main DB. Instant capture.</li>
-                        <li><em>Cons:</em> Complex, expensive, often vendor-specific. Best for mission-critical speed.</li>
-                    </ul>
-                </div>
+In the Push strategy, the source database actively detects changes and immediately transmits them to the target system.
 
-                <div class="subsection">
-                    <span class="subsection-title">Time-Based (Simplicity)</span>
-                    <p><strong>Mechanism:</strong> Query for records with a "Last Modified" timestamp newer than the previous sync (High Water Mark).</p>
-                    <ul>
-                        <li><em>Pros:</em> Easy to build (just a query).</li>
-                        <li><em>Cons:</em> <strong>Misses deletions</strong> (records vanish before scan). Slows DB while checking. Best for simple periodic updates.</li>
-                    </ul>
-                </div>
+This ensures near real-time synchronization.
 
-            </div>
-        </details>
+To prevent data loss if the target is offline, a messaging system acts as a buffer to hold data until the target is ready.
+
+PULL:
+
+In the Pull strategy, the source database is passive, simply logging changes.
+
+The target system periodically polls (requests) these logs to update itself.
+
+While this reduces load on the source, it introduces latency.
+
+A messaging system buffers the logs to ensure data safety if the target goes down. </div> </div>
+
+      </div>
+  </details>
+
+  <details class="section">
+      <summary>3. CDC Implementation Types</summary>
+      <div class="section-content">
+
+          <div class="subsection">
+              <span class="subsection-title">Trigger-Based (Precision)</span>
+              <p><strong>Mechanism:</strong> Pre-define SQL triggers that automatically execute when data changes, writing the details to a separate tracking table. It typically records the row's primary key, the operation type (insert/update/delete), and the specific data values that were changed.</p>
+              <ul>
+                  <li><em>Pros:</em> Captures absolutely everything (including deletions). Triggers are free, built-in to any DB, use standard SQL, and are far easier for developers to implement without external tools.</li>
+                  <li><em>Cons:</em> Slows down every data entry. It slows the source database due to the extra write operations required.</li>
+              </ul>
+          </div>
+
+          <div class="subsection">
+              <span class="subsection-title">Log-Based (Performance)</span>
+              <p><strong>Mechanism:</strong> Works at the storage layer: it parses the immutable binary transaction logs (WAL) that the database generates anyway for recovery.</p>
+              <ul>
+                  <li><em>Pros:</em> The gold standard. It reads background files, capturing everything instantly without ever slowing the main system. It adds no extra SQL execution or load to the source database.</li>
+                  <li><em>Cons:</em> Log parsing is complex, expensive, and vendor-specific.</li>
+              </ul>
+          </div>
+
+          <div class="subsection">
+              <span class="subsection-title">Time-Based (Simplicity)</span>
+              <p><strong>Mechanism:</strong> Source tables use a "Last Modified" column. The target saves the previous sync time (High Water Mark) and queries for records newer than that timestamp.</p>
+              <ul>
+                  <li><em>Pros:</em> It's easy to build (just a query).</li>
+                  <li><em>Cons:</em> Misses deletions and slows the database while checking. This captures inserts and updates but fails to detect deletions, as the record vanishes from the table before the scan.</li>
+              </ul>
+          </div>
+
+      </div>
+  </details>
 
         <!-- ============================================== -->
         <!-- SECTION 4: TRAINING PARAMETERS -->
