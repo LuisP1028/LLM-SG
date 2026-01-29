@@ -404,32 +404,7 @@
         </details>
 
         <details class="section">
-            <summary>6. Advanced Retrieval & Post-Retrieval</summary>
-            <div class="section-content">
-                <div class="subsection">
-                    <span class="subsection-title">Retrieval Enhancement</span>
-                    <p>Improves vector search by upgrading embedding models and applying metadata filtering.</p>
-                    <p><strong>Fine-tuning Embedding Models:</strong> Tailors pre-trained models to domain jargon.</p>
-                    <div class="code-block">EMBEDDING FINE TUNING SIMPLIFIED:
-Vectorization: The model maps the Query and Candidates to coordinates.
-Scoring: Computes similarity scores (dot product).
-Alignment: Loss maximizes Query-Positive score.
-Differentiation: Loss penalizes Query placement near Negatives.
-Update: Tweak weights so Query lands closer to Positive.</div>
-                    <p><strong>Instructor Models:</strong> Guides embedding generation using specific prompts.</p>
-                    <p><strong>Hybrid Search:</strong> Blends vector search with keyword-based search.</p>
-                    <p><strong>Filtered Vector Search:</strong> Leverages metadata indexes to narrow search space.</p>
-                </div>
-
-                <div class="subsection">
-                    <span class="subsection-title">Post-retrieval</span>
-                    <p>Filters noise from results and compresses context (Reranking).</p>
-                </div>
-            </div>
-        </details>
-
-        <details class="section">
-            <summary>7. Advanced Retrieval Strategies: Self-Querying, Expansion & Reranking</summary>
+            <summary>6. Advanced Retrieval Strategies: Self-Querying, Expansion & Reranking</summary>
             <div class="section-content">
                 
                 <div class="subsection">
@@ -485,29 +460,61 @@ Update: Tweak weights so Query lands closer to Positive.</div>
         </details>
 
         <details class="section">
-            <summary>8. RAG Evaluation</summary>
+            <summary>7. RAG Evaluation</summary>
             <div class="section-content">
-                <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: Retrieval and Generation.</p>
+                <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: <strong>Retrieval</strong> (finding facts) and <strong>Generation</strong> (using them). It measures Faithfulness, Answer Relevance, and Context Relevance to ensure the output is grounded in the source.</p>
                 
                 <div class="subsection">
-                    <span class="subsection-title">RAGAS Framework</span>
-                    <p>Uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between Question, Context, and Answer.</p>
+                    <span class="subsection-title">The RAGAS Framework</span>
+                    <p><strong>RAGAS (Retrieval-Augmented Generation Assessment)</strong> is a framework used to quantify the performance of your RAG pipeline. Ragas uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between the <strong>Question</strong>, the <strong>Context</strong> (retrieved facts), and the <strong>Answer</strong>.</p>
                     
-                    <p><strong>1. Faithfulness:</strong> Measures hallucination. Does the answer come <em>only</em> from the context? Calculated by verifying atomic statements against context.</p>
-                    <p><strong>2. Answer Relevancy:</strong> Does the response address the user's query? Uses "Reverse Engineering"—generating questions from the answer and comparing vector similarity to the original question.</p>
-                    <p><strong>3. Context Precision:</strong> Are relevant chunks ranked at the top?</p>
                 </div>
 
                 <div class="subsection">
-                    <span class="subsection-title">How It Works</span>
-                    <p><strong>Data Preparation:</strong> Need Question, Contexts, Answer, Ground Truth.</p>
-                    <p><strong>Evaluation Loop:</strong> Evaluator LLM performs Extraction (claims), Verification (logic check), and Back-Projection (relevance check).</p>
+                    <span class="subsection-title">1. Faithfulness</span>
+                    <p><strong>Core Concept:</strong> The primary metric for detecting hallucinations. It strictly measures <strong>grounding</strong>: the extent to which the generated answer is derived <em>only</em> from the retrieved context, ignoring the model's pre-trained knowledge.</p>
+                    <p><strong>The "Judge" Process:</strong></p>
+                    <ul>
+                        <li><strong>Statement Extraction:</strong> The LLM breaks the answer into atomic statements (simple, standalone claims) to prevent complex sentences from hiding inaccuracies.</li>
+                        <li><strong>Verification:</strong> The LLM acts as a binary classifier, cross-referencing each atomic statement against the Contexts to see if it can be inferred entirely from provided text.</li>
+                    </ul>
+                    <p><strong>The Calculation:</strong> <code>Faithfulness = # of verified statements / total number of statements</code>.</p>
+                    <p><strong>Why It Matters:</strong> Critical for enterprise apps (legal/medical). If the context doesn't say it, the model shouldn't say it.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">2. Answer Relevancy</span>
+                    <p><strong>Core Concept:</strong> Measures the pertinence of the response to the user's initial query. Unlike Faithfulness, this does <em>not</em> check factual correctness; it penalizes incomplete, redundant, or drifting answers.</p>
+                    <p><strong>The "Judge" Process (Reverse Engineering):</strong></p>
+                    <ul>
+                        <li><strong>Question Generation:</strong> The LLM analyzes the generated Answer and attempts to generate questions that <em>would</em> result in this answer.</li>
+                        <li><strong>Embedding Similarity:</strong> RAGAS converts the Original User Question and Generated Questions into vector embeddings and calculates the cosine similarity.</li>
+                    </ul>
+                    <p><strong>The Calculation:</strong> The score is the mean cosine similarity. A score closer to 1 means the generated answer maps perfectly back to the original intent.</p>
+                    <p><strong>Why It Matters:</strong> A low score indicates the model is "hedging" or providing generic summaries rather than directly answering the specific prompt.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">3. Context Precision</span>
+                    <p><strong>Core Concept:</strong> Evaluates if the most relevant text segments ("chunks") are ranked at the top. Since LLMs have limited context windows, the retriever must prioritize high-value excerpts.</p>
+                    <p><strong>The "Judge" Process:</strong> The LLM compares retrieved chunks against Ground Truth to classify them as Relevant or Irrelevant, then checks if "Relevant" chunks appear before "Irrelevant" ones.</p>
+                    <p><strong>The Calculation:</strong> Uses Average Precision, calculating the mean precision score at every rank position where a relevant chunk is found.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">HOW: The Evaluation Workflow</span>
+                    <ol>
+                        <li><strong>Data Preparation:</strong> Organize RAG outputs into a dataset (Question, Contexts, Answer, Ground Truth).</li>
+                        <li><strong>The Evaluation Loop:</strong> Initialize an Evaluator LLM (e.g., GPT-4o) and call the <code>evaluate()</code> function.</li>
+                        <li><strong>Under the Hood:</strong> The judge performs specific linguistic tasks: <em>Extraction</em> (claims), <em>Verification</em> (logic check), and <em>Back-Projection</em> (relevance check).</li>
+                        <li><strong>Output:</strong> A dataframe or dictionary with scores (0 to 1) identifying exactly where the system is failing—whether it's the search (retriever) or the writing (generator).</li>
+                    </ol>
                 </div>
             </div>
         </details>
 
         <details class="section">
-            <summary>9. End to End Optimized RAG Inference Flow</summary>
+            <summary>8. End to End Optimized RAG Inference Flow</summary>
             <div class="section-content">
                 <div class="subsection">
                     <span class="subsection-title">1. The Core RAG Synthesis</span>
