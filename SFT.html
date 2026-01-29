@@ -407,8 +407,20 @@
         <details class="nested-accordion">
             <summary>Data Exploration & Generation</summary>
             <div class="accordion-content">
-                <p><strong>Data Exploration:</strong> Statistical analysis uses NLP libraries like NLTK and spaCy. Topic clustering converts text into numerical embeddings using sentence transformers (e.g., DBSCAN) to group vectors based on proximity.</p>
-                <p><strong>Data Generation:</strong> Synthetic data pipelines generate and validate training sets starting with a <strong>taxonomy</strong> (the organized map of skills) and <strong>seeds</strong> (the prompt templates used to generate the data).</p>
+                <h4>Data Exploration</h4>
+                <p><strong>Statistical Analysis:</strong> Uses NLP libraries like NLTK and spaCy to scan text for vocabulary diversity and bias via tokenization. Tools like Matplotlib and Seaborn visualize this data (e.g., histograms) to highlight language patterns.</p>
+                <p><strong>Topic Clustering:</strong> Automatically groups similar documents to uncover hidden themes and trends within large datasets. It converts text into numerical embeddings (vectors) using sentence transformers. Algorithms like DBSCAN then group these vectors based on their proximity in this mathematical space.</p>
+                
+                <hr />
+                
+                <h4>Data Generation</h4>
+                <p>When available instruction datasets are not sufficient, custom data creation is necessary. Synthetic data pipelines generate and validate training sets, tuning attributes to fill gaps while requiring oversight to prevent inherited errors.</p>
+                <p><strong>How It Works:</strong> Data generation builds custom datasets starting with a <strong>taxonomy</strong>.</p>
+                <ul>
+                    <li><strong>Taxonomy (The "What"):</strong> The organized map of skills—breaking a broad domain into specific sub-capabilities to ensure full coverage (e.g., coding → debugging → loops).</li>
+                    <li><strong>Seed (The "How"):</strong> The specific seed instructions (prompt templates) used to generate the data.</li>
+                </ul>
+                <p>These elements combined aid in the generation of massive instruction-response pairs.</p>
             </div>
         </details>
     
@@ -418,7 +430,7 @@
                 <p>In this context, <strong>data augmentation</strong> refers to the process of increasing both the quantity and the quality of data samples. While generation creates data from scratch, augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
                 <hr>
                 
-                                <details class="nested-accordion">
+                <details class="nested-accordion">
                     <summary>1. Evol-Instruct (Upgrading the Prompt)</summary>
                     <div class="accordion-content">
                         <p><strong>Evol-Instruct</strong> focuses on the <strong>Question</strong>. It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
@@ -439,7 +451,7 @@
                     </div>
                 </details>
 
-                                <details class="nested-accordion">
+                <details class="nested-accordion">
                     <summary>2. UltraFeedback (Upgrading the Output)</summary>
                     <div class="accordion-content">
                         <p><strong>UltraFeedback</strong> upgrades the <strong>Answer</strong>. It keeps the prompt the same but generates multiple responses from different models, using an <strong>LLM as a Judge</strong> to select the best one.</p>
@@ -454,54 +466,54 @@
                 </details>
         
                 <p style="margin-top: 15px;"><em><strong>Summary:</strong> One builds better prompts (Evol-Instruct); the other curates better answers (UltraFeedback).</em></p>
-            </div>
+
+                <details class="nested-accordion">
+                    <summary>Evol Instruct Examples</summary>
+                    <div class="accordion-content">
+                        <div class="subsection">
+                            <span class="subsection-title">Infrastructure</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Inspect the bridge for damage.</li>
+                                <li><strong>In-Depth (Constraint):</strong> Inspect the bridge for micro-fractures in the support pylons using thermal imaging data, citing specific ISO safety standards for load-bearing capacity.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Develop a predictive maintenance schedule for an aging underground sewer network based on soil acidity levels.</li>
+                            </ul>
+                        </div>
+            
+                        <div class="subsection">
+                            <span class="subsection-title">Defense</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Analyze satellite imagery.</li>
+                                <li><strong>In-Depth (Complicating Input):</strong> Analyze the provided raw JSON telemetry from a surveillance drone to identify camouflaged vehicle heat signatures, ignoring background radiation noise.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Formulate a jamming protocol to disrupt enemy communication channels during a high-altitude paratrooper insertion.</li>
+                            </ul>
+                        </div>
+            
+                        <div class="subsection">
+                            <span class="subsection-title">Healthcare</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Diagnose the patient's fever.</li>
+                                <li><strong>In-Depth (Reasoning):</strong> Diagnose the fever in a post-transplant patient exhibiting rejection signs, differentiating it from a bacterial infection using the provided blood panel results.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Outline a triage procedure for a mass-casualty event involving exposure to a rare neurotoxin in a metropolitan area.</li>
+                            </ul>
+                        </div>
+            
+                        <div class="subsection">
+                            <span class="subsection-title">Aerospace</span>
+                            <ul>
+                                <li><strong>Base Instruction:</strong> Check the landing gear.</li>
+                                <li><strong>In-Depth (Constraint):</strong> Troubleshoot the landing gear hydraulic failure occurring specifically at -40°C, proposing a fix that adds no more than 5kg of weight to the assembly.</li>
+                                <li><strong>In-Breadth (New Topic):</strong> Calculate the trajectory correction burn required for a probe entering a polar orbit around Europa.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+                </div>
         </details>
     </div>
     </details>
 
     <details class="section">
-        <summary>2. Evol Instruct Examples</summary>
-        <div class="section-content">
-            <div class="subsection">
-                <span class="subsection-title">Infrastructure</span>
-                <ul>
-                    <li><strong>Base Instruction:</strong> Inspect the bridge for damage.</li>
-                    <li><strong>In-Depth (Constraint):</strong> Inspect the bridge for micro-fractures in the support pylons using thermal imaging data, citing specific ISO safety standards for load-bearing capacity.</li>
-                    <li><strong>In-Breadth (New Topic):</strong> Develop a predictive maintenance schedule for an aging underground sewer network based on soil acidity levels.</li>
-                </ul>
-            </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Defense</span>
-                <ul>
-                    <li><strong>Base Instruction:</strong> Analyze satellite imagery.</li>
-                    <li><strong>In-Depth (Complicating Input):</strong> Analyze the provided raw JSON telemetry from a surveillance drone to identify camouflaged vehicle heat signatures, ignoring background radiation noise.</li>
-                    <li><strong>In-Breadth (New Topic):</strong> Formulate a jamming protocol to disrupt enemy communication channels during a high-altitude paratrooper insertion.</li>
-                </ul>
-            </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Healthcare</span>
-                <ul>
-                    <li><strong>Base Instruction:</strong> Diagnose the patient's fever.</li>
-                    <li><strong>In-Depth (Reasoning):</strong> Diagnose the fever in a post-transplant patient exhibiting rejection signs, differentiating it from a bacterial infection using the provided blood panel results.</li>
-                    <li><strong>In-Breadth (New Topic):</strong> Outline a triage procedure for a mass-casualty event involving exposure to a rare neurotoxin in a metropolitan area.</li>
-                </ul>
-            </div>
-
-            <div class="subsection">
-                <span class="subsection-title">Aerospace</span>
-                <ul>
-                    <li><strong>Base Instruction:</strong> Check the landing gear.</li>
-                    <li><strong>In-Depth (Constraint):</strong> Troubleshoot the landing gear hydraulic failure occurring specifically at -40°C, proposing a fix that adds no more than 5kg of weight to the assembly.</li>
-                    <li><strong>In-Breadth (New Topic):</strong> Calculate the trajectory correction burn required for a probe entering a polar orbit around Europa.</li>
-                </ul>
-            </div>
-        </div>
-    </details>
-
-    <details class="section">
-        <summary>3. Creating an Instruction Dataset</summary>
+        <summary>2. Creating an Instruction Dataset</summary>
         <div class="section-content">
             
             <div class="subsection">
@@ -526,7 +538,7 @@
     </details>
 
     <details class="section">
-        <summary>4. Fine Tuning Methods (LoRA & QLoRA)</summary>
+        <summary>3. Fine Tuning Methods (LoRA & QLoRA)</summary>
         <div class="section-content">
             
             <div class="subsection">
@@ -569,7 +581,7 @@
     </details>
 
     <details class="section">
-        <summary>5. Preference Alignment (DPO)</summary>
+        <summary>4. Preference Alignment (DPO)</summary>
         <div class="section-content">
             <p>Preference alignment addresses the shortcomings of SFT by incorporating direct human or AI feedback into the training process. If SFT is the foundation of competence (getting the answer right), preference data is the layer of alignment (getting the answer right for the specific user, context, or value system).</p>
             
