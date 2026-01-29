@@ -82,9 +82,8 @@
         word-wrap: break-word;
     }
 
-    /* --- NAVIGATION / ACCORDION SYSTEM --- */
+    /* --- NAVIGATION / ACCORDION SYSTEM (OUTER LAYERS) --- */
 
-    /* The outer wrapper is now a <details> tag */
     details.part-nav {
         display: block;
         margin-bottom: 30px;
@@ -134,7 +133,6 @@
         content: '-';
     }
 
-    /* Sub-text inside the header */
     .part-info { 
         display: block;
         margin-top: 5px;
@@ -168,6 +166,84 @@
 
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes scanFade { from { opacity: 0; } to { opacity: 1; } }
+
+    /* --- IMPORTED CONTENT STYLES (Fix for Nested Rendering) --- 
+       These styles ensure that HTML loaded from sub-files (like RAG.html)
+       retains its intended look when injected here.
+    */
+
+    /* Inner Accordion (The "Section" inside the Part) */
+    details.section {
+        margin-bottom: 15px;
+        border: 1px solid var(--dim-color);
+        background: #050505;
+    }
+
+    details.section > summary {
+        font-family: var(--font-main);
+        font-weight: bold;
+        padding: 12px;
+        background: #0a0a0a;
+        color: var(--text-color);
+        cursor: pointer;
+        list-style: none;
+        border-bottom: 1px solid transparent;
+        text-transform: uppercase;
+        font-size: 1.1rem;
+        position: relative;
+    }
+
+    details.section > summary::-webkit-details-marker { display: none; }
+
+    details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
+    
+    details.section[open] > summary {
+        border-bottom: 1px solid var(--dim-color);
+        background: #0f0f0f;
+        color: var(--accent-color);
+        text-shadow: 0px 0px 5px var(--accent-color);
+    }
+
+    .section-content { padding: 20px; }
+
+    /* Subsection Styling */
+    .subsection {
+        margin-bottom: 25px;
+        border-left: 4px solid var(--dim-color);
+        padding-left: 15px;
+    }
+
+    .subsection-title {
+        background: var(--dim-color);
+        color: var(--accent-color);
+        padding: 2px 6px;
+        font-weight: bold;
+        text-transform: uppercase;
+        display: inline-block;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+    }
+
+    /* Text & Lists */
+    p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
+    ul, ol { padding-left: 20px; margin-bottom: 15px; }
+    li { margin-bottom: 5px; }
+
+    strong { color: var(--accent-color); text-decoration: underline; }
+    em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
+
+    /* Code Block Styling */
+    .code-block {
+        background: #020a02;
+        border: 1px dashed var(--dim-color);
+        padding: 10px;
+        margin: 10px 0;
+        font-family: 'Courier New', monospace;
+        color: var(--accent-color);
+        overflow-x: auto;
+        white-space: pre-wrap;
+        font-size: 0.9rem;
+    }
 
     @media (max-width: 600px) {
         h1 { font-size: 1.8rem; border-bottom-width: 3px; }
@@ -270,13 +346,12 @@
             const text = await response.text();
 
             // 5. Parse the HTML to extract only the relevant content
-            // We create a temporary DOM to manipulate the incoming data
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
 
-            // Attempt to grab content inside .container to avoid double margins/headers
-            // Fallback to body if .container doesn't exist in the target file
-            const newContent = doc.querySelector('.container') || doc.body;
+            // EDIT: Prioritize extracting specific content wrappers to avoid structural duplication
+            // We look for .part-content first (the inner guts), then .container, then fallback to body.
+            const newContent = doc.querySelector('.part-content') || doc.querySelector('.container') || doc.body;
 
             // 6. Inject the content
             contentDiv.innerHTML = newContent.innerHTML;
