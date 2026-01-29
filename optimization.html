@@ -314,6 +314,11 @@ Step 3: [3, 1, hidden_dim]
 
             <div class="subsection">
                 <span class="subsection-title">SPECULATIVE DECODING</span>
+                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='speculative_decoding.html'; vp.classList.add('active');">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                </button>
                 <p>In standard generation, a massive model must load all its parameters from memory just to produce one token. The bottleneck isn't the <strong>math</strong>; it's the <strong>delivery</strong>. Loading 70B parameters to calculate one token wastes 99% of the GPU's computing power.</p>
                 <ol>
                     <li>To fix this, a Draft Model (small and fast) "guesses" a sequence of future tokens (e.g., 5 tokens). A small draft model has fewer layers and parameters, so it fits better in memory and generates 5 tokens fast.</li>
@@ -337,6 +342,11 @@ Step 3: [3, 1, hidden_dim]
 
             <div class="subsection">
                 <span class="subsection-title">SELF-ATTENTION DEFINITIONS</span>
+                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/qvk.html'; vp.classList.add('active');">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                </button>
                 <p>In Transformers, Self-Attention is the mechanism that allows the model to understand context by relating words to one another. This process relies on three vectors generated for every token:</p>
                 <ul>
                     <li><strong>Query (𝑄):</strong> This is used to assess context between the token and the surrounding tokens.</li>
@@ -344,9 +354,6 @@ Step 3: [3, 1, hidden_dim]
                     <li><strong>Value (𝑉):</strong> Contains the actual features of each token.</li>
                 </ul>
             </div>
-        </div>
-    </details>
-
     <details class="section">
         <summary>2. Model Parallelism</summary>
         <div class="section-content">
@@ -396,7 +403,14 @@ Step 3: [3, 1, hidden_dim]
     </details>
 
     <details class="section">
-        <summary>3. Model Quantization</summary>
+        <summary>
+            3. Model Quantization
+            <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/quantization_outlier_fixed.html'; vp.classList.add('active');">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                </svg>
+            </button>
+        </summary>
         <div class="section-content">
             <div class="subsection">
                 <span class="subsection-title">MODEL QUANTIZATION</span>
@@ -407,6 +421,8 @@ Step 3: [3, 1, hidden_dim]
                     <li><strong>INT8 (Quantization):</strong> An 8-bit integer format. Using techniques like <strong>absmax</strong>, you can compress high-precision weights into 8-bit buckets, drastically reducing VRAM usage at the cost of some "granularity" in the numbers.</li>
                 </ul>
             </div>
+        </div>
+    </details>
 
             <div class="subsection">
                 <span class="subsection-title">Quantization Methods</span>
@@ -429,6 +445,11 @@ Step 3: [3, 1, hidden_dim]
 
             <div class="subsection">
                 <span class="subsection-title">THE OUTLIER PROBLEM</span>
+                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/mixed_precision_decomp.html'; vp.classList.add('active');">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                </button>
                 <p>Because quantization scales the entire range based on extreme values. If most weights are approx 0.1 but one is 10.0, the mapping forces 99.9% of the weights into a tiny fraction of the available integer "slots" (e.g., just 0 and 1). This "squishing" destroys the model's nuance.</p>
                 <p>Decomposing the matrix into two separate pieces before the math happens. Think of it like a filtered bypass. When the model encounters a matrix, it doesn't process it as one block. It scans for values exceeding a threshold (like 6.0).</p>
                 <ol>
@@ -439,8 +460,6 @@ Step 3: [3, 1, hidden_dim]
                 </ol>
                 <p>The COMPUTATIONAL SAVINGS isn’t in the final addition; it’s in the <strong>matrix multiplication</strong>, which is the heaviest part of the workload.</p>
             </div>
-        </div>
-    </details>
 
     <details class="section">
         <summary>4. Optimized Attention Mechanisms</summary>
