@@ -321,10 +321,19 @@
         <details class="section">
             <summary>3. RAG: Embedding</summary>
             <div class="section-content">
-                <p><strong>Dense Embeddings:</strong> Foundation for semantic search. Captures abstract meaning (e.g., "dog" matches "canine").</p>
-                <p><strong>Sparse Embeddings:</strong> Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
-                <p><strong>Contextualized Token Embeddings:</strong> Foundation for fine-grained matching (e.g., BERT, ColBERT). Generates separate vectors for each token.</p>
-                <p><strong>Contrastive Learning Embeddings:</strong> Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.</p>
+                <p><strong>Dense Embeddings (Bi-Encoders):</strong> Foundation for semantic search. Captures abstract meaning by collapsing an entire sequence into a single "summary" vector.<br>
+                <strong>When to use:</strong> Use this when the intent matters more than specific words. It bridges the gap between synonyms and related concepts by mapping them to the same mathematical space, making it the bedrock of modern semantic search, though it may lose granular word-level nuance.</p>
+        
+                <p><strong>Sparse Embeddings:</strong> Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.<br>
+                <strong>When to use:</strong> Use this for precision-heavy tasks where exact keyword matching is non-negotiable. While dense models might "hallucinate" a similar concept, sparse embeddings (like BM25) ensure you find the exact string of characters you typed.</p>
+        
+                <p><strong>Contextualized Token Embeddings (Late Interaction):</strong> Foundation for fine-grained matching (e.g., BERT, ColBERT). Unlike dense summaries, this generates separate, unique vectors for every token based on its neighbors.<br>
+                <strong>Example:</strong> Distinguishing between "bank" in "river bank" vs. "investment bank."<br>
+                <strong>When to use:</strong> Best for complex queries where word order and situational meaning change the intent. It allows for "late interaction" to find highly granular matches between specific parts of a query and a document.</p>
+        
+                <p><strong>Contrastive Learning Embeddings:</strong> Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.<br>
+                <strong>Example:</strong> Training a model by showing it pairs of "duplicate" customer reviews to pull them together while pushing "unrelated" reviews away.<br>
+                <strong>When to use:</strong> Use this during the training phase to refine a model's judgment. It’s the "coach" that teaches the embedding space how to distinguish between subtly different items.</p>
             </div>
         </details>
 
