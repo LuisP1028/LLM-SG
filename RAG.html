@@ -519,7 +519,7 @@
                         <span class="tag">Focus: Recall</span>
                         <p><em>Best for finding "x" and synonyms.</em></p>
                         
-                        <p><strong>Overview:</strong> Increasing retrieval recall by capturing semantically related context that a single vector might overlook. Standard vector search uses a single query vector, which often misses relevant documents that use different wording or exist in a slightly different area of the embedding space. Query Expansion solves this by using an LLM to generate multiple versions of the original question.</p>
+                        <p><strong>Overview:</strong> Increasing retrieval recall by capturing semantically related context that a single vector might overlook. </p>
                         
                         <div class="img-placeholder">
                                                     </div>
@@ -529,10 +529,10 @@
                         <h3>Query Expansion Workflow (The How):</h3>
                         <ol>
                             <li>
-                                <strong>Initiation and Configuration:</strong> The process begins by defining the scope of expansion. You configure how many alternate perspectives ($N$) are required for your specific task. The system validates these parameters and, if in a testing phase, uses "mocking" to simulate the flow. This ensures the logic holds whether you are expanding a simple search or a complex, multi-step reasoning task.
+                                <strong>Initiation and Configuration:</strong> The process begins by defining the scope of expansion. You configure how many alternate perspectives N are required for your specific task. 
                             </li>
                             <li>
-                                <strong>Persona and Context Injection:</strong> A Prompt Template is crafted to define the AI's objective. This is highly flexible: you can instruct the AI to act as a subject matter expert, a technical skeptic, or even a creative writer. By using placeholders for the persona, original question, and separators, the system adapts the expansion strategy to suit different document types or specific user intents.
+                                <strong>Persona and Context Injection:</strong> Placeholders modularize expansion. The {persona} forces the AI to pivot its worldview, generating diverse sub-queries by viewing the {query} through specialized filters. The {separator} provides a hard boundary, ensuring the system can programmatically slice and ingest these distinct "shards" of reasoning without data bleed or cross-contamination.
                             </li>
                             <li>
                                 <strong>Semantic Diversification:</strong> The LLM performs the expansion, reframing the original query into diverse linguistic representations. This step is the "engine" of flexibility; the model adjusts for jargon, synonyms, or conceptual overlaps. The goal is to traverse different regions of the embedding space, ensuring the search isn't trapped by the specific wording or narrow constraints of the initial question.
