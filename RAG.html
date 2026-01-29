@@ -308,7 +308,7 @@
                         </ul>
                     </li>
                     <li>
-                        <strong>Semantic Chunking:</strong> Prioritizes meaning over formatting. It generates embeddings for sentences and groups them based on semantic similarity. A new chunk is formed only when the "distance" between sentences exceeds a threshold.
+                        <strong>Semantic Chunking:</strong> Semantic chunking splits text into sentences and converts them to embeddings to assess similarity (usually via cosine). Chunks grow as long as sentences stay semantically close; once distance exceeds a threshold, a new chunk starts. This linear process preserves document order and context for accurate retrieval.
                         <ul>
                             <li><em>Example:</em> A transcript moves from discussing "Weather" to "Stocks." The system detects the topic shift via embeddings and cuts the chunk exactly there.</li>
                             <li><em>When to use:</em> Best for RAG systems requiring high precision. It ensures a chunk contains only one distinct concept, reducing noise for the LLM.</li>
