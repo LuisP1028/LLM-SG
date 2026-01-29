@@ -267,9 +267,9 @@ Code
                 <ul>
                     <li><strong>KV Cache</strong>: Non-negotiable for all LLM deployments to avoid 𝑂(𝑛²) re-computation.</li>
                     <li><strong>Static Caching</strong> (torch.compile): Best for latency-critical apps with fixed sequence limits; use when you need maximum GPU utilization without recompilation overhead.</li>
-                    <li><strong>Continuous Batching</strong>: Best for high-throughput APIs; use when serving multiple concurrent users to prevent "stragglers" from stalling the GPU.</li>
+                    <li><strong>Continuous Batching <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='INF_O/continuous_batch.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></strong>: Best for high-throughput APIs; use when serving multiple concurrent users to prevent "stragglers" from stalling the GPU.</li>
                     <li><strong>Tensor Parallelism</strong>: Best for large models (e.g., 70B+) where memory bandwidth is the bottleneck; use if you have a compatible, smaller draft model.</li>
-                    <li><strong>Speculative Decoding</strong>: Best for tasks with high input-to-output overlap (e.g., summarization, document Q&A, editing); use when you want the acceleration of speculative decoding without the VRAM cost or complexity of managing a second draft model.</li>
+                    <li><strong>Speculative Decoding <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='INF_O/speculative_decoding.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></strong>: Best for tasks with high input-to-output overlap (e.g., summarization, document Q&A, editing); use when you want the acceleration of speculative decoding without the VRAM cost or complexity of managing a second draft model.</li>
                     <li><strong>Quantization</strong>: Best for memory-constrained hardware; use when the model won't fit in VRAM or to increase batch sizes.</li>
                 </ul>
             </div>
@@ -307,8 +307,7 @@ Step 3: [3, 1, hidden_dim]
 <p>Every time that first number (the sequence length) increases, the GPU sees a "new" object. It has to "re-compile" or look up a new way to handle a 3-row matrix versus a 2-row matrix, the GPU cannot reuse the exact same machine-code instructions it just used.</p>
 <p><strong>Static Caching</strong> sets the dimension to a maximum (e.g., <code>[2048, 1, hidden_dim]</code>) immediately. Because the shape never changes, the GPU can use one single, hyper-optimized execution path for every single step of the generation.</p>
 </div>
-code
-Code
+
 <div class="subsection">
                 <span class="subsection-title">CONTINUOUS BATCHING</span>
                 <p>If processing batch A, and 80% finishes, with 20% remaining; In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced.</p>
