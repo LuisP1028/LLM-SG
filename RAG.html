@@ -318,9 +318,18 @@
             </div>
         </details>
 
+        <details class="section">
+            <summary>3. RAG: Embedding</summary>
+            <div class="section-content">
+                <p><strong>Dense Embeddings:</strong> Foundation for semantic search. Captures abstract meaning (e.g., "dog" matches "canine").</p>
+                <p><strong>Sparse Embeddings:</strong> Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
+                <p><strong>Contextualized Token Embeddings:</strong> Foundation for fine-grained matching (e.g., BERT, ColBERT). Generates separate vectors for each token.</p>
+                <p><strong>Contrastive Learning Embeddings:</strong> Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.</p>
+            </div>
+        </details>
 
         <details class="section">
-            <summary>3. RAG Ingestion: Walkthrough</summary>
+            <summary>4. RAG Ingestion: Walkthrough</summary>
             <div class="section-content">
                 <ol>
                     <li><strong>Pull in the raw data (Data extraction/Ingestion):</strong> Collect documents from databases, PDFs, APIs, etc.</li>
@@ -335,7 +344,7 @@
         </details>
 
         <details class="section">
-            <summary>4. Indexing Methods in a Vector Database</summary>
+            <summary>5. Indexing Methods in a Vector Database</summary>
             <div class="section-content">
                 <p><strong>What is a Vector DB:</strong> Traditional databases look for exact word matches, but vector DBs find data that is <em>similar</em> to your query. They organize information as numeric vectors using specialized indexes.</p>
                 
@@ -384,12 +393,12 @@
                 </div>
             </div>
         </details>
-        </details>
 
-
-
+        <details class="section">
+            <summary>6. Advanced Retrieval & Post-Retrieval</summary>
+            <div class="section-content">
                 <div class="subsection">
-                    <span class="subsection-title">2. Retrieval</span>
+                    <span class="subsection-title">Retrieval Enhancement</span>
                     <p>Improves vector search by upgrading embedding models and applying metadata filtering.</p>
                     <p><strong>Fine-tuning Embedding Models:</strong> Tailors pre-trained models to domain jargon.</p>
                     <div class="code-block">EMBEDDING FINE TUNING SIMPLIFIED:
@@ -398,137 +407,138 @@ Scoring: Computes similarity scores (dot product).
 Alignment: Loss maximizes Query-Positive score.
 Differentiation: Loss penalizes Query placement near Negatives.
 Update: Tweak weights so Query lands closer to Positive.</div>
-<p><strong>Instructor Models:</strong> Guides embedding generation using specific prompts.</p>
-<p><strong>Hybrid Search:</strong> Blends vector search with keyword-based search.</p>
-<p><strong>Filtered Vector Search:</strong> Leverages metadata indexes to narrow search space.</p>
+                    <p><strong>Instructor Models:</strong> Guides embedding generation using specific prompts.</p>
+                    <p><strong>Hybrid Search:</strong> Blends vector search with keyword-based search.</p>
+                    <p><strong>Filtered Vector Search:</strong> Leverages metadata indexes to narrow search space.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Post-retrieval</span>
+                    <p>Filters noise from results and compresses context (Reranking).</p>
+                </div>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>7. Advanced Retrieval Strategies: Self-Querying, Expansion & Reranking</summary>
+            <div class="section-content">
+                
+                <div class="subsection">
+                    <span class="subsection-title">A. Self-Querying / Filtered Vector Search</span>
+                    <p><em>Best for finding "x" with strict constraints "y" (Focus: Precision & Security).</em></p>
+                    <p><strong>Process:</strong></p>
+                    <ol>
+                        <li><strong>Scope and Configuration:</strong> Loads Metadata Schema.</li>
+                        <li><strong>Schema-Based Extraction:</strong> Maps text to structured categories (e.g., author: Paul).</li>
+                        <li><strong>Entity Resolution:</strong> Resolves names to UUIDs.</li>
+                        <li><strong>Query Enrichment:</strong> Combines semantic text with hard identifiers.</li>
+                        <li><strong>Filtered Retrieval:</strong> DB executes search with strict metadata gates.</li>
+                    </ol>
+                    <p><strong>Technical Breakdown:</strong></p>
+                    <ul>
+                        <li><strong>Metadata Schema Definition:</strong> Tag vectors during ingestion.</li>
+                        <li><strong>Self-Query Phase:</strong> LLM extracts filters (e.g., Year: 2024).</li>
+                        <li><strong>Pre-Filtering Execution:</strong> Masks non-matching documents <em>before</em> similarity calculation.</li>
+                        <li><strong>Vector Similarity Search:</strong> Calculates distance only on surviving candidates.</li>
+                    </ul>
+                </div>
+        
+                <hr style="border-top: 1px dashed #ccc; margin: 15px 0;">
+        
+                <div class="subsection">
+                    <span class="subsection-title">B. Query Expansion & Reranking</span>
+                    <p><em>Best for finding "x" and synonyms (Focus: Recall).</em></p>
+                    <p><strong>Query Expansion Workflow:</strong></p>
+                    <ol>
+                        <li><strong>Initiation:</strong> Define number of perspectives (N).</li>
+                        <li><strong>Persona Injection:</strong> Define AI objective (e.g., skeptic, expert).</li>
+                        <li><strong>Semantic Diversification:</strong> LLM reframes query to traverse embedding space.</li>
+                        <li><strong>Structured Parsing:</strong> Splits output into search list.</li>
+                        <li><strong>High-Recall Retrieval:</strong> Parallel search for all variations.</li>
+                    </ol>
+                    <p><strong>Reranking Workflow:</strong></p>
+                    <ul>
+                        <li><strong>Over-Retrieval:</strong> Cast a wide net (e.g., fetch 100).</li>
+                        <li><strong>Cross-Encoder Scoring:</strong> Process query and document together for deep reasoning.</li>
+                        <li><strong>Re-Ordering:</strong> Sort by high-precision score and keep top K.</li>
+                    </ul>
+                </div>
+        
+                <hr style="border-top: 1px dashed #ccc; margin: 15px 0;">
+        
+                <div class="subsection">
+                    <span class="subsection-title">C. Strategic Application Matrix</span>
+                    <p><strong>Query Expansion:</strong> Use when finding concepts + synonyms. <br>Goal: <strong>Recall</strong>.</p>
+                    <p><strong>Self-Querying:</strong> Use when finding concepts + strict metadata constraints.<br>Goal: <strong>Precision & Security</strong>.</p>
+                    <p><strong>Hybrid Approach:</strong> Use for concepts + synonyms + constraints.<br>Goal: <strong>High-stakes retrieval</strong>.</p>
+                </div>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>8. RAG Evaluation</summary>
+            <div class="section-content">
+                <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: Retrieval and Generation.</p>
+                
+                <div class="subsection">
+                    <span class="subsection-title">RAGAS Framework</span>
+                    <p>Uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between Question, Context, and Answer.</p>
+                    
+                    <p><strong>1. Faithfulness:</strong> Measures hallucination. Does the answer come <em>only</em> from the context? Calculated by verifying atomic statements against context.</p>
+                    <p><strong>2. Answer Relevancy:</strong> Does the response address the user's query? Uses "Reverse Engineering"—generating questions from the answer and comparing vector similarity to the original question.</p>
+                    <p><strong>3. Context Precision:</strong> Are relevant chunks ranked at the top?</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">How It Works</span>
+                    <p><strong>Data Preparation:</strong> Need Question, Contexts, Answer, Ground Truth.</p>
+                    <p><strong>Evaluation Loop:</strong> Evaluator LLM performs Extraction (claims), Verification (logic check), and Back-Projection (relevance check).</p>
+                </div>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>9. End to End Optimized RAG Inference Flow</summary>
+            <div class="section-content">
+                <div class="subsection">
+                    <span class="subsection-title">1. The Core RAG Synthesis</span>
+                    <ul>
+                        <li><strong>Retrieval & Context Mapping:</strong> ContextRetriever fetches and maps chunks.</li>
+                        <li><strong>The Prompt Factory:</strong> Constructs "Augmented Prompt" with template.</li>
+                        <li><strong>Inference Execution:</strong> Sends to LLM for grounded answer.</li>
+                    </ul>
+                </div>
+                <div class="subsection">
+                    <span class="subsection-title">2. Optimization: Conversation Memory</span>
+                    <p>Uses Sliding Window or Summarization Strategy to handle stateless LLMs.</p>
+                </div>
+                <div class="subsection">
+                    <span class="subsection-title">3. Optimization: Intelligent Routing</span>
+                    <p>Semantic Router directs searches to specific repositories (e.g., Code vs Articles) to save cost.</p>
+                </div>
+                <div class="subsection">
+                    <span class="subsection-title">4. Optimization: Hybrid Search</span>
+                    <p>Combines Vector Search and BM25 using score normalization and weighted merging.</p>
+                </div>
+                <div class="subsection">
+                    <span class="subsection-title">5. Optimization: Multi-Index Vectors</span>
+                    <p>Embeds metadata (Platform, Date) into the vector index to weigh authority/recency.</p>
+                </div>
+            </div>
+        </details>
+
+</div>
 </div>
 
-<div class="subsection">
-                  <span class="subsection-title">3. Post-retrieval</span>
-                  <p>Filters noise from results and compresses context (Reranking).</p>
-              </div>
-          </div>
-      </details>
-
-      <details class="section">
-          <summary>6. RAG Evaluation</summary>
-          <div class="section-content">
-              <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: Retrieval and Generation.</p>
-              
-              <div class="subsection">
-                  <span class="subsection-title">RAGAS Framework</span>
-                  <p>Uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between Question, Context, and Answer.</p>
-                  
-                  <p><strong>1. Faithfulness:</strong> Measures hallucination. Does the answer come <em>only</em> from the context? Calculated by verifying atomic statements against context.</p>
-                  <p><strong>2. Answer Relevancy:</strong> Does the response address the user's query? Uses "Reverse Engineering"—generating questions from the answer and comparing vector similarity to the original question.</p>
-                  <p><strong>3. Context Precision:</strong> Are relevant chunks ranked at the top?</p>
-              </div>
-
-              <div class="subsection">
-                  <span class="subsection-title">How It Works</span>
-                  <p><strong>Data Preparation:</strong> Need Question, Contexts, Answer, Ground Truth.</p>
-                  <p><strong>Evaluation Loop:</strong> Evaluator LLM performs Extraction (claims), Verification (logic check), and Back-Projection (relevance check).</p>
-              </div>
-          </div>
-      </details>
-
-      <details class="section">
-          <summary>7. RAG: Embedding</summary>
-          <div class="section-content">
-              <p><strong>Dense Embeddings:</strong> Foundation for semantic search. Captures abstract meaning (e.g., "dog" matches "canine").</p>
-              <p><strong>Sparse Embeddings:</strong> Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
-              <p><strong>Contextualized Token Embeddings:</strong> Foundation for fine-grained matching (e.g., BERT, ColBERT). Generates separate vectors for each token.</p>
-              <p><strong>Contrastive Learning Embeddings:</strong> Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.</p>
-          </div>
-      </details>
-
-      <details class="section">
-          <summary>9. End to End Optimized RAG Inference Flow</summary>
-          <div class="section-content">
-              <div class="subsection">
-                  <span class="subsection-title">1. The Core RAG Synthesis</span>
-                  <ul>
-                      <li><strong>Retrieval & Context Mapping:</strong> ContextRetriever fetches and maps chunks.</li>
-                      <li><strong>The Prompt Factory:</strong> Constructs "Augmented Prompt" with template.</li>
-                      <li><strong>Inference Execution:</strong> Sends to LLM for grounded answer.</li>
-                  </ul>
-              </div>
-              <div class="subsection">
-                  <span class="subsection-title">2. Optimization: Conversation Memory</span>
-                  <p>Uses Sliding Window or Summarization Strategy to handle stateless LLMs.</p>
-              </div>
-              <div class="subsection">
-                  <span class="subsection-title">3. Optimization: Intelligent Routing</span>
-                  <p>Semantic Router directs searches to specific repositories (e.g., Code vs Articles) to save cost.</p>
-              </div>
-              <div class="subsection">
-                  <span class="subsection-title">4. Optimization: Hybrid Search</span>
-                  <p>Combines Vector Search and BM25 using score normalization and weighted merging.</p>
-              </div>
-              <div class="subsection">
-                  <span class="subsection-title">5. Optimization: Multi-Index Vectors</span>
-                  <p>Embeds metadata (Platform, Date) into the vector index to weigh authority/recency.</p>
-              </div>
-          </div>
-      </details>
-
-      <details class="section">
-        <summary>10. Advanced Retrieval Strategies: Self-Querying, Expansion & Reranking</summary>
-        <div class="section-content">
-            
-            <div class="subsection">
-                <span class="subsection-title">A. Self-Querying / Filtered Vector Search</span>
-                <p><em>Best for finding "x" with strict constraints "y" (Focus: Precision & Security).</em></p>
-                <p><strong>Process:</strong></p>
-                <ol>
-                    <li><strong>Scope and Configuration:</strong> Loads Metadata Schema.</li>
-                    <li><strong>Schema-Based Extraction:</strong> Maps text to structured categories (e.g., author: Paul).</li>
-                    <li><strong>Entity Resolution:</strong> Resolves names to UUIDs.</li>
-                    <li><strong>Query Enrichment:</strong> Combines semantic text with hard identifiers.</li>
-                    <li><strong>Filtered Retrieval:</strong> DB executes search with strict metadata gates.</li>
-                </ol>
-                <p><strong>Technical Breakdown:</strong></p>
-                <ul>
-                    <li><strong>Metadata Schema Definition:</strong> Tag vectors during ingestion.</li>
-                    <li><strong>Self-Query Phase:</strong> LLM extracts filters (e.g., Year: 2024).</li>
-                    <li><strong>Pre-Filtering Execution:</strong> Masks non-matching documents <em>before</em> similarity calculation.</li>
-                    <li><strong>Vector Similarity Search:</strong> Calculates distance only on surviving candidates.</li>
-                </ul>
-            </div>
-    
-            <hr style="border-top: 1px dashed #ccc; margin: 15px 0;">
-    
-            <div class="subsection">
-                <span class="subsection-title">B. Query Expansion & Reranking</span>
-                <p><em>Best for finding "x" and synonyms (Focus: Recall).</em></p>
-                <p><strong>Query Expansion Workflow:</strong></p>
-                <ol>
-                    <li><strong>Initiation:</strong> Define number of perspectives (N).</li>
-                    <li><strong>Persona Injection:</strong> Define AI objective (e.g., skeptic, expert).</li>
-                    <li><strong>Semantic Diversification:</strong> LLM reframes query to traverse embedding space.</li>
-                    <li><strong>Structured Parsing:</strong> Splits output into search list.</li>
-                    <li><strong>High-Recall Retrieval:</strong> Parallel search for all variations.</li>
-                </ol>
-                <p><strong>Reranking Workflow:</strong></p>
-                <ul>
-                    <li><strong>Over-Retrieval:</strong> Cast a wide net (e.g., fetch 100).</li>
-                    <li><strong>Cross-Encoder Scoring:</strong> Process query and document together for deep reasoning.</li>
-                    <li><strong>Re-Ordering:</strong> Sort by high-precision score and keep top K.</li>
-                </ul>
-            </div>
-    
-            <hr style="border-top: 1px dashed #ccc; margin: 15px 0;">
-    
-            <div class="subsection">
-                <span class="subsection-title">C. Strategic Application Matrix</span>
-                <p><strong>Query Expansion:</strong> Use when finding concepts + synonyms. <br>Goal: <strong>Recall</strong>.</p>
-                <p><strong>Self-Querying:</strong> Use when finding concepts + strict metadata constraints.<br>Goal: <strong>Precision & Security</strong>.</p>
-                <p><strong>Hybrid Approach:</strong> Use for concepts + synonyms + constraints.<br>Goal: <strong>High-stakes retrieval</strong>.</p>
-            </div>
-        </div>
-    </details>
-
-  </div>
+<div class="retro-viewport">
+    <div class="vp-header">
+        <span>ARCHIVE_VIEWER_V1.0</span>
+        <button class="vp-close" onclick="document.querySelector('.retro-viewport').classList.remove('active'); document.querySelector('.retro-viewport iframe').src='';">X</button>
+    </div>
+    <div class="vp-body">
+        <iframe src=""></iframe>
+    </div>
 </div>
+
 </body>
 </html>
