@@ -552,10 +552,10 @@
                                 <strong>Over-Retrieval (The Wide Net):</strong> Initial vector search is fast but "shallow." To ensure we don't miss the best answer, we retrieve more documents than we actually need (e.g., fetching 100 results when we only want to show 5). This compensates for the "semantic noise" where the database might rank a popular but irrelevant document higher than a niche, perfect match.
                             </li>
                             <li>
-                                <strong>Cross-Encoder Scoring (Deep Reasoning):</strong> We pass the user’s query and each retrieved document into a Cross-Encoder. Unlike initial search (which looks at documents in isolation), the Cross-Encoder processes the query and document together. This allows the model to perform "joint attention," identifying nuanced relationships and specific relevance that simple math often misses.
+                                <strong>Cross-Encoder Scoring (Deep Reasoning):</strong> The system feeds [Query][SEPATOR][DOCUMENT] as a single pair. This enables joint attention, allowing the model to weigh [QUERY]] tokens against [DOCUMENT] tokens simultaneously. It outputs a precision score that reflects true semantic relevance.
                             </li>
                             <li>
-                                <strong>Re-Ordering and Selection:</strong> Based on the Cross-Encoder’s high-precision scores, we sort the entire pool. The document that most accurately answers the query—regardless of its initial vector rank—is moved to the top. We then discard the "tail" of the list, keeping only the top $K$ results to serve as the definitive context for the LLM.
+                                <strong>Re-Ordering and Selection:</strong> Based on the Cross-Encoder’s high-precision scores, results are re-sorted, ignoring initial vector ranks. This "promotes" niche, highly relevant documents buried in the wide net. A final top-K cutoff discards the noise, leaving only the most potent context.
                             </li>
                         </ul>
                     </div>
