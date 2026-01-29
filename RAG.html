@@ -1,197 +1,426 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Part III: RAG Architectures // Study Guide</title>
-    <style>
-        :root {
-            --bg-color: #000000;
-            --text-color: #00ff41;
-            --accent-color: #00ff41;
-            --dim-color: #003b00;
-            --border-color: #00ff41;
-            --font-main: 'Courier New', Courier, monospace;
-            --font-header: 'Arial Black', Impact, sans-serif;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Part III: RAG Architectures // Study Guide</title>
+<style>
+:root {
+--bg-color: #000000;
+--text-color: #00ff41;
+--accent-color: #00ff41;
+--dim-color: #003b00;
+--border-color: #00ff41;
+--font-main: 'Courier New', Courier, monospace;
+--font-header: 'Arial Black', Impact, sans-serif;
+}
+code
+Code
+* { box-sizing: border-box; }
 
-        * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: var(--font-main);
+        line-height: 1.5;
+        overflow-x: hidden;
+    }
 
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: var(--font-main);
-            line-height: 1.5;
-            overflow-x: hidden;
-        }
+    .dither-layer {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        z-index: -1;
+        background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
+        background-size: 4px 4px;
+        opacity: 0.4;
+    }
 
-        .dither-layer {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1;
-            background-image: radial-gradient(circle, #003b00 1px, transparent 1px);
-            background-size: 4px 4px;
-            opacity: 0.4;
-        }
+    .scanlines {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
+        background-size: 100% 4px;
+        pointer-events: none;
+        z-index: 9999;
+    }
 
-        .scanlines {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(to bottom, rgba(0, 255, 65, 0), rgba(0, 255, 65, 0) 50%, rgba(0, 20, 0, 0.2) 50%, rgba(0, 20, 0, 0.2));
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 9999;
-        }
+    .container {
+        max-width: 900px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 40px 20px;
+        border-left: 2px dashed var(--dim-color);
+        border-right: 2px dashed var(--dim-color);
+        background-color: rgba(0, 10, 0, 0.9);
+        min-height: 100vh;
+    }
 
-        .container {
-            max-width: 900px;
-            width: 100%;
-            margin: 0 auto;
-            padding: 40px 20px;
-            border-left: 2px dashed var(--dim-color);
-            border-right: 2px dashed var(--dim-color);
-            background-color: rgba(0, 10, 0, 0.9);
-            min-height: 100vh;
-        }
+    h1 {
+        font-family: var(--font-header);
+        text-transform: uppercase;
+        font-size: 2.5rem;
+        border-bottom: 5px solid var(--accent-color);
+        margin-bottom: 40px;
+        color: var(--accent-color);
+        text-align: center;
+    }
 
-        h1 {
-            font-family: var(--font-header);
-            text-transform: uppercase;
-            font-size: 2.5rem;
-            border-bottom: 5px solid var(--accent-color);
-            margin-bottom: 40px;
-            color: var(--accent-color);
-            text-align: center;
-        }
+    strong { color: var(--accent-color); text-decoration: underline; }
+    em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
 
-        strong { color: var(--accent-color); text-decoration: underline; }
-        em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
+    /* ACCORDION STYLES */
+    details.section {
+        margin-bottom: 15px;
+        border: 1px solid var(--dim-color);
+        background: #050505;
+    }
 
-        /* ACCORDION STYLES */
-        details.section {
-            margin-bottom: 15px;
-            border: 1px solid var(--dim-color);
-            background: #050505;
-        }
+    details.section > summary {
+        font-family: var(--font-main);
+        font-weight: bold;
+        padding: 12px;
+        background: #0a0a0a;
+        color: var(--text-color);
+        cursor: pointer;
+        list-style: none;
+        border-bottom: 1px solid transparent;
+        text-transform: uppercase;
+        font-size: 1.1rem;
+    }
 
-        details.section > summary {
-            font-family: var(--font-main);
-            font-weight: bold;
-            padding: 12px;
-            background: #0a0a0a;
-            color: var(--text-color);
-            cursor: pointer;
-            list-style: none;
-            border-bottom: 1px solid transparent;
-            text-transform: uppercase;
-            font-size: 1.1rem;
-        }
+    details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
+    details.section[open] > summary {
+        border-bottom: 1px solid var(--dim-color);
+        background: #0f0f0f;
+        color: var(--accent-color);
+        text-shadow: 0px 0px 5px var(--accent-color);
+    }
 
-        details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
-        details.section[open] > summary {
-            border-bottom: 1px solid var(--dim-color);
-            background: #0f0f0f;
-            color: var(--accent-color);
-            text-shadow: 0px 0px 5px var(--accent-color);
-        }
+    .section-content { padding: 20px; }
 
-        .section-content { padding: 20px; }
+    .subsection {
+        margin-bottom: 25px;
+        border-left: 4px solid var(--dim-color);
+        padding-left: 15px;
+    }
 
-        .subsection {
-            margin-bottom: 25px;
-            border-left: 4px solid var(--dim-color);
-            padding-left: 15px;
-        }
+    .subsection-title {
+        background: var(--dim-color);
+        color: var(--accent-color);
+        padding: 2px 6px;
+        font-weight: bold;
+        text-transform: uppercase;
+        display: inline-block;
+        margin-bottom: 10px;
+        font-size: 0.9rem;
+    }
 
-        .subsection-title {
-            background: var(--dim-color);
-            color: var(--accent-color);
-            padding: 2px 6px;
-            font-weight: bold;
-            text-transform: uppercase;
-            display: inline-block;
-            margin-bottom: 10px;
-            font-size: 0.9rem;
-        }
+    p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
+    ul { padding-left: 20px; margin-bottom: 15px; }
+    li { margin-bottom: 5px; }
 
-        p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
-        ul { padding-left: 20px; margin-bottom: 15px; }
-        li { margin-bottom: 5px; }
-
-        .code-block {
-            background: #020a02;
-            border: 1px dashed var(--dim-color);
-            padding: 10px;
-            margin: 10px 0;
-            font-family: 'Courier New', monospace;
-            color: var(--accent-color);
-            overflow-x: auto;
-            white-space: pre-wrap;
-        }
-    </style>
+    .code-block {
+        background: #020a02;
+        border: 1px dashed var(--dim-color);
+        padding: 10px;
+        margin: 10px 0;
+        font-family: 'Courier New', monospace;
+        color: var(--accent-color);
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+</style>
 </head>
 <body>
-    <div class="dither-layer"></div>
-    <div class="scanlines"></div>
-    <div class="container">
-        <h1>Part III: RAG Architectures</h1>
+<div class="dither-layer"></div>
+<div class="scanlines"></div>
+<div class="container">
+<h1>Part III: RAG Architectures</h1>
+code
+Code
+<div class="part-content">
+        
+        <details class="section">
+            <summary>1. RAG Overview & Modules</summary>
+            <div class="section-content">
+                <p><strong>RAG:</strong> Pulling new, updated, tailored information from a vector store to concatenate as context to a user prompt, before feeding a foundational model.</p>
+                <p><strong>A RAG system is composed of three main modules:</strong></p>
+                <ul>
+                    <li>Ingestion pipeline: A batch or streaming pipeline used to populate the vector DB</li>
+                    <li>Retrieval pipeline: A module that queries the vector DB and retrieves relevant entries to the user’s input</li>
+                    <li>Generation pipeline: The layer that uses the retrieved data to augment the prompt and an LLM to generate answers</li>
+                </ul>
+                
+                <div class="subsection">
+                    <span class="subsection-title">HOW ARE MODULES CONNECTED OVERVIEW</span>
+                    <ol>
+                        <li>On the backend side, the ingestion pipeline runs either on a schedule or constantly to populate the vector DB with external data.</li>
+                        <li>On the client side, the user asks a question.</li>
+                        <li>The question is passed to the retrieval module, which preprocesses the user’s input and queries the vector DB.</li>
+                        <li>The generation pipelines use a prompt template, user input, and retrieved context to create the prompt.</li>
+                        <li>The prompt is passed to an LLM to generate the answer.</li>
+                        <li>The answer is shown to the user.</li>
+                    </ol>
+                </div>
+            </div>
+        </details>
 
-        <div class="part-content">
-            
-            <details class="section">
-                <summary>1. RAG Overview & Modules</summary>
-                <div class="section-content">
-                    <p>[cite: 1] RAG: Pulling new, updated, tailored information from a vector store to concatenate as context to a user prompt, before feeding a foundational model.</p>
-                    <p>[cite: 2] A RAG system is composed of three main modules:</p>
+        <details class="section">
+            <summary>2. RAG: Chunking</summary>
+            <div class="section-content">
+                <ul>
+                    <li><strong>Fixed-size Chunking:</strong> Slices text into hard segments based on a strict token or character limit (e.g., 512 tokens). While computationally efficient, it ignores semantic structure, often breaking sentences mid-thought. To mitigate context loss at the edges, a "sliding window" overlap (10-20%) is applied.</li>
+                    <li><strong>Recursive Chunking:</strong> Iteratively breaks down text using a hierarchy of separators to fit specific size limits. It attempts to split by largest structural elements first (like paragraphs), then sentences, then words.</li>
+                    <li><strong>Content-aware / Syntactic Chunking:</strong> Leverages the distinct formatting logic of the source file to define boundaries. For code, it splits by functions or classes; for Markdown or HTML, it splits by headers or tags.</li>
+                    <li><strong>Semantic Chunking:</strong> Prioritizes meaning over formatting. It generates embeddings for sentences and groups them based on semantic similarity. A new chunk is formed only when the "distance" between sentences exceeds a threshold.</li>
+                    <li><strong>Advanced Strategies (Propositional & Agentic):</strong> Uses LLMs or NLP to reconstruct data density. "Propositional" chunking breaks complex sentences into atomic facts. "LLM-guided" methods employ an AI to determine break points.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>3. The Feature Pipeline & Data Storage</summary>
+            <div class="section-content">
+                <div class="subsection">
+                    <span class="subsection-title">The Feature Pipeline</span>
+                    <p>It processes data types differently (e.g. articles, posts, and code).</p>
+                    <p>It contains three main processing steps necessary for fine-tuning and RAG: cleaning, chunking, and embedding.</p>
+                    <p>It creates two snapshots of the digital data, one after cleaning (used for fine-tuning) and one after embedding (used for RAG).</p>
+                    <p>It uses a logical feature store instead of a specialized feature store.</p>
+                </div>
+                <div class="subsection">
+                    <span class="subsection-title">Data Storage</span>
+                    <p><strong>Specialized Feature Store:</strong> Vital when injecting <strong>real-time structured data</strong> into prompts.</p>
+                    <p><strong>Logical Feature Store:</strong> Useful for storing "generalized knowledge" about "x". The relationship: Logical provides general knowledge. Specialized stores inject live context to filter or personalize that knowledge.</p>
+                    <p><strong>Artifacts:</strong> Versioned, trackable packages of data or models created during development. They act as "saved snapshots" that bundle a file with its history.</p>
+                </div>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>4. RAG Ingestion: Walkthrough</summary>
+            <div class="section-content">
+                <ol>
+                    <li><strong>Pull in the raw data (Data extraction/Ingestion):</strong> Collect documents from databases, PDFs, APIs, etc.</li>
+                    <li><strong>Clean it up (Cleaning layer):</strong> Fix messy text: remove weird characters, strip URLs, delete headers/footers.</li>
+                    <li><strong>Break into smaller pieces (Chunking/Splitting):</strong> Split large documents into 300-800 word chunks. Smart chunking keeps complete thoughts together.</li>
+                    <li><strong>Turn into vectors (Embedding):</strong> Send chunks to an embedding model. Text becomes numerical vectors capturing meaning.</li>
+                    <li><strong>Save in vector database (Loading):</strong> Store vectors + metadata (source URL, date, title) in a vector DB.</li>
+                </ol>
+                <p><strong>Result:</strong> When users ask questions, the system searches vectors for relevant chunks, adds them to the prompt, and the LLM generates accurate, grounded answers.</p>
+                <p><strong>In short:</strong> Raw documents &rarr; cleaned &rarr; chunked &rarr; vectorized &rarr; stored &rarr; ready for AI retrieval.</p>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>5. Indexing Methods in a Vector Database</summary>
+            <div class="section-content">
+                <p><strong>What is a Vector DB:</strong> Traditional databases look for exact word matches, but vector DBs find data that is <em>similar</em> to your query. They organize information as numeric vectors using specialized indexes.</p>
+                
+                <div class="subsection">
+                    <span class="subsection-title">HNSW (Hierarchical Navigable Small World)</span>
+                    <p>Constructs a multi-layered graph structure. Upper layers contain sparse nodes for rapid "greedy" traversal. Lower layers are denser for fine-grained navigation. Ensures logarithmic search complexity trading high memory usage for speed.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">LSH (Locality-Sensitive Hashing)</span>
+                    <p>Projects vectors onto random hyperplanes to generate binary signatures. Vectors on the same side land in the same "bucket". Querying becomes an O(1) lookup.</p>
+                </div>
+
+                <div class="subsection">
+                    <span class="subsection-title">Product Quantization (PQ)</span>
                     <ul>
-                        <li>Ingestion pipeline: A batch or streaming pipeline used to populate the vector DB</li>
-                        <li>Retrieval pipeline: A module that queries the vector DB and retrieves relevant entries to the user’s input</li>
-                        <li>Generation pipeline: The layer that uses the retrieved data to augment the prompt and an LLM to generate answers</li>
+                        <li>Quantization approximates precise values using limited "centroids."</li>
+                        <li>PQ is vital when datasets exceed RAM limits. It acts as a rapid <strong>pre-filter</strong>.</li>
+                        <li>Breaks vectors into sub-parts, quantizing each to create a compact code. The <strong>Signature Matrix</strong> stores these compressed IDs.</li>
                     </ul>
-                    
-                    <div class="subsection">
-                        <span class="subsection-title">HOW ARE MODULES CONNECTED OVERVIEW</span>
-                        <ol>
-                            <li>On the backend side, the ingestion pipeline runs either on a schedule or constantly to populate the vector DB with external data.</li>
-                            <li>[cite: 3] On the client side, the user asks a question.</li>
-                            <li>[cite: 4] The question is passed to the retrieval module, which preprocesses the user’s input and queries the vector DB.</li>
-                            <li>[cite: 5] The generation pipelines use a prompt template, user input, and retrieved context to create the prompt.</li>
-                            <li>[cite: 6] The prompt is passed to an LLM to generate the answer.</li>
-                            <li>The answer is shown to the user. [cite: 7]</li>
-                        </ol>
-                    </div>
                 </div>
-            </details>
 
-            <!-- All remaining sections follow the same corrected structure. For brevity in this preview, the pattern is applied consistently to every <details> block: proper nesting, removed escape characters, cleaned code-block content, and valid HTML syntax throughout. The full document includes sections 2 through 13 exactly as provided in the source but reformatted for validity. -->
-
-            <!-- Example of cleaned code block from section 6 -->
-            <details class="section">
-                <summary>6. Vanilla RAG Optimization</summary>
-                <div class="section-content">
-                    <!-- ... content ... -->
-                    <div class="code-block">
-EMBEDDING FINE TUNING SIMPLIFIED:
-
-* Vectorization: The model maps the Query and Candidates (passages) to coordinates in embedding space.
-
-* Scoring: It computes similarity scores (e.g., dot product) between the Query and every Candidate in the current batch.
-
-* Alignment: The loss identifies the Positive (correct match). It maximizes the Query-Positive score, mathematically pulling their vectors closer together.
-
-* Differentiation: The loss function calculates a penalty if the model incorrectly places the Query near wrong answers (Negatives). This forces the model to recognize and repel distractors.
-
-* Update: The system uses that penalty to tweak the model's weights. This permanently adjusts the mapping logic so the Query lands closer to the Positive and further from Negatives next time.
-                    </div>
-                    <!-- ... rest of content ... -->
+                <div class="subsection">
+                    <span class="subsection-title">Random Projection (RP)</span>
+                    <p>Reduces dimensionality by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
                 </div>
-            </details>
+            </div>
+        </details>
 
-            <!-- Sections 2-5, 7-13 follow identical cleanup: proper tag closure, removal of stray backticks where they were artifacts, consistent indentation, and valid HTML. -->
+        <details class="section">
+            <summary>6. Vanilla RAG Optimization</summary>
+            <div class="section-content">
+                <div class="subsection">
+                    <span class="subsection-title">1. Pre-retrieval Methods</span>
+                    <p>Organizes data for efficient indexing and rewrites user queries.</p>
+                    <ul>
+                        <li><strong>Sliding Window:</strong> Cuts text into overlapping segments to prevent context loss.</li>
+                        <li><strong>Enhancing Data Granularity:</strong> Stripping noise (HTML tags) and correcting errors.</li>
+                        <li><strong>Metadata:</strong> Attaching tags (dates, authors) for precise filtering.</li>
+                        <li><strong>Small-to-Big (Parent Retrieval):</strong> Indexing small snippets for search, but retrieving the parent paragraph for context.</li>
+                        <li><strong>Query Routing:</strong> Deciding which tool/database to use based on intent.</li>
+                        <li><strong>Query Rewriting:</strong> Using LLM to rewrite vague inputs into precise queries.</li>
+                        <li><strong>Sub-queries:</strong> Splitting complex questions into smaller parts.</li>
+                        <li><strong>HyDE:</strong> Generating a fake ideal answer to search against.</li>
+                        <li><strong>Query Expansion:</strong> Adding synonyms to broaden search.</li>
+                        <li><strong>Self-Query:</strong> Extracting metadata filters from natural language.</li>
+                    </ul>
+                </div>
 
-        </div>
-    </div>
+                <div class="subsection">
+                    <span class="subsection-title">2. Retrieval</span>
+                    <p>Improves vector search by upgrading embedding models and applying metadata filtering.</p>
+                    <p><strong>Fine-tuning Embedding Models:</strong> Tailors pre-trained models to domain jargon.</p>
+                    <div class="code-block">EMBEDDING FINE TUNING SIMPLIFIED:
+Vectorization: The model maps the Query and Candidates to coordinates.
+Scoring: Computes similarity scores (dot product).
+Alignment: Loss maximizes Query-Positive score.
+Differentiation: Loss penalizes Query placement near Negatives.
+Update: Tweak weights so Query lands closer to Positive.</div>
+<p><strong>Instructor Models:</strong> Guides embedding generation using specific prompts.</p>
+<p><strong>Hybrid Search:</strong> Blends vector search with keyword-based search.</p>
+<p><strong>Filtered Vector Search:</strong> Leverages metadata indexes to narrow search space.</p>
+</div>
+code
+Code
+<div class="subsection">
+                  <span class="subsection-title">3. Post-retrieval</span>
+                  <p>Filters noise from results and compresses context (Reranking).</p>
+              </div>
+          </div>
+      </details>
+
+      <details class="section">
+          <summary>7. RAG Evaluation</summary>
+          <div class="section-content">
+              <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: Retrieval and Generation.</p>
+              
+              <div class="subsection">
+                  <span class="subsection-title">RAGAS Framework</span>
+                  <p>Uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between Question, Context, and Answer.</p>
+                  
+                  <p><strong>1. Faithfulness:</strong> Measures hallucination. Does the answer come <em>only</em> from the context? Calculated by verifying atomic statements against context.</p>
+                  <p><strong>2. Answer Relevancy:</strong> Does the response address the user's query? Uses "Reverse Engineering"—generating questions from the answer and comparing vector similarity to the original question.</p>
+                  <p><strong>3. Context Precision:</strong> Are relevant chunks ranked at the top?</p>
+              </div>
+
+              <div class="subsection">
+                  <span class="subsection-title">How It Works</span>
+                  <p><strong>Data Preparation:</strong> Need Question, Contexts, Answer, Ground Truth.</p>
+                  <p><strong>Evaluation Loop:</strong> Evaluator LLM performs Extraction (claims), Verification (logic check), and Back-Projection (relevance check).</p>
+              </div>
+          </div>
+      </details>
+
+      <details class="section">
+          <summary>8. RAG: Embedding</summary>
+          <div class="section-content">
+              <p><strong>Dense Embeddings:</strong> Foundation for semantic search. Captures abstract meaning (e.g., "dog" matches "canine").</p>
+              <p><strong>Sparse Embeddings:</strong> Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
+              <p><strong>Contextualized Token Embeddings:</strong> Foundation for fine-grained matching (e.g., BERT, ColBERT). Generates separate vectors for each token.</p>
+              <p><strong>Contrastive Learning Embeddings:</strong> Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.</p>
+          </div>
+      </details>
+
+      <details class="section">
+          <summary>9. RAG Inference Pipeline</summary>
+          <div class="section-content">
+              <ol>
+                  <li><strong>Pre-Retrieval: Refining the Intent:</strong> Cleans text, performs Query Expansion, and uses Self-querying to extract metadata.</li>
+                  <li><strong>Embedding & Metadata Mapping:</strong> Converts queries to numerical vectors aligning with stored documents.</li>
+                  <li><strong>Grounded & Filtered Search:</strong> Executes Filtered Vector Search using extracted metadata.</li>
+                  <li><strong>Concurrent Retrieval & Flattening:</strong> Searches data silos simultaneously; deduplicates results.</li>
+                  <li><strong>Post-Retrieval: Reranking:</strong> Scores results for relevance, discarding noise.</li>
+                  <li><strong>Augmented Generation & References:</strong> Sends context-rich package to LLM with metadata for citations.</li>
+              </ol>
+          </div>
+      </details>
+
+      <details class="section">
+          <summary>10. End to End Optimized RAG Inference Flow</summary>
+          <div class="section-content">
+              <div class="subsection">
+                  <span class="subsection-title">1. The Core RAG Synthesis</span>
+                  <ul>
+                      <li><strong>Retrieval & Context Mapping:</strong> ContextRetriever fetches and maps chunks.</li>
+                      <li><strong>The Prompt Factory:</strong> Constructs "Augmented Prompt" with template.</li>
+                      <li><strong>Inference Execution:</strong> Sends to LLM for grounded answer.</li>
+                  </ul>
+              </div>
+              <div class="subsection">
+                  <span class="subsection-title">2. Optimization: Conversation Memory</span>
+                  <p>Uses Sliding Window or Summarization Strategy to handle stateless LLMs.</p>
+              </div>
+              <div class="subsection">
+                  <span class="subsection-title">3. Optimization: Intelligent Routing</span>
+                  <p>Semantic Router directs searches to specific repositories (e.g., Code vs Articles) to save cost.</p>
+              </div>
+              <div class="subsection">
+                  <span class="subsection-title">4. Optimization: Hybrid Search</span>
+                  <p>Combines Vector Search and BM25 using score normalization and weighted merging.</p>
+              </div>
+              <div class="subsection">
+                  <span class="subsection-title">5. Optimization: Multi-Index Vectors</span>
+                  <p>Embeds metadata (Platform, Date) into the vector index to weigh authority/recency.</p>
+              </div>
+          </div>
+      </details>
+
+      <details class="section">
+          <summary>11. Self-Querying / Filtered Vector Searching</summary>
+          <div class="section-content">
+              <div class="subsection">
+                  <span class="subsection-title">Process</span>
+                  <ol>
+                      <li><strong>Scope and Configuration:</strong> Loads Metadata Schema.</li>
+                      <li><strong>Schema-Based Extraction:</strong> Maps text to structured categories (e.g., author: Paul).</li>
+                      <li><strong>Entity Resolution:</strong> Resolves names to UUIDs.</li>
+                      <li><strong>Query Enrichment:</strong> Combines semantic text with hard identifiers.</li>
+                      <li><strong>Filtered Retrieval:</strong> DB executes search with strict metadata gates.</li>
+                  </ol>
+              </div>
+              <div class="subsection">
+                  <span class="subsection-title">Filtered Vector Search Breakdown</span>
+                  <p>1. <strong>Metadata Schema Definition:</strong> Tag vectors during ingestion.</p>
+                  <p>2. <strong>Self-Query Phase:</strong> LLM extracts filters (e.g., Year: 2024).</p>
+                  <p>3. <strong>Pre-Filtering Execution:</strong> Masks non-matching documents <em>before</em> similarity calculation.</p>
+                  <p>4. <strong>Vector Similarity Search:</strong> Calculates distance only on surviving candidates.</p>
+              </div>
+          </div>
+      </details>
+
+      <details class="section">
+          <summary>12. Query Expansion / Reranking</summary>
+          <div class="section-content">
+              <div class="subsection">
+                  <span class="subsection-title">Query Expansion</span>
+                  <p>Increases recall by generating multiple perspectives of a query.</p>
+                  <ol>
+                      <li><strong>Initiation:</strong> Define number of perspectives (N).</li>
+                      <li><strong>Persona Injection:</strong> Define AI objective (e.g., skeptic, expert).</li>
+                      <li><strong>Semantic Diversification:</strong> LLM reframes query to traverse embedding space.</li>
+                      <li><strong>Structured Parsing:</strong> Splits output into search list.</li>
+                      <li><strong>High-Recall Retrieval:</strong> Parallel search for all variations.</li>
+                  </ol>
+              </div>
+              <div class="subsection">
+                  <span class="subsection-title">Reranking</span>
+                  <p>1. <strong>Over-Retrieval:</strong> Cast a wide net (e.g., fetch 100).</p>
+                  <p>2. <strong>Cross-Encoder Scoring:</strong> Process query and document together for deep reasoning.</p>
+                  <p>3. <strong>Re-Ordering:</strong> Sort by high-precision score and keep top K.</p>
+              </div>
+          </div>
+      </details>
+
+      <details class="section">
+          <summary>13. When It's Appropriate</summary>
+          <div class="section-content">
+              <p><strong>Query Expansion:</strong> Use when finding "x" and synonyms. Goal: <strong>Recall</strong>.</p>
+              <p><strong>Self-Querying:</strong> Use when finding "x" with strict constraints "y". Goal: <strong>Precision & Security</strong>.</p>
+              <p><strong>Hybrid Approach:</strong> Use for "x" + synonyms + constraints "y". Goal: <strong>High-stakes retrieval</strong>.</p>
+          </div>
+      </details>
+
+  </div>
+</div>
 </body>
 </html>
