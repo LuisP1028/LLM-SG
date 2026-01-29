@@ -285,9 +285,25 @@ Code
 
             <div class="subsection">
                 <span class="subsection-title">Data Deduplication</span>
-                <p><strong>Exact Deduplication:</strong> Exact deduplication removes identical entries by normalizing data and comparing unique hash codes (e.g., SHA-256). If hashes match, data is duplicated. While precise, this method only catches exact copies and misses slightly modified or semantically similar content.</p>
-                <p><strong>Fuzzy Deduplication:</strong> Fuzzy deduplication detects near-duplicates using MinHash. It breaks data into shingle fingerprints and checks Jaccard similarity to efficiently spot matches.  Shingles are overlapping subsequences (often n-grams of words or characters) used to convert a text document into a mathematical set. For example, "red car" might become the set {"red", "ed ", " ca", "car"}. Jaccard similarity measures the resemblance between two such sets. It is calculated by dividing the size of the intersection (shared shingles) by the size of the union (total unique shingles). A score of 1.0 indicates identical sets, while 0.0 means no overlap.</p>
-            </div>
+                
+                <p>
+                    <strong>Exact Deduplication:</strong>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='SFT/exact_dedup.html'; vp.classList.add('active');">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
+                    Exact deduplication removes identical entries by normalizing data and comparing unique hash codes (e.g., SHA-256). If hashes match, data is duplicated. While precise, this method only catches exact copies and misses slightly modified or semantically similar content.
+                </p>
+            
+                <p>
+                    <strong>Fuzzy Deduplication:</strong>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='SFT/fuzzy_dedup.html'; vp.classList.add('active');">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
+                    Fuzzy deduplication detects near-duplicates using MinHash. It breaks data into shingle fingerprints and checks Jaccard similarity to efficiently spot matches. Shingles are overlapping subsequences (often n-grams of words or characters) used to convert a text document into a mathematical set. For example, "red car" might become the set {"red", "ed ", " ca", "car"}. Jaccard similarity measures the resemblance between two such sets
 
             <div class="subsection">
                 <span class="subsection-title">Data Decontamination</span>
