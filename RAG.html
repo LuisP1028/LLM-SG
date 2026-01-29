@@ -386,25 +386,7 @@
         </details>
         </details>
 
-        <details class="section">
-            <summary>5. Vanilla RAG Optimization</summary>
-            <div class="section-content">
-                <div class="subsection">
-                    <span class="subsection-title">1. Pre-retrieval Methods</span>
-                    <p>Organizes data for efficient indexing and rewrites user queries.</p>
-                    <ul>
-                        <li><strong>Sliding Window:</strong> Cuts text into overlapping segments to prevent context loss.</li>
-                        <li><strong>Enhancing Data Granularity:</strong> Stripping noise (HTML tags) and correcting errors.</li>
-                        <li><strong>Metadata:</strong> Attaching tags (dates, authors) for precise filtering.</li>
-                        <li><strong>Small-to-Big (Parent Retrieval):</strong> Indexing small snippets for search, but retrieving the parent paragraph for context.</li>
-                        <li><strong>Query Routing:</strong> Deciding which tool/database to use based on intent.</li>
-                        <li><strong>Query Rewriting:</strong> Using LLM to rewrite vague inputs into precise queries.</li>
-                        <li><strong>Sub-queries:</strong> Splitting complex questions into smaller parts.</li>
-                        <li><strong>HyDE:</strong> Generating a fake ideal answer to search against.</li>
-                        <li><strong>Query Expansion:</strong> Adding synonyms to broaden search.</li>
-                        <li><strong>Self-Query:</strong> Extracting metadata filters from natural language.</li>
-                    </ul>
-                </div>
+
 
                 <div class="subsection">
                     <span class="subsection-title">2. Retrieval</span>

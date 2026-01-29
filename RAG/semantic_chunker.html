@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SEMANTIC_CHUNKER // DITHERPUNK_VISUALIZER</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --term-green: #33ff00;
+            --term-dim: #1a8000;
+            --scan-line: rgba(51, 255, 0, 0.1);
+            
+            /* Spacing Variables */
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --border-width: clamp(1px, 0.2vw, 3px);
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            
+            /* Firefox Scrollbar Support */
+            scrollbar-width: thin;
+            scrollbar-color: var(--term-green) var(--bg);
+        }
+
+        /* --- CUSTOM SCROLLBAR (WEBKIT) --- */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+            border-left: 1px solid var(--term-dim);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: var(--term-green);
+            border: 3px solid var(--bg); /* Creates a padding effect around the thumb */
+            border-radius: 0px; /* Sharp corners for terminal look */
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #fff; /* High contrast on hover */
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: var(--bg);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--term-green);
+            font-family: var(--font-main);
+            overflow: hidden; /* Prevent scrolling on main body */
+            height: 100vh;
+            height: 100dvh; /* Dynamic viewport height for mobile browsers */
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- CRT / DITHER EFFECTS --- */
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.95; }
+            50% { opacity: 0.85; }
+            100% { opacity: 0.9; }
+        }
+
+        .scan-bar {
+            width: 100%;
+            height: 1vh; /* Relative height */
+            background: rgba(51, 255, 0, 0.1);
+            position: fixed;
+            z-index: 101;
+            top: 0;
+            left: 0;
+            animation: scan 8s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+
+        /* --- LAYOUT STRUCTURE --- */
+        header {
+            border-bottom: var(--border-width) solid var(--term-green);
+            padding: var(--spacing-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0; /* Never shrink header */
+            height: clamp(3rem, 8vh, 5rem);
+        }
+
+        .header-title {
+            font-size: clamp(1rem, 2.5vw, 1.5rem);
+            font-weight: bold;
+            letter-spacing: 0.1em;
+        }
+
+        .header-status {
+            font-size: clamp(0.7rem, 1.5vw, 1rem);
+        }
+
+        #main-container {
+            display: flex;
+            flex: 1; /* Take remaining height */
+            overflow: hidden;
+            flex-direction: row; /* Default: Desktop Side-by-Side */
+        }
+
+        /* LEFT PANEL: STREAM */
+        #stream-panel {
+            flex: 0 0 30vw; /* Fixed 30% width on desktop */
+            min-width: 280px; /* Minimum width legibility */
+            max-width: 500px;
+            border-right: var(--border-width) solid var(--term-green);
+            display: flex;
+            flex-direction: column;
+            padding: var(--spacing-md);
+            overflow: hidden;
+            background-color: rgba(0,0,0,0.3);
+        }
+
+        .stream-header {
+            border-bottom: 1px dashed var(--term-dim);
+            padding-bottom: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+            font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+            opacity: 0.8;
+            flex-shrink: 0;
+        }
+
+        #log-container {
+            flex: 1;
+            overflow-y: auto; /* Enable Custom Scrollbar */
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            /* Remove justify-content: flex-end to allow natural scrolling flow */
+            font-size: clamp(0.8rem, 1.5vw, 1rem);
+            line-height: 1.5;
+            padding-right: 5px; /* Spacing for scrollbar */
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            opacity: 0.6;
+            transition: all 0.3s;
+            word-wrap: break-word;
+            flex-shrink: 0; /* Prevent crushing */
+        }
+
+        .log-entry.active {
+            opacity: 1;
+            background: var(--term-green);
+            color: var(--bg);
+            padding: 0.1rem 0.5rem;
+            transform: translateX(5px);
+        }
+
+        .log-entry.cut {
+            border-bottom: 2px dashed var(--term-green);
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        
+        .log-entry.cut::after {
+            content: "[ CHUNK SEPARATOR ]";
+            position: absolute;
+            bottom: -1.2rem;
+            left: 0;
+            font-size: 0.7em;
+            color: var(--term-green);
+            letter-spacing: 1px;
+        }
+
+        /* RIGHT PANEL: VECTOR SPACE */
+        #viz-panel {
+            flex: 1; /* Take remaining space */
+            position: relative;
+            background-image: 
+                radial-gradient(var(--term-dim) 1px, transparent 1px);
+            background-size: clamp(15px, 2vw, 30px) clamp(15px, 2vw, 30px);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #overlay-stats {
+            position: absolute;
+            top: var(--spacing-md);
+            right: var(--spacing-md);
+            text-align: right;
+            font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+            background: rgba(5, 5, 5, 0.7);
+            padding: 0.5rem;
+            border: 1px solid var(--term-dim);
+        }
+
+        /* BOTTOM: METRICS */
+        #metric-panel {
+            height: clamp(60px, 12vh, 100px); /* Responsive height */
+            flex-shrink: 0;
+            border-top: var(--border-width) solid var(--term-green);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--spacing-md);
+            gap: var(--spacing-md);
+            background: var(--bg);
+        }
+
+        .metric-label {
+            flex: 0 0 auto; /* Don't shrink */
+            width: clamp(120px, 15vw, 200px);
+            font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+        }
+
+        #threshold-bar-container {
+            flex: 1; /* Fill width */
+            height: 25%;
+            border: 1px solid var(--term-dim);
+            position: relative;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 4px,
+                var(--term-dim) 4px,
+                var(--term-dim) 5px
+            );
+        }
+
+        #threshold-fill {
+            height: 100%;
+            width: 0%;
+            background-color: var(--term-green);
+            transition: width 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #threshold-marker {
+            position: absolute;
+            left: 70%; /* Threshold */
+            top: -20%;
+            bottom: -20%;
+            width: 2px;
+            background-color: #fff;
+            z-index: 10;
+            box-shadow: 0 0 5px #fff;
+        }
+        
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* --- RESPONSIVE MEDIA QUERIES --- */
+        
+        /* Tablet & Mobile Layout (< 768px) */
+        @media (max-width: 768px) {
+            #main-container {
+                flex-direction: column; /* Stack vertically */
+            }
+
+            #stream-panel {
+                flex: 0 0 35vh; /* Fixed height ratio */
+                width: 100%;
+                max-width: none;
+                min-width: 0;
+                border-right: none;
+                border-bottom: var(--border-width) solid var(--term-green);
+                order: 1; /* Stream on top */
+            }
+
+            #viz-panel {
+                flex: 1; /* Remaining height for viz */
+                order: 2;
+            }
+
+            #metric-panel {
+                order: 3;
+                padding: 0 var(--spacing-sm);
+                gap: var(--spacing-sm);
+            }
+            
+            /* Hide stats overlay on very small screens to save space */
+            #overlay-stats {
+                padding: 2px;
+                background: transparent;
+                border: none;
+                top: 5px;
+                right: 5px;
+            }
+        }
+
+        /* Landscape Mobile (Short Height) */
+        @media (max-height: 500px) and (orientation: landscape) {
+            header { display: none; } /* Hide header to maximize space */
+            #main-container { flex-direction: row; }
+            #stream-panel { width: 40vw; height: 100%; border-bottom: none; border-right: var(--border-width) solid var(--term-green); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+    <div class="scan-bar"></div>
+
+    <header>
+        <span class="header-title">SYS.SEMANTIC_CHUNKER.V2</span>
+        <span class="header-status blink">STATUS: ONLINE</span>
+    </header>
+
+    <div id="main-container">
+        <div id="stream-panel">
+            <div class="stream-header">> INGESTION_STREAM</div>
+            <div id="log-container">
+                </div>
+        </div>
+
+        <div id="viz-panel">
+            <div id="overlay-stats">
+                <div>COS_SIM: <span id="sim-val">1.00</span></div>
+                <div>CLUSTER: <span id="cluster-val">A</span></div>
+            </div>
+            <canvas id="vectorCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="metric-panel">
+        <div class="metric-label">
+            SEMANTIC DISTANCE<br>
+            <span style="font-size:0.85em; opacity:0.7">THRESHOLD: 0.7</span>
+        </div>
+        <div id="threshold-bar-container">
+            <div id="threshold-marker"></div>
+            <div id="threshold-fill"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA SIMULATION ---
+        const TOPIC_A = [
+            "Sky is clear today.",
+            "Humidity is at 45%.",
+            "Chance of rain is zero.",
+            "Wind speeds are low.",
+            "Perfect day for a walk.",
+            "Temperature rising."
+        ];
+        
+        const TOPIC_B = [
+            "NASDAQ is down 2%.",
+            "Bear market signals.",
+            "Tech stocks crashing.",
+            "Inflation rates up.",
+            "Federal Reserve meeting.",
+            "Liquidity crisis looms."
+        ];
+
+        let currentTopic = TOPIC_A;
+        let isTopicA = true;
+        let sentenceIndex = 0;
+        let nodes = [];
+        
+        // --- CANVAS SETUP ---
+        const canvas = document.getElementById('vectorCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, centerX, centerY;
+
+        // Debounced Resize Observer
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.contentBoxSize) {
+                    const contentBoxSize = Array.isArray(entry.contentBoxSize) ? entry.contentBoxSize[0] : entry.contentBoxSize;
+                    width = canvas.width = contentBoxSize.inlineSize;
+                    height = canvas.height = contentBoxSize.blockSize;
+                } else {
+                    width = canvas.width = entry.contentRect.width;
+                    height = canvas.height = entry.contentRect.height;
+                }
+                centerX = width / 2;
+                centerY = height / 2;
+                draw(); 
+            }
+        });
+
+        resizeObserver.observe(document.getElementById('viz-panel'));
+
+        // --- DRAWING LOGIC ---
+        function draw() {
+            // Clear
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.2)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Axis
+            ctx.strokeStyle = 'rgba(26, 128, 0, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height);
+            ctx.moveTo(0, centerY); ctx.lineTo(width, centerY);
+            ctx.stroke();
+
+            // Draw Nodes
+            nodes.forEach((node, i) => {
+                let displayX = centerX + Math.cos(node.angle) * (node.magPercent * Math.min(width, height) * 0.45);
+                let displayY = centerY + Math.sin(node.angle) * (node.magPercent * Math.min(width, height) * 0.45);
+
+                // Vector Line
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(displayX, displayY);
+                ctx.strokeStyle = node.chunkColor; 
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+
+                // Point
+                ctx.fillStyle = node.chunkColor;
+                ctx.beginPath();
+                ctx.arc(displayX, displayY, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Connection
+                if (i > 0) {
+                    let prevNode = nodes[i-1];
+                    let prevX = centerX + Math.cos(prevNode.angle) * (prevNode.magPercent * Math.min(width, height) * 0.45);
+                    let prevY = centerY + Math.sin(prevNode.angle) * (prevNode.magPercent * Math.min(width, height) * 0.45);
+
+                    ctx.beginPath();
+                    ctx.moveTo(prevX, prevY);
+                    ctx.lineTo(displayX, displayY);
+                    
+                    if (node.isCut) {
+                        ctx.setLineDash([5, 15]);
+                        ctx.strokeStyle = '#fff';
+                    } else {
+                        ctx.setLineDash([]);
+                        ctx.strokeStyle = 'rgba(51, 255, 0, 0.3)';
+                    }
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            });
+        }
+
+        // --- PROCESS LOGIC ---
+        function addNode() {
+            let text = currentTopic[Math.floor(Math.random() * currentTopic.length)];
+            
+            let angleBase = isTopicA ? -Math.PI / 4 : Math.PI * 0.75; 
+            let variance = (Math.random() - 0.5) * 0.5; 
+            let angle = angleBase + variance;
+            let magPercent = 0.5 + (Math.random() * 0.4); 
+
+            let distance = 0;
+            let isCut = false;
+            
+            if (nodes.length > 0) {
+                let prev = nodes[nodes.length - 1];
+                let x1 = Math.cos(angle) * magPercent;
+                let y1 = Math.sin(angle) * magPercent;
+                let x2 = Math.cos(prev.angle) * prev.magPercent;
+                let y2 = Math.sin(prev.angle) * prev.magPercent;
+                let dx = x1 - x2;
+                let dy = y1 - y2;
+                let distNorm = Math.sqrt(dx*dx + dy*dy);
+                
+                distance = Math.min(distNorm * 0.8, 1.0);
+            }
+
+            if (distance > 0.7) {
+                isCut = true;
+            }
+
+            let node = {
+                angle: angle,
+                magPercent: magPercent,
+                text: text, 
+                isCut: isCut,
+                chunkColor: isTopicA ? '#33ff00' : '#1a8000'
+            };
+            
+            nodes.push(node);
+            if(nodes.length > 20) nodes.shift();
+
+            updateLog(text, isCut);
+            updateMeters(distance, isTopicA ? "WEATHER" : "FINANCE");
+
+            sentenceIndex++;
+            if (sentenceIndex > 5 && Math.random() > 0.7) {
+                isTopicA = !isTopicA;
+                currentTopic = isTopicA ? TOPIC_A : TOPIC_B;
+                sentenceIndex = 0;
+            }
+        }
+
+        function updateLog(text, isCut) {
+            const container = document.getElementById('log-container');
+            const el = document.createElement('div');
+            el.className = 'log-entry active';
+            el.innerText = `> ${text}`;
+            
+            Array.from(container.children).forEach(c => c.classList.remove('active'));
+
+            if (isCut) {
+                if(container.lastChild) container.lastChild.classList.add('cut');
+            }
+            
+            container.appendChild(el);
+            container.scrollTop = container.scrollHeight;
+
+            if (container.children.length > 25) { // Increased retention
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        function updateMeters(dist, clusterName) {
+            const fill = document.getElementById('threshold-fill');
+            const pct = Math.min(dist * 100, 100);
+            fill.style.width = `${pct}%`;
+            
+            if (dist > 0.7) {
+                fill.style.backgroundColor = '#fff';
+                setTimeout(() => fill.style.backgroundColor = '#33ff00', 200);
+            } else {
+                 fill.style.backgroundColor = '#33ff00';
+            }
+
+            document.getElementById('sim-val').innerText = (1 - dist).toFixed(2);
+            document.getElementById('cluster-val').innerText = clusterName;
+        }
+
+        function loop() {
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+        setInterval(addNode, 2000);
+
+    </script>
+</body>
+</html>
