@@ -353,7 +353,7 @@
         </details>
 
         <details class="section">
-            <summary>5. Indexing Methods in a Vector Database</summary>
+            <summary>5. RAG: Indexing Methods in a Vector Database</summary>
             <div class="section-content">
                 <p><strong>What is a Vector DB:</strong> Traditional databases look for exact word matches, but vector DBs find data that is <em>similar</em> to your query. They organize information as numeric vectors using specialized indexes.</p>
                 
@@ -365,6 +365,7 @@
                         </svg>
                     </button>
                     <p>Constructs a multi-layered graph structure. Upper layers contain sparse nodes for rapid "greedy" traversal. Lower layers are denser for fine-grained navigation. Ensures logarithmic search complexity trading high memory usage for speed.</p>
+                    <p><strong>When to use:</strong> Use for very large, diverse datasets when low-latency search is the priority and memory (RAM) is not a bottleneck.</p>
                 </div>
         
                 <div class="subsection">
@@ -374,7 +375,8 @@
                             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                         </svg>
                     </button>
-                    <p>Projects vectors onto random hyperplanes to generate binary signatures. Vectors on the same side land in the same "bucket". Querying becomes an O(1) lookup.</p>
+                    <p>Projects vectors onto random hyperplanes to generate binary signatures. Vectors on the same side land in the same "bucket". Querying becomes an $O(1)$ lookup.</p>
+                    <p><strong>When to use:</strong> Ideal for high-speed identification of duplicates or near-duplicates in massive datasets where finding "close enough" matches quickly is more important than absolute precision.</p>
                 </div>
         
                 <div class="subsection">
@@ -388,6 +390,7 @@
                         <li>Quantization approximates precise values using limited "centroids."</li>
                         <li>PQ is vital when datasets exceed RAM limits. It acts as a rapid <strong>pre-filter</strong>.</li>
                         <li>Breaks vectors into sub-parts, quantizing each to create a compact code. The <strong>Signature Matrix</strong> stores these compressed IDs.</li>
+                        <li><strong>When to use:</strong> Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.</li>
                     </ul>
                 </div>
         
@@ -399,6 +402,7 @@
                         </svg>
                     </button>
                     <p>Reduces dimensionality by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
+                    <p><strong>When to use:</strong> Focused on <strong>Dimensionality Reduction</strong>. Use this to manage computational complexity; it preserves the "topology" (relative distances) while making data mathematically simpler to handle before you begin the indexing process.</p>
                 </div>
             </div>
         </details>
