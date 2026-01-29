@@ -269,13 +269,25 @@
                     <span class="subsection-title">Distance Metrics</span>
                     <p>DISTANCE METRICS: Manhattan catches dimension-specific deviations without amplification. Euclidean catches overall spatial distance with emphasis on larger gaps. Cosine catches conceptual similarity regardless of size.</p>
                     <ul>
-                        <li><strong>[Dimensional Differences] Manhattan:</strong> Treats each dimension independently and equally. Prevents any single dimension from dominating through squaring. Good when each dimension represents an independent criterion that matters separately.</li>
-                        <li><strong>[Magnitude] Euclidean:</strong> Sensitive to overall magnitude differences between vectors. Squaring amplifies larger differences. Good when the total distance in space matters and dimensions interact.</li>
-                        <li><strong>[Similarity] Cosine:</strong> Ignores magnitude entirely, only measures directional alignment. Two vectors pointing the same way are similar regardless of length. Good when semantic meaning (direction) matters but scale doesn't.</li>
+                        <li>
+                            <strong>[Dimensional Differences] Manhattan:</strong> Treats each dimension independently and equally. Prevents any single dimension from dominating through squaring. Good when each dimension represents an independent criterion that matters separately.
+                            <br><br>
+                            <strong>Satellite Subsystem Anomaly Detection:</strong> Monitoring a constellation’s telemetry by comparing current performance against a "healthy" baseline across independent sensors (e.g., Temperature, Torque, Battery Voltage). Manhattan tracks the cumulative "drift" across all subsystems, ensuring that a critical failure in one component is detected immediately.
+                        </li>
+                        <li>
+                            <strong>[Magnitude] Euclidean:</strong> Sensitive to overall magnitude differences between vectors. Squaring amplifies larger differences. Good when the total distance in space matters and dimensions interact.
+                            <br><br>
+                            <strong>Voice Biometrics:</strong> Matching a speaker’s "voiceprint" in a security system. Because pitch, volume, and resonance interact to form a unique physical signature, the absolute distance between points matters. A slight shift across all dimensions (overall magnitude) indicates a different person, making distance sensitivity crucial.
+                        </li>
+                        <li>
+                            <strong>[Similarity] Cosine:</strong> Ignores magnitude entirely, only measures directional alignment. Two vectors pointing the same way are similar regardless of length. Good when semantic meaning (direction) matters but scale doesn't.
+                            <br><br>
+                            <strong>Article Length:</strong> A user asks "How do I bake bread?" Cosine matches this query to both a 10-word tip and a 5,000-word encyclopedia entry. Since it only measures the "Bread Baking" direction and ignores the "length" (magnitude), the long article isn't penalized for having more total word-vectors than the query.
+                        </li>
                     </ul>
                 </div>
-            </div>
-        </details>
+                </div>
+                </details>
 
         <details class="section"> 
             <summary>2. CDC (Change Data Capture)</summary> 
