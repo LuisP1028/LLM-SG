@@ -27,7 +27,7 @@
         overflow-x: hidden;
     }
 
-    /* --- VISUALS (Restored Original) --- */
+    /* --- VISUALS --- */
     .dither-layer {
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
@@ -51,14 +51,13 @@
         width: 100%;
         margin: 0 auto;
         padding: 40px 20px;
-        /* Restored Original Dashed Borders */
         border-left: 2px dashed var(--dim-color);
         border-right: 2px dashed var(--dim-color);
         background-color: rgba(0, 10, 0, 0.9);
         min-height: 100vh;
     }
 
-    /* --- TYPOGRAPHY (Restored Original) --- */
+    /* --- TYPOGRAPHY --- */
     h1 {
         font-family: var(--font-header);
         text-transform: uppercase;
@@ -75,7 +74,7 @@
     strong { color: var(--accent-color); text-decoration: underline; }
     em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
 
-    /* --- ACCORDION STYLES (Restored Original) --- */
+    /* --- ACCORDION STYLES --- */
     /* Main Sections */
     details.section {
         margin-bottom: 15px;
@@ -95,7 +94,6 @@
         text-transform: uppercase;
         font-size: 1.1rem;
     }
-    /* Original Hover for Main Sections */
     details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
     details.section[open] > summary {
         border-bottom: 1px solid var(--dim-color);
@@ -105,7 +103,7 @@
     }
     .section-content { padding: 20px; }
 
-    /* --- NESTED ENTRIES (TREE VISUALIZATION & HOVER ADDED) --- */
+    /* --- NESTED ENTRIES (TREE VISUALIZATION) --- */
     details.nested-entry {
         margin-bottom: 5px;
         margin-left: 10px; /* Indent */
@@ -131,11 +129,10 @@
         outline: none;
         padding: 5px 10px;
         transition: background-color 0.1s, color 0.1s;
-        display: block; /* Ensure full width for hover */
+        display: block;
     }
     details.nested-entry > summary::-webkit-details-marker { display: none; }
 
-    /* EDIT: Remove underline from nested entry titles */
     details.nested-entry > summary strong {
         text-decoration: none;
     }
@@ -155,7 +152,6 @@
     details.nested-entry[open] {
         margin-top: 10px;
         margin-bottom: 20px;
-        /* Remove background tint from original, keep tree look clean */
     }
     .nested-content {
         padding-top: 10px;
@@ -164,7 +160,7 @@
         margin-left: -2px; /* Align with dashed border */
     }
 
-    /* --- SUBSECTIONS (Restored Original) --- */
+    /* --- SUBSECTIONS (Legacy Support) --- */
     .subsection {
         margin-bottom: 25px;
         border-left: 4px solid var(--dim-color);
@@ -182,7 +178,7 @@
     }
 
     p { margin-bottom: 12px; margin-top: 0; text-align: justify; }
-    ul { padding-left: 20px; margin-bottom: 15px; }
+    ul, ol { padding-left: 20px; margin-bottom: 15px; }
     li { margin-bottom: 5px; }
 
     .code-block {
@@ -289,7 +285,7 @@
                     <li><strong>Weight Quantization:</strong> Compressing model weights to lower precision to save memory.</li>
                     <li><strong>Speculative Decoding:</strong> Using smaller models to "guess" tokens, speeding up the main generation.</li>
                 </ul>
-                <p><strong>Choosing the right technique depends on your specific bottleneck:</strong></p>
+                <p><strong>Techniques:</strong></p>
                 <ul>
                     <li>
                         <details class="nested-entry">
@@ -477,52 +473,65 @@ Step 3: [3, 1, hidden_dim]
             </button>
         </summary>
         <div class="section-content">
-            <div class="subsection">
-                <span class="subsection-title">MODEL QUANTIZATION</span>
-                <p>Quantization refers to the process of representing the weights and activations of a neural network using lower-precision data types.</p>
-                <ul>
-                    <li><strong>FP32 (Full):</strong> Highest precision; uses 32 bits per number. Accurate but slow and memory-intensive.</li>
-                    <li><strong>BF16/FP16 (Half):</strong> 16-bit formats. <strong>BF16</strong> is preferred for LLMs because it preserves a larger <em>range</em> (exponent), preventing mathematical "overflow" during training.</li>
-                    <li><strong>INT8 (Quantization):</strong> An 8-bit integer format. Using techniques like <strong>absmax</strong>, you can compress high-precision weights into 8-bit buckets, drastically reducing VRAM usage at the cost of some "granularity" in the numbers.</li>
-                </ul>
-            </div>
             
-            <div class="subsection">
-                <span class="subsection-title">Quantization Methods</span>
-                <p><strong>Post-Training Quantization (PTQ):</strong> PTQ is a straightforward technique where the weights of a pre-trained model are directly converted to a lower precision format without any retraining.</p>
-                <p><strong>Quantization-Aware Training (QAT):</strong> QAT performs quantization during the training or fine-tuning stage, allowing the model to adapt to the lower precision weights.</p>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>Core Concepts: Precision Types</strong></summary>
+                <div class="nested-content">
+                    <p>Quantization refers to the process of representing the weights and activations of a neural network using lower-precision data types.</p>
+                    <ul>
+                        <li><strong>FP32 (Full):</strong> Highest precision; uses 32 bits per number. Accurate but slow and memory-intensive.</li>
+                        <li><strong>BF16/FP16 (Half):</strong> 16-bit formats. <strong>BF16</strong> is preferred for LLMs because it preserves a larger <em>range</em> (exponent), preventing mathematical "overflow" during training.</li>
+                        <li><strong>INT8 (Quantization):</strong> An 8-bit integer format. Using techniques like <strong>absmax</strong>, you can compress high-precision weights into 8-bit buckets, drastically reducing VRAM usage at the cost of some "granularity" in the numbers.</li>
+                    </ul>
+                </div>
+            </details>
+            
+            <details class="nested-entry">
+                <summary><strong>Quantization Methods (PTQ vs QAT)</strong></summary>
+                <div class="nested-content">
+                    <p><strong>Post-Training Quantization (PTQ):</strong> PTQ is a straightforward technique where the weights of a pre-trained model are directly converted to a lower precision format without any retraining.</p>
+                    <p><strong>Quantization-Aware Training (QAT):</strong> QAT performs quantization during the training or fine-tuning stage, allowing the model to adapt to the lower precision weights.</p>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">Absmax Quantization</span>
-                <p>This is a symmetric scaling method. You find the absolute maximum value in a tensor and use it to map everything into the <strong>[-127, 127]</strong> range.</p>
-                <p><strong>The Problem:</strong> It assumes the data is centered around zero. If your weights are skewed (e.g., all positive), you waste half of your available "buckets," leading to higher rounding errors.</p>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>Absmax Quantization</strong></summary>
+                <div class="nested-content">
+                    <p>This is a symmetric scaling method. You find the absolute maximum value in a tensor and use it to map everything into the <strong>[-127, 127]</strong> range.</p>
+                    <p><strong>The Problem:</strong> It assumes the data is centered around zero. If your weights are skewed (e.g., all positive), you waste half of your available "buckets," leading to higher rounding errors.</p>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">Zero-Point Quantization</span>
-                <p>Handles data that isn’t centered at zero. If your weights range from 2.0 to 10.0, Absmax wastes half the “slots” because it forces a symmetric range (e.g., −10 to 10) even when negative values don’t exist.</p>
-                <p><strong>The Goal:</strong> Map your actual minimum (e.g., 2.0) to −128 and your actual maximum (e.g., 10.0) to 127. This ensures the entire 8-bit “budget” is used for your specific data.</p>
-                <p><strong>The Zero-Point (𝑍):</strong> Since your data is shifted (it doesn’t start at 0), you calculate an offset. The zero-point is the specific integer in the 8-bit range that represents the original 0.0.</p>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>Zero-Point Quantization</strong></summary>
+                <div class="nested-content">
+                    <p>Handles data that isn’t centered at zero. If your weights range from 2.0 to 10.0, Absmax wastes half the “slots” because it forces a symmetric range (e.g., −10 to 10) even when negative values don’t exist.</p>
+                    <p><strong>The Goal:</strong> Map your actual minimum (e.g., 2.0) to −128 and your actual maximum (e.g., 10.0) to 127. This ensures the entire 8-bit “budget” is used for your specific data.</p>
+                    <p><strong>The Zero-Point (𝑍):</strong> Since your data is shifted (it doesn’t start at 0), you calculate an offset. The zero-point is the specific integer in the 8-bit range that represents the original 0.0.</p>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">THE OUTLIER PROBLEM</span>
-                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/mixed_precision_decomp.html'; vp.classList.add('active');">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                    </svg>
-                </button>
-                <p>Because quantization scales the entire range based on extreme values. If most weights are approx 0.1 but one is 10.0, the mapping forces 99.9% of the weights into a tiny fraction of the available integer "slots" (e.g., just 0 and 1). This "squishing" destroys the model's nuance.</p>
-                <p>Decomposing the matrix into two separate pieces before the math happens. Think of it like a filtered bypass. When the model encounters a matrix, it doesn't process it as one block. It scans for values exceeding a threshold (like 6.0).</p>
-                <ol>
-                    <li><strong>The Extraction:</strong> It literally pulls those outlier columns out and places them into a separate “High-Precision” matrix (𝐴).</li>
-                    <li><strong>The Remainder:</strong> What’s left is a matrix of “normal” values. Because the outliers are gone, this matrix can now be quantized to 𝐵 with high resolution.</li>
-                    <li><strong>Parallel Math:</strong> The computer performs two separate multiplications: the “skinny” 𝐴 lane and the “bulk” 𝐵 lane.</li>
-                    <li><strong>The Merge:</strong> The results (now both in 𝐴) are summed back together.</li>
-                </ol>
-                <p>The COMPUTATIONAL SAVINGS isn’t in the final addition; it’s in the <strong>matrix multiplication</strong>, which is the heaviest part of the workload.</p>
-            </div>
+            <details class="nested-entry">
+                <summary>
+                    <strong>The Outlier Problem</strong>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/mixed_precision_decomp.html'; vp.classList.add('active');" style="background: none; border: none; cursor: pointer; padding: 0; margin-left: 8px; vertical-align: middle;">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
+                </summary>
+                <div class="nested-content">
+                    <p>Because quantization scales the entire range based on extreme values. If most weights are approx 0.1 but one is 10.0, the mapping forces 99.9% of the weights into a tiny fraction of the available integer "slots" (e.g., just 0 and 1). This "squishing" destroys the model's nuance.</p>
+                    <p>Decomposing the matrix into two separate pieces before the math happens. Think of it like a filtered bypass. When the model encounters a matrix, it doesn't process it as one block. It scans for values exceeding a threshold (like 6.0).</p>
+                    <ol>
+                        <li><strong>The Extraction:</strong> It literally pulls those outlier columns out and places them into a separate “High-Precision” matrix (𝐴).</li>
+                        <li><strong>The Remainder:</strong> What’s left is a matrix of “normal” values. Because the outliers are gone, this matrix can now be quantized to 𝐵 with high resolution.</li>
+                        <li><strong>Parallel Math:</strong> The computer performs two separate multiplications: the “skinny” 𝐴 lane and the “bulk” 𝐵 lane.</li>
+                        <li><strong>The Merge:</strong> The results (now both in 𝐴) are summed back together.</li>
+                    </ol>
+                    <p>The COMPUTATIONAL SAVINGS isn’t in the final addition; it’s in the <strong>matrix multiplication</strong>, which is the heaviest part of the workload.</p>
+                </div>
+            </details>
         </div>
     </details>
 
