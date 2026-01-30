@@ -252,7 +252,7 @@
 
     <div class="part-content">
         <details class="section">
-            <summary>1. The Retrieval Pipeline</summary>
+            <summary>1. The Retrieval Pipeline & Distance</summary>
             <div class="section-content">
                 <div class="subsection">
                     <span class="subsection-title">Core Mechanism</span>
@@ -270,24 +270,43 @@
                     <p>DISTANCE METRICS: Manhattan catches dimension-specific deviations without amplification. Euclidean catches overall spatial distance with emphasis on larger gaps. Cosine catches conceptual similarity regardless of size.</p>
                     <ul>
                         <li>
-                            <strong>[Dimensional Differences] Manhattan:</strong> Treats each dimension independently and equally. Prevents any single dimension from dominating through squaring. Good when each dimension represents an independent criterion that matters separately.
+                            <strong>[Dimensional Differences] Manhattan:</strong> Treats each dimension independently and equally. Good when each dimension represents an independent criterion that matters separately.
                             <br><br>
-                            <strong>Satellite Subsystem Anomaly Detection:</strong> Monitoring a constellation’s telemetry by comparing current performance against a "healthy" baseline across independent sensors (e.g., Temperature, Torque, Battery Voltage). Manhattan tracks the cumulative "drift" across all subsystems, ensuring that a critical failure in one component is detected immediately.
+                            <strong>Example: Satellite Subsystem Anomaly Detection:</strong> Monitoring a constellation’s telemetry by comparing current performance against a "healthy" baseline across independent sensors (e.g., Temperature, Torque, Battery Voltage). Manhattan tracks the cumulative "drift" across all subsystems, ensuring that a critical failure in one component is detected immediately.
                         </li>
                         <li>
-                            <strong>[Magnitude] Euclidean:</strong> Sensitive to overall magnitude differences between vectors. Squaring amplifies larger differences. Good when the total distance in space matters and dimensions interact.
+                            <strong>[Magnitude] Euclidean:</strong> Sensitive to overall magnitude differences between vectors. Good when the total distance in space matters and dimensions interact.
                             <br><br>
-                            <strong>Voice Biometrics:</strong> Matching a speaker’s "voiceprint" in a security system. Because pitch, volume, and resonance interact to form a unique physical signature, the absolute distance between points matters. A slight shift across all dimensions (overall magnitude) indicates a different person, making distance sensitivity crucial.
+                            <strong>Example: Voice Biometrics:</strong> Matching a speaker’s "voiceprint" in a security system. Because pitch, volume, and resonance interact to form a unique physical signature, the absolute distance between points matters. A slight shift across all dimensions (overall magnitude) indicates a different person, making distance sensitivity crucial.
                         </li>
                         <li>
                             <strong>[Similarity] Cosine:</strong> Ignores magnitude entirely, only measures directional alignment. Two vectors pointing the same way are similar regardless of length. Good when semantic meaning (direction) matters but scale doesn't.
                             <br><br>
-                            <strong>Article Length:</strong> A user asks "How do I bake bread?" Cosine matches this query to both a 10-word tip and a 5,000-word encyclopedia entry. Since it only measures the "Bread Baking" direction and ignores the "length" (magnitude), the long article isn't penalized for having more total word-vectors than the query.
+                            <strong>Example: Article Length:</strong> A user asks "How do I bake bread?" Cosine matches this query to both a 10-word tip and a 5,000-word encyclopedia entry. Since it only measures the "Bread Baking" direction and ignores the "length" (magnitude), the long article isn't penalized for having more total word-vectors than the query.
                         </li>
                     </ul>
                 </div>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>3. The Feature Pipeline & Data Storage</summary>
+            <div class="section-content">
+                <div class="subsection">
+                    <span class="subsection-title">The Feature Pipeline</span>
+                    <p>It processes data types differently (e.g. articles, posts, and code).</p>
+                    <p>It contains three main processing steps necessary for fine-tuning and RAG: cleaning, chunking, and embedding. </p>
+                    <p>It creates two snapshots of the digital data, one after cleaning (used for fine-tuning) and one after embedding (used for RAG).</p>
+                    <p>It uses a logical feature store instead of a specialized feature store.</p>
                 </div>
-                </details>
+                <div class="subsection">
+                    <span class="subsection-title">Data Storage</span>
+                    <p><strong>Specialized Feature Store:</strong> Vital when injecting <strong>real-time structured data</strong> into prompts.</p>
+                    <p><strong>Logical Feature Store:</strong> Useful for storing "generalized knowledge" about "x". The relationship: Logical provides general knowledge. Specialized stores inject live context to filter or personalize that knowledge. </p>
+                    <p><strong>Artifacts:</strong> Versioned, trackable packages of data or models created during development. They act as "saved snapshots" that bundle a file with its history.</p>
+                </div>
+            </div>
+        </details>
 
         <details class="section"> 
             <summary>2. CDC (Change Data Capture)</summary> 
@@ -345,25 +364,6 @@ A messaging system buffers the logs to ensure data safety if the target goes dow
                         <li><em>Pros:</em> It's easy to build (just a query).</li>
                         <li><em>Cons:</em> Misses deletions and slows the database while checking. This captures inserts and updates but fails to detect deletions, as the record vanishes from the table before the scan.</li>
                     </ul>
-                </div>
-            </div>
-        </details>
-
-        <details class="section">
-            <summary>3. The Feature Pipeline & Data Storage</summary>
-            <div class="section-content">
-                <div class="subsection">
-                    <span class="subsection-title">The Feature Pipeline</span>
-                    <p>It processes data types differently (e.g. articles, posts, and code).</p>
-                    <p>It contains three main processing steps necessary for fine-tuning and RAG: cleaning, chunking, and embedding. </p>
-                    <p>It creates two snapshots of the digital data, one after cleaning (used for fine-tuning) and one after embedding (used for RAG).</p>
-                    <p>It uses a logical feature store instead of a specialized feature store.</p>
-                </div>
-                <div class="subsection">
-                    <span class="subsection-title">Data Storage</span>
-                    <p><strong>Specialized Feature Store:</strong> Vital when injecting <strong>real-time structured data</strong> into prompts.</p>
-                    <p><strong>Logical Feature Store:</strong> Useful for storing "generalized knowledge" about "x". The relationship: Logical provides general knowledge. Specialized stores inject live context to filter or personalize that knowledge. </p>
-                    <p><strong>Artifacts:</strong> Versioned, trackable packages of data or models created during development. They act as "saved snapshots" that bundle a file with its history.</p>
                 </div>
             </div>
         </details>
