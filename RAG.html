@@ -484,7 +484,7 @@
                                 <strong>Schema-Based Extraction:</strong> This step applies the rules. The AI parses a messy natural language query and "filters" it into the fields defined in Step 1. It transforms "stuff from last week" into Date: >2026-01-22, turning "vibes" into actionable, structured filters.
                             </li>
                             <li>
-                                <strong>Entity Resolution:</strong> This step identifies the specific row. It maps extracted names (like "Paul") to unique IDs (UUIDs). By resolving "the author" into a precise database entry, it prevents identity confusion and ensures the system targets the exact record intended.
+                                <strong>Entity Resolution:</strong> Entity resolution maps fuzzy text to unique IDs using a relational database or Knowledge Graph. The model identifies an entity and queries an ontology for its specific UUID. This ID acts as a hard metadata filter, forcing the vector search to isolate the verified record and ignore distractors.
                             </li>
                             <li>
                                 <strong>Query Enrichment:</strong> This step builds the dual-input command. Instead of merging them, it generates a Semantic Vector (a high-dimensional mathematical representation of the core intent and meaning of the query, stripped of the filter logic) and bundles it alongside the Metadata Filters (the "boundaries"). The database receives two distinct instructions: Search using this vector, but ONLY inside this specific fence.
