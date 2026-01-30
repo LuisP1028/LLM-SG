@@ -709,7 +709,6 @@
                             <div class="subsection-content">
                                 <p><strong>Core Concept:</strong> It strictly measures <strong>grounding</strong>: the extent to which the generated answer is derived <em>only</em> from the retrieved context, ignoring the model's pre-trained world knowledge.</p>
                                 
-                                <p><strong>The "Judge" Process:</strong> RAGAS employs a two-step prompting strategy:</p>
                                 
                                 <div class="process-step">
                                     <p><strong>1. Statement Extraction:</strong> The "Judge" LLM acts as a deconstructor. It takes a complex, multi-sentence response and strips it down into a list of atomic claims—single, verifiable facts. By isolating these individual threads, the model prevents a single correct statement from "masking" a hallucination hidden within the same sentence, ensuring every specific piece of information is exposed for scrutiny.</p>
