@@ -449,13 +449,13 @@
         <details class="nested-accordion">
             <summary>Data Quality Evaluation (LLM-as-a-judge)</summary>
             <div class="accordion-content">
-                <p>Measures attributes like <stong>accuracy, diversity, and complexity</stong> to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use <strong>LLM-as-a-judge</strong> workflows to automate this assessment.</p>
+                <p>Measures attributes like <stong>accuracy, diversity, and complexity</stong> to ensure datasets are fit for training models.</p>
                 
         
                 <details class="nested-accordion">
                     <summary>LLM-as-a-Judge: Scoring vs. Ranking</summary>
                     <div class="accordion-content">
-                        <p>When using an LLM to evaluate preference data, there are two primary methods:</p>
+                        <p>When using an LLM to evaluate data, there are two primary methods:</p>
                         <ul>
                             <li><strong>Absolute Scoring:</strong> The LLM assigns a 1–5 or "Good/Bad" rating to a single response. It’s fast but often inconsistent across different prompts or sessions.</li>
                             <li><strong>Pairwise Ranking [Best]:</strong> The LLM compares two responses (A vs. B) to pick a winner. This is the gold standard for DPO because it mimics human decision-making and produces more stable, relative signals.</li>
@@ -490,7 +490,7 @@
                 <details class="nested-accordion">
                     <summary>Implementation: UltraFeedback Workflow</summary>
                     <div class="accordion-content">
-                        <p>UltraFeedback is the primary implementation of the LLM-as-a-judge ranking system used to curate high-quality SFT datasets. It upgrades the <strong>Answer</strong> by generating multiple responses and selecting the best one.</p>
+                        <p>It upgrades the <strong>Answer</strong> by generating multiple responses and selecting the best one.</p>
                         
                         <h5>The Workflow:</h5>
                         <ul>
@@ -498,11 +498,22 @@
                             <li><strong>The Rubric:</strong> Provide a "Judge" LLM with a specific scorecard (e.g., "Score 1-5 on technical accuracy and safety").</li>
                             <li><strong>The Selection:</strong> The Judge evaluates the responses against the rubric and keeps only the highest-scoring answer for the final dataset.</li>
                         </ul>
+                
+                        <hr />
+                
+                        <h5>How It Works:</h5>
+                        <ul>
+                            <li><strong>Direct Input:</strong> It takes the user query (prompt) exactly as it is from existing datasets (like ShareGPT or UltraChat).</li>
+                            <li><strong>The Model Pool:</strong> It passes that single query to a diverse group of 17 different models—including commercial giants (GPT-4, Claude) and open-source heavyweights (Llama-2, Falcon, Mistral).</li>
+                            <li><strong>Random Sampling:</strong> For every user query, it randomly selects 4 models from that pool to generate a response.</li>
+                            <li><strong>Principle Variation:</strong> To ensure the responses aren't too similar, it often attaches "principles" (e.g., "be concise" or "prioritize safety") to the system prompt of each model to force diverse styles.</li>
+                        </ul>
+                        <p>Essentially, it creates a "competition" where the Judge (usually GPT-4) decides which of the 17 possible perspectives handled that specific user query best.</p>
                     </div>
                 </details>
 
                 <details class="nested-accordion">
-                    <summary>Domain-Specific Implementation Examples</summary>
+                    <summary>Domain-Specific UltraFeedback Examples</summary>
                     <div class="accordion-content">
                         <ol>
                             <li><strong>Software Engineering (Ground Truth + Pairwise):</strong>
@@ -528,7 +539,7 @@
                 </details>
 
                 <details class="nested-accordion">
-                    <summary>Task-Specific Implementation Examples</summary>
+                    <summary>Task-Specific UltraFeedback Examples</summary>
                     <div class="accordion-content">
                         <ol>
                             <li><strong>Mathematical Reasoning (Ground Truth + Pairwise):</strong>
@@ -594,13 +605,19 @@
                 <div class="accordion-content">
                     
                     <details class="nested-accordion">
-                        <summary>LoRA - Low Rank Adaptation</summary>
+                        <summary>
+                            LoRA - Low Rank Adaptation
+                            <button class="eye-btn" onclick="event.stopPropagation(); const v = document.querySelector('.retro-viewport'); v.querySelector('iframe').src='SFT/LoRA.html'; v.classList.add('active');">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                            </button>
+                        </summary>
                         <div class="accordion-content">
                             <div class="subsection">
                                 <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen.</p>
                                 
-                                
-                                    
                                 <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. You must "freeze" the model, ensuring no original parameters will be updated during training. The PEFT library handles this freezing automatically.</p>
                                 
                                 <p><strong>2. Configuration (The Ontology):</strong> You must define a <code>LoraConfig</code> object to dictate how the adaptation works:</p>
