@@ -136,23 +136,63 @@
     }
     .section-content { padding: 20px; }
 
-    /* Nested Accordions */
+    /* --- NESTED ACCORDION (TREE VISUALIZATION) --- */
     details.nested-accordion {
-        margin: 10px 0 10px 15px;
-        border-left: 2px solid var(--dim-color);
-        background: #020502;
+        margin-bottom: 5px;
+        margin-left: 10px;
+        padding-left: 20px; /* Space for the branch line */
+        border-left: 2px dashed var(--dim-color); /* The Tree Trunk */
+        position: relative;
+        background: transparent;
     }
+
+    /* The Horizontal Branch Line */
+    details.nested-accordion::before {
+        content: '';
+        position: absolute;
+        top: 18px; /* Approx center of text */
+        left: 0;
+        width: 15px;
+        height: 2px;
+        background-color: var(--dim-color);
+    }
+
     details.nested-accordion > summary {
         font-family: var(--font-main);
         font-size: 0.95rem;
-        padding: 8px 12px;
-        background-color: #051505;
+        padding: 5px 10px;
+        background-color: transparent;
         cursor: pointer;
         list-style: none;
-        color: #80ff9e;
+        color: var(--text-color);
+        transition: background-color 0.1s, color 0.1s;
+        display: block; /* Full width for hover */
     }
+
+    /* HOVER EFFECT: Invert Colors */
     details.nested-accordion > summary:hover {
-        color: var(--accent-color);
+        background-color: var(--accent-color);
+        color: #000000;
+        font-weight: bold;
+    }
+
+    /* Ensure strong tags inside summary also invert on hover */
+    details.nested-accordion > summary:hover strong {
+        color: #000000;
+        text-decoration: none;
+    }
+
+    details.nested-accordion[open] {
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+
+    /* Content styling aligned with the tree */
+    .accordion-content {
+        padding-top: 10px;
+        padding-left: 10px;
+        border-left: 2px solid var(--dim-color);
+        margin-left: -2px; /* Align with dashed trunk */
     }
 
     /* Subsections */
