@@ -135,6 +135,11 @@
     }
     details.nested-entry > summary::-webkit-details-marker { display: none; }
 
+    /* EDIT: Remove underline from nested entry titles */
+    details.nested-entry > summary strong {
+        text-decoration: none;
+    }
+
     /* HOVER EFFECT: Invert Colors (Green BG, Black Text) */
     details.nested-entry > summary:hover {
         background-color: var(--accent-color);
