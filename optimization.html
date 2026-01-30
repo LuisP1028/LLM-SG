@@ -299,9 +299,9 @@
                                     <span class="subsection-title">KEY-VALUE CACHING</span>
                                     <p>When the model predicts the 101st token, the Keys (𝐾) and Values (𝑉) for tokens 1–100 are identical to what they were during the previous step. KV Caching exploits this by saving those vectors in GPU memory.</p>
                                     <ol>
-                                        <li><strong>The Retrieval:</strong> Instead of re-processing the entire sequence, the model only generates a Query (𝑄), Key (𝐾), and Value (𝑉) for the newest token.</li>
-                                        <li><strong>The Lookup:</strong> The new 𝑄 scans the cached 𝐾s (the "addresses") of all previous tokens to determine relevance.</li>
-                                        <li><strong>The Extraction:</strong> It then pulls the corresponding information from the cached 𝑉s (the "payloads").</li>
+                                        <li><strong>The Retrieval:</strong> For each new step, the model generates 𝑄, 𝐾, and 𝑉 for the <strong>current token only</strong>. Because past 𝐾 and 𝑉 vectors are deterministic and static, they are pulled from the GPU cache rather than being re-computed.</li>
+                                        <li><strong>The Lookup:</strong> The new 𝑄 performs a dot-product "scan" against the cached 𝐾s (the "addresses"). This computes the <strong>attention weights</strong>, effectively scoring how much the new token should focus on each previous part of the sequence. The "result" isn't a single multiplier for the new token. Instead, the dot products create a <strong>distribution</strong> (e.g., 0.1 for token A, 0.8 for token B).</li>
+                                        <li><strong>The Extraction:</strong> What this accomplishes is context-aware filtering. The 𝑉 vectors contain the raw semantic "data" of each token. You multiply each cached 𝑉 by its specific score and sum them up. This "extracts" a context vector that is 80% "B" and 10% "A," which the model then uses to predict what comes next.</li>
                                     </ol>
                                     <p>By only calculating one new 𝐾/𝑉 pair per step and reading the rest from the cache, the model avoids redundant math, transforming an 𝑂(𝑛²) computational burden into a much faster linear process.</p>
                                 </div>
@@ -370,17 +370,6 @@ Step 3: [3, 1, hidden_dim]
                     <li><strong>Quantization</strong>: Best for memory-constrained hardware; use when the model won't fit in VRAM or to increase batch sizes.</li>
                 </ul>
             </div>
-
-            <div class="subsection">
-                <span class="subsection-title">ENCODER ONLY INFERENCE</span>
-                <ol>
-                    <li>Tokenizing the input prompt and passing it through an embedding layer and positional encoding.</li>
-                    <li>Computing key and value pairs for each input token using the multi-head attention mechanism.</li>
-                    <li>Generating output tokens sequentially, one at a time, using the computed keys and values.</li>
-                </ol>
-                <p>First, the <strong>prefill phase</strong> (Steps 1–2) processes the input prompt in parallel, which GPUs handle efficiently. Second, the <strong>decoding phase</strong> (Step 3) generates tokens <strong>sequentially</strong>. Because each new token depends on all previous ones, this step cannot be parallelized, leaving hardware underutilized and creating the primary bottleneck for generation speed.</p>
-            </div>
-
             <div class="subsection">
                 <span class="subsection-title">CONTINUOUS BATCHING</span>
                 <p>If processing batch A, and 80% finishes, with 20% remaining; In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced.</p>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KV Cache Visualization // RESPONSIVE</title>
+    <style>
+        :root {
+            --matrix-green: #00FF41;
+            --dim-green: #003B00;
+            --void-black: #080808;
+            --font-stack: 'Courier New', Courier, monospace;
+            
+            /* Responsive sizes using clamp(min, preferred, max) */
+            --fs-sm: clamp(10px, 1.5vw, 14px);
+            --fs-md: clamp(12px, 2vw, 18px);
+            --fs-lg: clamp(16px, 3vw, 24px);
+            --gap-std: clamp(10px, 2vw, 20px);
+            --border-width: clamp(1px, 0.2vw, 3px);
+            
+            --console-height: 20vh;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--void-black);
+            color: var(--matrix-green);
+            font-family: var(--font-stack);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            font-size: var(--fs-md);
+        }
+
+        /* --- BACKGROUND FX --- */
+        
+        .scanlines {
+            position: fixed;
+            inset: 0; /* Top/Left/Right/Bottom: 0 */
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.4) 50%,
+                rgba(0,0,0,0.4)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .crt-flicker {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: rgba(0, 255, 65, 0.02);
+            animation: flicker 0.15s infinite;
+            z-index: 99;
+        }
+
+        .dither-bg {
+            background-image: 
+                linear-gradient(45deg, var(--dim-green) 25%, transparent 25%), 
+                linear-gradient(-45deg, var(--dim-green) 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, var(--dim-green) 75%), 
+                linear-gradient(-45deg, transparent 75%, var(--dim-green) 75%);
+            background-size: 4px 4px;
+            background-position: 0 0, 0 2px, 2px -2px, -2px 0px;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.9; }
+            50% { opacity: 1.0; }
+            100% { opacity: 0.95; }
+        }
+
+        /* --- HEADER --- */
+
+        header {
+            flex: 0 0 auto;
+            padding: var(--gap-std);
+            border-bottom: var(--border-width) solid var(--matrix-green);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            z-index: 10;
+            background: var(--void-black);
+            font-size: var(--fs-lg);
+            height: clamp(50px, 8vh, 80px);
+        }
+
+        /* --- MAIN STAGE --- */
+
+        #stage {
+            flex: 1;
+            position: relative;
+            padding-bottom: calc(var(--console-height) + 20px); /* Clear log console */
+            overflow: hidden;
+            
+            /* Mobile Layout: Flex Column */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Desktop Layout: Grid */
+        @media (min-width: 900px) {
+            #stage {
+                display: grid;
+                grid-template-columns: 1fr 1.5fr 1fr;
+            }
+        }
+
+        /* --- ZONES --- */
+
+        .zone {
+            padding: var(--gap-std);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-bottom: 1px dashed var(--dim-green); /* Mobile Separator */
+            flex: 1; /* Distribute space evenly */
+            min-height: 0; /* Prevent flex overflow issues */
+        }
+
+        @media (min-width: 900px) {
+            .zone {
+                border-bottom: none;
+                border-right: 1px dashed var(--dim-green);
+                height: 100%;
+            }
+            .zone:last-child { border-right: none; }
+        }
+        
+        .zone-label {
+            background: var(--void-black);
+            padding: 0.2em 0.5em;
+            border: 1px solid var(--matrix-green);
+            font-size: var(--fs-sm);
+            margin-bottom: var(--gap-std);
+            z-index: 5;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        /* --- CONTENT CONTAINERS --- */
+
+        .token-stream, .cache-stack {
+            width: 100%;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            overflow: auto;
+            scrollbar-width: none; /* Firefox */
+        }
+
+        /* Input Stream Style */
+        .token-stream {
+            /* Mobile: Horizontal scroll */
+            flex-direction: row; 
+            padding-bottom: 10px;
+        }
+        
+        @media (min-width: 900px) {
+            .token-stream {
+                /* Desktop: Vertical list */
+                flex-direction: column;
+                height: 100%;
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+        }
+
+        /* Cache Stack Style */
+        .cache-stack {
+            /* Mobile: Horizontal scroll */
+            flex-direction: row-reverse; /* Newest first */
+            padding-bottom: 10px;
+        }
+
+        @media (min-width: 900px) {
+            .cache-stack {
+                /* Desktop: Vertical stack upwards */
+                flex-direction: column-reverse;
+                height: 100%;
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+        }
+
+        /* --- BLOCKS & VECTORS --- */
+
+        .block {
+            border: var(--border-width) solid var(--matrix-green);
+            padding: 0.5em 1em;
+            font-weight: bold;
+            text-align: center;
+            background: var(--void-black);
+            box-shadow: 4px 4px 0px var(--dim-green);
+            transition: all 0.5s ease;
+            white-space: nowrap;
+            font-size: var(--fs-md);
+        }
+
+        .vector-group {
+            display: flex;
+            gap: var(--gap-std);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 30;
+        }
+
+        .vector {
+            width: clamp(30px, 5vw, 60px);
+            height: clamp(30px, 5vw, 60px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: var(--border-width) solid var(--matrix-green);
+            font-size: var(--fs-md);
+            font-weight: bold;
+            background: var(--void-black);
+        }
+
+        .vector.q { border-radius: 50%; border-style: double; } 
+        .vector.k { border-radius: 0; }
+        .vector.v { border-radius: 0; border-top-right-radius: 30%; } 
+
+        .cache-row {
+            display: flex;
+            gap: 5px;
+            animation: slideIn 0.3s ease-out;
+            flex-shrink: 0;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* --- CANVAS & LOGS --- */
+
+        #fx-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 25;
+        }
+
+        #log-console {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: var(--console-height);
+            background-color: var(--void-black);
+            border-top: var(--border-width) solid var(--matrix-green);
+            padding: var(--gap-std);
+            font-size: var(--fs-sm);
+            overflow-y: auto;
+            z-index: 50;
+            box-shadow: 0px -5px 20px rgba(0,0,0,0.8);
+        }
+
+        .log-entry { margin-bottom: 0.4em; word-wrap: break-word; }
+        .highlight-text { background: var(--matrix-green); color: var(--void-black); padding: 0 4px; }
+        
+        .replay-btn {
+            background: var(--void-black);
+            color: var(--matrix-green);
+            border: var(--border-width) solid var(--matrix-green);
+            padding: 0.5em 1em;
+            cursor: pointer;
+            font-family: var(--font-stack);
+            font-size: var(--fs-lg);
+            margin-top: 1rem;
+            display: none; 
+        }
+        .replay-btn:hover { background: var(--matrix-green); color: var(--void-black); }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="crt-flicker"></div>
+
+    <header>
+        <span>KV_CACHE_VIS</span>
+        <span id="status">IDLE</span>
+    </header>
+
+    <div id="stage">
+        <div class="zone dither-bg">
+            <div class="zone-label">INPUT STREAM</div>
+            <div class="token-stream" id="input-container"></div>
+        </div>
+
+        <div class="zone" id="zone-compute">
+            <div class="zone-label">COMPUTE (ATTENTION)</div>
+            <button id="replay-btn" class="replay-btn" onclick="resetSim()">[ REPLAY ]</button>
+        </div>
+
+        <div class="zone dither-bg">
+            <div class="zone-label">GPU MEMORY (CACHE)</div>
+            <div class="cache-stack" id="cache-container"></div>
+        </div>
+    </div>
+
+    <canvas id="fx-canvas"></canvas>
+
+    <div id="log-console">
+        <div class="log-entry">> SYSTEM INITIALIZED</div>
+        <div class="log-entry">> WAITING FOR INPUT...</div>
+    </div>
+
+    <script>
+        // --- SETUP ---
+        const canvas = document.getElementById('fx-canvas');
+        const ctx = canvas.getContext('2d');
+        const statusDisplay = document.getElementById('status');
+        const logConsole = document.getElementById('log-console');
+        const inputContainer = document.getElementById('input-container');
+        const computeZone = document.getElementById('zone-compute');
+        const cacheContainer = document.getElementById('cache-container');
+        const replayBtn = document.getElementById('replay-btn');
+
+        // Robust Resize Handler
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- STATE & DATA ---
+        const words = ["THE", "ROBOT", "DREAMS", "IN", "BINARY", "STATIC", "VOID"];
+        let wordIndex = 0;
+        let isAnimating = false;
+        let cachedElements = []; 
+
+        // --- HELPERS ---
+        function log(msg) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `> ${msg}`;
+            logConsole.appendChild(entry);
+            logConsole.scrollTop = logConsole.scrollHeight;
+        }
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        function getCenter(el) {
+            const rect = el.getBoundingClientRect();
+            return {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            };
+        }
+
+        function drawLaser(start, end, color = '#00FF41', dash = []) {
+            ctx.beginPath();
+            ctx.moveTo(start.x, start.y);
+            ctx.lineTo(end.x, end.y);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = Math.max(2, window.innerWidth * 0.002); // Responsive line width
+            ctx.setLineDash(dash);
+            ctx.stroke();
+            
+            // Terminal Dot
+            const size = Math.max(3, window.innerWidth * 0.004);
+            ctx.fillStyle = color;
+            ctx.fillRect(end.x - size/2, end.y - size/2, size, size);
+        }
+
+        // --- MAIN LOGIC ---
+        async function processToken() {
+            if (isAnimating) return;
+            
+            // CHECK: End of Sequence
+            if (wordIndex >= words.length) {
+                statusDisplay.innerText = "DONE";
+                log("<span class='highlight-text'>SEQUENCE COMPLETE.</span>");
+                replayBtn.style.display = 'block';
+                return;
+            }
+
+            isAnimating = true;
+            replayBtn.style.display = 'none';
+
+            const currentWord = words[wordIndex];
+            wordIndex++;
+
+            statusDisplay.innerText = `[${currentWord}]`;
+            log(`TOKEN: ${currentWord}`);
+
+            // 1. SPAWN TOKEN
+            const tokenEl = document.createElement('div');
+            tokenEl.className = 'block';
+            tokenEl.innerText = currentWord;
+            inputContainer.appendChild(tokenEl);
+            
+            // Responsive Scroll Handling
+            if(window.innerWidth < 900) {
+                tokenEl.scrollIntoView({ behavior: "smooth", inline: "end" });
+            } else {
+                tokenEl.scrollIntoView({ behavior: "smooth", block: "end" });
+            }
+
+            await sleep(600);
+
+            // 2. PROJECTION (Create Q/K/V)
+            tokenEl.style.opacity = '0.5'; 
+            
+            const vectorGroup = document.createElement('div');
+            vectorGroup.className = 'vector-group';
+            vectorGroup.innerHTML = `
+                <div class="vector q">Q</div>
+                <div class="vector k">K</div>
+                <div class="vector v">V</div>
+            `;
+            computeZone.appendChild(vectorGroup);
+            
+            // Force Reflow
+            requestAnimationFrame(() => { vectorGroup.style.opacity = '1'; });
+            await sleep(800);
+
+            // 3. SCAN (Attention Mechanism)
+            const qEl = vectorGroup.querySelector('.q');
+            
+            if (cachedElements.length > 0) {
+                statusDisplay.innerText = "SCANNING";
+                
+                const scanDuration = 1500;
+                const startTime = Date.now();
+
+                const animateScan = () => {
+                    const elapsed = Date.now() - startTime;
+                    if (elapsed > scanDuration) return;
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    
+                    // DYNAMIC TRACKING: Calculate position every frame
+                    // This ensures lasers follow elements even during resize/orientation change
+                    const qPos = getCenter(qEl);
+
+                    cachedElements.forEach(cacheRow => {
+                        const kTarget = cacheRow.querySelector('.k');
+                        if(!kTarget) return;
+
+                        const kPos = getCenter(kTarget);
+                        const opacity = Math.random() * 0.8 + 0.2;
+                        drawLaser(qPos, kPos, `rgba(0, 255, 65, ${opacity})`, []);
+                    });
+                    
+                    requestAnimationFrame(animateScan);
+                };
+                animateScan();
+                await sleep(scanDuration);
+                
+                // 4. RETRIEVAL (Extraction)
+                log(`CONTEXT FOUND`);
+                
+                const extractDuration = 1000;
+                const startExtract = Date.now();
+                
+                const animateExtract = () => {
+                    const elapsed = Date.now() - startExtract;
+                    if (elapsed > extractDuration) return;
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    const qPos = getCenter(qEl);
+
+                    cachedElements.forEach(cacheRow => {
+                        const vTarget = cacheRow.querySelector('.v');
+                        if(!vTarget) return;
+
+                        const vPos = getCenter(vTarget);
+                        const progress = elapsed / extractDuration;
+                        
+                        // Dashed line flowing backwards
+                        drawLaser(vPos, qPos, '#00FF41', [5, 15]); 
+                    });
+                    requestAnimationFrame(animateExtract);
+                }
+                animateExtract();
+                await sleep(extractDuration);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            } else {
+                log(`CACHE EMPTY`);
+                await sleep(500);
+            }
+
+            // 5. CACHE UPDATE
+            statusDisplay.innerText = "CACHING";
+            
+            const newCacheRow = document.createElement('div');
+            newCacheRow.className = 'cache-row';
+            newCacheRow.innerHTML = `
+                <div class="vector k" style="background:var(--matrix-green); color:black;">K</div>
+                <div class="vector v" style="background:var(--matrix-green); color:black;">V</div>
+            `;
+            
+            cacheContainer.appendChild(newCacheRow);
+            cachedElements.push(newCacheRow);
+            
+            if(window.innerWidth < 900) {
+                 newCacheRow.scrollIntoView({ behavior: "smooth", inline: "start" });
+            } else {
+                 newCacheRow.scrollIntoView({ behavior: "smooth", block: "end" });
+            }
+
+            vectorGroup.style.opacity = '0';
+            await sleep(300);
+            vectorGroup.remove();
+
+            isAnimating = false;
+            statusDisplay.innerText = "IDLE";
+            
+            setTimeout(processToken, 1000);
+        }
+
+        function resetSim() {
+            wordIndex = 0;
+            inputContainer.innerHTML = '';
+            cacheContainer.innerHTML = '';
+            cachedElements = [];
+            logConsole.innerHTML = '<div class="log-entry">> RESET</div>';
+            replayBtn.style.display = 'none';
+            processToken();
+        }
+
+        // Start
+        setTimeout(processToken, 1000);
+
+    </script>
+</body>
+</html>
