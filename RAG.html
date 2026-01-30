@@ -382,6 +382,10 @@
                 <p><strong>Contrastive Learning Embeddings:</strong> Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.<br>
                 <strong>Example:</strong> Training a model by showing it pairs of "duplicate" customer reviews to pull them together while pushing "unrelated" reviews away.<br>
                 <strong>When to use:</strong> Use this during the training phase to refine a model's judgment. It’s the "coach" that teaches the embedding space how to distinguish between subtly different items.</p>
+
+                <p><strong>Cross-Encoders (Relevance Scoring):</strong> Foundation for deep relevance. Unlike bi-encoders that collapse text into independent "summary" vectors, this architecture processes a query and document pair simultaneously. By concatenating both into a single input sequence, it enables the <strong>Self-Attention</strong> mechanism to perform exhaustive, token-to-token comparisons.<br>
+                <strong>Example:</strong> For the query "Is caffeine good for sleep?", the model's attention heads identify specific relationships—detecting if the text claims caffeine helps or hinders rest, rather than just matching keywords.<br>
+                <strong>When to use:</strong> Use as a reranker in the final stage of retrieval. Because the O(N²) self-attention over the combined sequence is computationally heavy, it is reserved for the top 50–100 candidates to provide maximum precision.</p>
             </div>
         </details>
 
