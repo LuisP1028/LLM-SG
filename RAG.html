@@ -538,7 +538,7 @@
                                 <strong>Initiation and Configuration:</strong> The process begins by defining the scope of expansion. You configure how many alternate perspectives N are required for your specific task. 
                             </li>
                             <li>
-                                <strong>Persona and Context Injection:</strong> Placeholders modularize expansion. The {persona} forces the AI to pivot its worldview, generating diverse sub-queries by viewing the {query} through specialized filters. The {separator} provides a hard boundary, ensuring the system can programmatically slice and ingest these distinct "shards" of reasoning without data bleed or cross-contamination.
+                                <strong>Persona and Context Injection:</strong> Placeholders modularize expansion. The {persona} forces the AI to pivot its worldview, generating diverse sub-queries by viewing the {query} through specialized filters. The {separator} provides a hard boundary, ensuring the system can programmatically slice and ingest these distinct "shards" of reasoning without data bleed or cross-contamination. The selection of personas for query expansion is managed through a Pre-flight Orchestrator or a Query Classifier. When a user submits a query, the AI first performs a meta-analysis to determine the query’s domain and complexity.
                             </li>
                             <li>
                                 <strong>Semantic Diversification:</strong> The LLM performs the expansion, reframing the original query into diverse linguistic representations. This step is the "engine" of flexibility; the model adjusts for jargon, synonyms, or conceptual overlaps.
