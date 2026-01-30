@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pipeline Parallelism: Responsive Ditherpunk</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- DITHERPUNK VARIABLES --- */
+        :root {
+            --term-green: #39FF14;
+            --term-dim: #003300;
+            --term-black: #000000;
+            --font-stack: 'VT323', monospace;
+            
+            /* Fluid Typography */
+            --font-sm: clamp(0.8rem, 2vw, 1rem);
+            --font-md: clamp(1rem, 3vw, 1.2rem);
+            --font-lg: clamp(1.2rem, 4vw, 1.8rem);
+        }
+
+        /* --- GLOBAL RESET --- */
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--term-black);
+            color: var(--term-green);
+            font-family: var(--font-stack);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- CRT EFFECTS --- */
+        .crt-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 999;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+        }
+        
+        .screen-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 998;
+            box-shadow: inset 0 0 5vmin rgba(57, 255, 20, 0.1);
+        }
+
+        /* --- LAYOUT --- */
+        header {
+            text-align: center;
+            border-bottom: 2px solid var(--term-green);
+            padding: 1vh 0;
+            font-size: var(--font-lg);
+            text-shadow: 0 0 8px var(--term-green);
+            flex-shrink: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Main Container: Stacks on Mobile, Side-by-Side on Desktop */
+        .main-stage {
+            display: flex;
+            flex-direction: column; /* Mobile Default */
+            flex-grow: 1;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+            .main-stage {
+                flex-direction: row;
+            }
+        }
+
+        /* Panel Structure */
+        .panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-bottom: 2px solid var(--term-green);
+            position: relative;
+            overflow: hidden;
+            height: 50%; /* Mobile Split */
+        }
+
+        @media (min-width: 768px) {
+            .panel {
+                border-bottom: none;
+                border-right: 2px solid var(--term-green);
+                height: 100%;
+            }
+            .panel:last-child { border-right: none; }
+        }
+
+        .panel-header {
+            background: var(--term-green);
+            color: var(--term-black);
+            padding: 0.5vh 1vw;
+            font-size: var(--font-md);
+            font-weight: bold;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* --- FACTORY FLOOR (Top Section) --- */
+        .factory-floor {
+            flex: 0 0 35%; /* Takes 35% of panel height */
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-evenly; /* Even spacing relative to width */
+            padding: 0 2%;
+            border-bottom: 1px dashed var(--term-green);
+            background: radial-gradient(circle, var(--term-dim) 1px, transparent 1px);
+            background-size: 2vmin 2vmin;
+        }
+
+        .gpu-node {
+            /* Responsive Square Size */
+            width: clamp(40px, 14%, 100px);
+            aspect-ratio: 1 / 1;
+            border: 2px solid var(--term-green);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--term-black);
+            z-index: 2;
+            position: relative;
+            box-shadow: 0 0 1vmin var(--term-dim);
+        }
+
+        .gpu-icon { font-size: var(--font-sm); color: var(--term-dim); line-height: 1; }
+        .gpu-label { font-size: var(--font-md); line-height: 1; }
+
+        /* GPU Active States */
+        .gpu-node.active-fwd {
+            background: var(--term-green);
+            color: var(--term-black);
+            box-shadow: 0 0 2vmin var(--term-green);
+        }
+        .gpu-node.active-fwd .gpu-icon { color: var(--term-black); }
+
+        .gpu-node.active-bwd {
+            background: repeating-linear-gradient(45deg, var(--term-green), var(--term-green) 5px, var(--term-black) 5px, var(--term-black) 10px);
+            color: var(--term-green);
+            text-shadow: 1px 1px 0 #000;
+            border-color: var(--term-green);
+        }
+
+        /* --- SPRITES --- */
+        .sprite {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--term-green);
+            z-index: 10;
+            pointer-events: none;
+            image-rendering: pixelated;
+        }
+
+        /* Sprite sizes are now handled via inline styles in JS to match Node size */
+        .sprite.bwd {
+            background: transparent;
+            border: 2px solid var(--term-green);
+            background-image: radial-gradient(var(--term-green) 30%, transparent 30%);
+            background-size: 4px 4px;
+        }
+
+        /* --- HISTORY LOG (Bottom Section) --- */
+        .history-log-container {
+            flex: 1; /* Fills remaining height */
+            position: relative;
+            background: var(--term-black);
+            width: 100%;
+        }
+
+        canvas.history-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        /* --- LEGEND --- */
+        .legend {
+            position: absolute;
+            bottom: 2vh;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 2vw;
+            background: var(--term-black);
+            border: 1px solid var(--term-green);
+            padding: 0.5rem 1rem;
+            z-index: 100;
+            width: max-content;
+        }
+        .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: var(--font-sm); }
+        .swatch { width: 1rem; height: 1rem; border: 1px solid var(--term-green); }
+        .s-fwd { background: var(--term-green); }
+        .s-bwd { background: repeating-linear-gradient(45deg, var(--term-green), var(--term-green) 2px, #000 2px, #000 4px); }
+        .s-idle { background-image: radial-gradient(var(--term-dim) 1px, transparent 1px); background-size: 3px 3px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+    <div class="screen-glow"></div>
+
+    <header>
+        &gt; PIPELINE_VIZ_RESPONSIVE.exe
+    </header>
+
+    <div class="main-stage">
+        
+        <div class="panel" id="panel-naive">
+            <div class="panel-header">SYS_A: NAIVE (HIGH BUBBLE)</div>
+            <div class="factory-floor" id="factory-naive"></div>
+            <div class="history-log-container">
+                <canvas id="canvas-naive"></canvas>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-pipeline">
+            <div class="panel-header">SYS_B: PIPELINE (STREAM)</div>
+            <div class="factory-floor" id="factory-pipeline"></div>
+            <div class="history-log-container">
+                <canvas id="canvas-pipeline"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="legend">
+        <div class="legend-item"><div class="swatch s-fwd"></div> FWD</div>
+        <div class="legend-item"><div class="swatch s-bwd"></div> BWD</div>
+        <div class="legend-item"><div class="swatch s-idle"></div> IDLE</div>
+    </div>
+
+<script>
+/**
+ * RESPONSIVE DITHERPUNK ENGINE
+ * Dynamically adjusts to window resizing for both Sprites and Canvas History.
+ */
+
+const CONFIG = {
+    gpuCount: 4,
+    speed: 1.5,
+    colors: {
+        bg: '#000000',
+        activeFwd: '#39FF14',
+        activeBwd: '#004400',
+        idle: '#001100'
+    }
+};
+
+// --- DITHER PATTERN GENERATOR ---
+function createPatterns(ctx) {
+    const patterns = {};
+
+    // 1. Idle (Static Noise)
+    const pIdle = document.createElement('canvas');
+    pIdle.width = 10; pIdle.height = 10;
+    const ctxIdle = pIdle.getContext('2d');
+    ctxIdle.fillStyle = CONFIG.colors.bg;
+    ctxIdle.fillRect(0,0,10,10);
+    ctxIdle.fillStyle = CONFIG.colors.idle;
+    for(let i=0; i<20; i++) ctxIdle.fillRect(Math.random()*10, Math.random()*10, 1, 1);
+    patterns.idle = ctx.createPattern(pIdle, 'repeat');
+
+    // 2. Active Forward (Solid)
+    const pFwd = document.createElement('canvas');
+    pFwd.width = 4; pFwd.height = 4;
+    const ctxFwd = pFwd.getContext('2d');
+    ctxFwd.fillStyle = CONFIG.colors.activeFwd;
+    ctxFwd.fillRect(0,0,4,4);
+    ctxFwd.fillStyle = "rgba(0,0,0,0.2)";
+    ctxFwd.fillRect(1,1,1,1);
+    patterns.fwd = ctx.createPattern(pFwd, 'repeat');
+
+    // 3. Active Backward (Stripes)
+    const pBwd = document.createElement('canvas');
+    pBwd.width = 8; pBwd.height = 8;
+    const ctxBwd = pBwd.getContext('2d');
+    ctxBwd.fillStyle = CONFIG.colors.bg;
+    ctxBwd.fillRect(0,0,8,8);
+    ctxBwd.strokeStyle = CONFIG.colors.activeFwd;
+    ctxBwd.lineWidth = 2;
+    ctxBwd.beginPath();
+    ctxBwd.moveTo(0,8); ctxBwd.lineTo(8,0);
+    ctxBwd.moveTo(4,8); ctxBwd.lineTo(8,4);
+    ctxBwd.moveTo(0,4); ctxBwd.lineTo(4,0);
+    ctxBwd.stroke();
+    patterns.bwd = ctx.createPattern(pBwd, 'repeat');
+
+    return patterns;
+}
+
+class Simulation {
+    constructor(type, factoryId, canvasId) {
+        this.type = type;
+        this.factoryEl = document.getElementById(factoryId);
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d', { alpha: false });
+        
+        this.nodes = [];
+        this.packets = [];
+        this.gpuState = [0,0,0,0];
+        this.frame = 0;
+        
+        // Dimensions Cache
+        this.width = 0;
+        this.height = 0;
+        this.nodePositions = []; // Array of X centers
+        this.nodeWidth = 0;      // Current width of a node
+
+        this.init();
+    }
+
+    init() {
+        this.createNodes();
+        // Patterns are created after first resize to ensure context is ready
+        this.handleResize();
+        this.patterns = createPatterns(this.ctx);
+        
+        // Responsive Listener
+        window.addEventListener('resize', () => this.handleResize());
+    }
+
+    createNodes() {
+        this.factoryEl.innerHTML = '';
+        this.nodes = [];
+        for(let i=1; i<=CONFIG.gpuCount; i++) {
+            const node = document.createElement('div');
+            node.className = 'gpu-node';
+            node.innerHTML = `<div class="gpu-icon">GPU</div><div class="gpu-label">0${i}</div>`;
+            this.factoryEl.appendChild(node);
+            this.nodes.push(node);
+        }
+    }
+
+    handleResize() {
+        // 1. Resize Canvas to match parent container pixels
+        const parent = this.canvas.parentElement;
+        this.canvas.width = parent.clientWidth;
+        this.canvas.height = parent.clientHeight;
+        this.width = this.canvas.width;
+        this.height = this.canvas.height;
+        this.ctx.imageSmoothingEnabled = false;
+
+        // Reset Background
+        this.ctx.fillStyle = CONFIG.colors.bg;
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // 2. Recalculate Node Metrics
+        if (this.nodes.length > 0) {
+            const containerRect = this.factoryEl.getBoundingClientRect();
+            
+            this.nodePositions = this.nodes.map(n => {
+                const rect = n.getBoundingClientRect();
+                // Store relative center X
+                return rect.left - containerRect.left + (rect.width / 2);
+            });
+            
+            // Capture current node width for Sprite and Trace sizing
+            this.nodeWidth = this.nodes[0].getBoundingClientRect().width;
+            
+            // Update existing sprite sizes
+            this.packets.forEach(p => this.resizePacket(p));
+        }
+    }
+
+    resizePacket(packet) {
+        // Naive Large: 60% of Node width
+        // Pipeline Small: 30% of Node width
+        const size = packet.isMicro ? this.nodeWidth * 0.35 : this.nodeWidth * 0.65;
+        packet.el.style.width = `${size}px`;
+        packet.el.style.height = `${size}px`;
+    }
+
+    spawnPacket(isMicro = false) {
+        const packet = {
+            isMicro: isMicro,
+            targetIndex: 0,
+            direction: 1, 
+            state: 'fwd',
+            progress: 0,
+            el: document.createElement('div'),
+            speed: isMicro ? 0.02 * CONFIG.speed : 0.01 * CONFIG.speed
+        };
+
+        packet.el.className = `sprite ${isMicro ? 'small' : 'large'}`;
+        this.resizePacket(packet); // Apply responsive size
+        this.factoryEl.appendChild(packet.el);
+        this.packets.push(packet);
+    }
+
+    update() {
+        this.frame++;
+
+        // --- 1. Spawn Logic ---
+        if (this.type === 'naive') {
+            if (this.packets.length === 0) {
+                if (!this.cooldown) this.cooldown = 0;
+                this.cooldown++;
+                if (this.cooldown > 60) {
+                    this.spawnPacket(false);
+                    this.cooldown = 0;
+                }
+            }
+        } else {
+            // Pipeline: 70 frame interval spawn
+            if (this.frame % 70 === 0) {
+                if (this.packets.filter(p => p.state === 'fwd' && p.targetIndex === 0).length === 0) {
+                    this.spawnPacket(true);
+                }
+            }
+        }
+
+        // --- 2. Update Packets & Determine GPU State ---
+        this.gpuState = [0,0,0,0];
+
+        for (let i = this.packets.length - 1; i >= 0; i--) {
+            let p = this.packets[i];
+            
+            // Logic: Which GPU is active?
+            // FWD (moving i->i+1): GPU[i] is active
+            // BWD (moving i+1->i): GPU[i+1] is active
+            if (p.state === 'fwd') {
+                this.gpuState[p.targetIndex] = 1;
+            } else {
+                if (p.targetIndex >= -1) this.gpuState[p.targetIndex + 1] = 2;
+            }
+
+            // Move
+            p.progress += p.speed;
+
+            if (p.progress >= 1) {
+                p.progress = 0;
+                p.targetIndex += p.direction;
+
+                // Boundary Checks
+                if (p.state === 'fwd' && p.targetIndex >= CONFIG.gpuCount - 1) {
+                    // Turnaround
+                    p.state = 'bwd';
+                    p.direction = -1;
+                    p.el.classList.add('bwd');
+                } else if (p.state === 'bwd' && p.targetIndex < -1) {
+                    // Die
+                    p.el.remove();
+                    this.packets.splice(i, 1);
+                    continue;
+                }
+            }
+
+            // --- 3. Render Sprite Position ---
+            // Interpolate between current Node center and next Node center
+            let startX, endX;
+            
+            // Spacing between nodes (approximate for smooth off-screen tweening)
+            const nodeGap = (this.nodePositions[1] - this.nodePositions[0]) || this.nodeWidth * 1.5;
+
+            if (p.state === 'fwd') {
+                startX = this.nodePositions[p.targetIndex];
+                // If moving to last+1 (turnaround), fake a point to the right
+                endX = (p.targetIndex + 1 < this.nodePositions.length) 
+                        ? this.nodePositions[p.targetIndex+1] 
+                        : startX + nodeGap; 
+            } else {
+                // Moving Left
+                const nextIdx = p.targetIndex + 1; // The node we just left
+                startX = (nextIdx < this.nodePositions.length) ? this.nodePositions[nextIdx] : this.nodePositions[p.targetIndex] + nodeGap;
+                endX = (p.targetIndex >= 0) ? this.nodePositions[p.targetIndex] : startX - nodeGap;
+            }
+
+            const currentX = startX + (endX - startX) * p.progress;
+            p.el.style.left = `${currentX}px`;
+        }
+
+        // --- 4. Update DOM Nodes ---
+        this.nodes.forEach((n, idx) => {
+            n.className = 'gpu-node';
+            if (this.gpuState[idx] === 1) n.classList.add('active-fwd');
+            if (this.gpuState[idx] === 2) n.classList.add('active-bwd');
+        });
+
+        // --- 5. Draw Canvas History ---
+        this.drawHistory();
+    }
+
+    drawHistory() {
+        if (!this.width || !this.height) return;
+
+        const { ctx, width, height, patterns } = this;
+        const scrollSpeed = 1; // Pixels per frame
+
+        // Scroll effect: Draw existing canvas down by 1px
+        ctx.drawImage(this.canvas, 0, 0, width, height - scrollSpeed, 0, scrollSpeed, width, height - scrollSpeed);
+
+        // Clear top row
+        ctx.fillStyle = CONFIG.colors.bg;
+        ctx.fillRect(0, 0, width, scrollSpeed);
+
+        // Draw new traces
+        // The trace width matches the Node Width exactly
+        const stripW = this.nodeWidth;
+
+        // 1. Draw Background Noise for all columns
+        this.nodePositions.forEach(x => {
+            ctx.fillStyle = patterns.idle;
+            ctx.fillRect(x - stripW/2, 0, stripW, scrollSpeed);
+        });
+
+        // 2. Draw Active States
+        this.gpuState.forEach((state, idx) => {
+            if (state !== 0) {
+                const x = this.nodePositions[idx];
+                ctx.fillStyle = (state === 1) ? patterns.fwd : patterns.bwd;
+                ctx.fillRect(x - stripW/2, 0, stripW, scrollSpeed);
+            }
+        });
+    }
+}
+
+// --- BOOTSTRAP ---
+const simNaive = new Simulation('naive', 'factory-naive', 'canvas-naive');
+const simPipeline = new Simulation('pipeline', 'factory-pipeline', 'canvas-pipeline');
+
+function loop() {
+    simNaive.update();
+    simPipeline.update();
+    requestAnimationFrame(loop);
+}
+
+// Start
+loop();
+
+</script>
+</body>
+</html>

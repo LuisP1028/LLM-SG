@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DP Visualization</title>
+    <style>
+        /* --- RESET & LAYOUT --- */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050505; /* Deep Black */
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            color: #33ff33;
+        }
+
+        /* --- CRT / DITHER CONTAINER --- */
+        #crt-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* --- RETRO OVERLAYS --- */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(0, 0, 0, 0) 50%,
+                rgba(0, 0, 0, 0.25) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 50px rgba(51, 255, 51, 0.1);
+            pointer-events: none;
+            z-index: 11;
+            mix-blend-mode: screen;
+        }
+
+        /* --- UI OVERLAY --- */
+        #status-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px; /* Stretch across */
+            font-size: 16px;
+            background: #000;
+            border: 1px solid #33ff33;
+            padding: 15px;
+            z-index: 20;
+            box-shadow: 4px 4px 0px #33ff33;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #step-indicator {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        #phase-desc {
+            color: #1a801a;
+        }
+    </style>
+</head>
+<body>
+
+<div id="crt-container">
+    <canvas id="viz"></canvas>
+    <div class="scanlines"></div>
+    <div class="glow"></div>
+    <div id="status-bar">
+        <span>STATUS: <span id="step-indicator">INIT</span></span>
+        <span id="phase-desc">SYSTEM READY</span>
+    </div>
+</div>
+
+<script>
+/**
+ * DITHERPUNK DATA PARALLELISM VISUALIZER (FIXED)
+ */
+
+const canvas = document.getElementById('viz');
+const ctx = canvas.getContext('2d');
+const uiStep = document.getElementById('step-indicator');
+const uiDesc = document.getElementById('phase-desc');
+
+// --- CONFIG ---
+const COLOR_BG = '#050505';
+const COLOR_FG = '#33ff33';
+const COLOR_DIM = '#1a801a';
+
+// Speed Constants (Lower = Slower)
+const SPEED_PARTICLE = 0.03; // Significantly slowed down
+const SPEED_MEMORY = 0.008;  // Slower fill
+const PHASE_DELAY = 60;      // Minimum frames per phase
+
+let W, H;
+let frame = 0;
+
+// --- STATE MACHINE ---
+const PHASES = {
+    IDLE: 0,
+    REPLICATE_MODEL: 1,
+    SCATTER_DATA: 2,
+    COMPUTE: 3,
+    SYNC_GRADIENTS: 4,
+    UPDATE_WEIGHTS: 5
+};
+
+let state = {
+    phase: PHASES.IDLE,
+    timer: 0,
+    gpus: [],
+    particles: [], 
+};
+
+// --- CLASSES ---
+
+class GPU {
+    constructor(x, y, w, h, id) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.id = id;
+        this.hasModel = false;
+        this.memoryLoad = 0; // 0 to 1
+        this.processing = 0; // 0 to 1
+        this.flash = 0; 
+    }
+
+    reset() {
+        this.hasModel = false;
+        this.memoryLoad = 0;
+        this.processing = 0;
+        this.flash = 0;
+    }
+
+    draw(ctx) {
+        // Container
+        ctx.strokeStyle = COLOR_FG;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x, this.y, this.w, this.h);
+
+        // Label
+        ctx.fillStyle = COLOR_FG;
+        ctx.font = '12px Courier New';
+        ctx.fillText(`GPU_${this.id}`, this.x + 5, this.y + 15);
+
+        // Memory Bar
+        const barW = 12;
+        const barH = this.h - 10;
+        const barX = this.x + this.w - 18;
+        const barY = this.y + 5;
+        
+        ctx.strokeStyle = COLOR_DIM;
+        ctx.strokeRect(barX, barY, barW, barH);
+        
+        // Fill Memory
+        const fillH = barH * this.memoryLoad;
+        ctx.fillStyle = COLOR_FG;
+        if(this.memoryLoad > 0.01) {
+            // Dithered fill
+            for(let i=0; i<fillH; i+=3) {
+                ctx.fillRect(barX + 2, (barY + barH) - i - 2, barW - 4, 1);
+            }
+        }
+
+        // Model Box (Inside)
+        if (this.memoryLoad > 0.2) {
+            ctx.strokeStyle = COLOR_FG;
+            ctx.setLineDash([2, 2]);
+            // Grow with memory load up to max size
+            const growth = Math.min(1, this.memoryLoad * 2); 
+            const mW = (this.w * 0.6) * growth;
+            const mH = (this.h * 0.4) * growth;
+            const mX = this.x + (this.w - mW)/2 - 5;
+            const mY = this.y + 30;
+            
+            ctx.strokeRect(mX, mY, mW, mH);
+            if(this.hasModel) ctx.fillText("MODEL", mX + 5, mY + 15);
+            ctx.setLineDash([]);
+        }
+
+        // Processing Noise
+        if (this.processing > 0) {
+            const noiseH = this.h * 0.25;
+            const noiseY = this.y + this.h - noiseH - 5;
+            ctx.fillStyle = COLOR_FG;
+            for(let i=0; i<this.w - 25; i+=4) {
+                if(Math.random() > 0.5) {
+                    ctx.fillRect(this.x + 5 + i, noiseY + (Math.random()*10), 2, noiseH * Math.random());
+                }
+            }
+            ctx.fillText("COMPUTING", this.x + 5, noiseY - 5);
+        }
+
+        // Flash
+        if (this.flash > 0) {
+            ctx.fillStyle = `rgba(51, 255, 51, ${this.flash})`;
+            ctx.fillRect(this.x, this.y, this.w, this.h);
+            this.flash -= 0.05;
+        }
+    }
+}
+
+class Particle {
+    constructor(x, y, targetX, targetY, type) {
+        this.x = x;
+        this.y = y;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.type = type; 
+        this.speed = SPEED_PARTICLE;
+        this.dead = false;
+        this.progress = 0;
+    }
+
+    update() {
+        this.progress += this.speed;
+        if (this.progress >= 1) {
+            this.progress = 1;
+            this.dead = true;
+        }
+        return {
+            x: this.x + (this.targetX - this.x) * this.progress,
+            y: this.y + (this.targetY - this.y) * this.progress
+        };
+    }
+
+    draw(ctx, pos) {
+        if (this.type === 'DATA') {
+            ctx.fillStyle = COLOR_FG;
+            ctx.fillRect(pos.x - 6, pos.y - 6, 12, 12);
+            ctx.fillStyle = '#000'; // hollow effect
+            ctx.fillRect(pos.x - 2, pos.y - 2, 4, 4);
+        } else if (this.type === 'GRAD') {
+            ctx.strokeStyle = COLOR_FG;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(pos.x - 5, pos.y);
+            ctx.lineTo(pos.x + 5, pos.y);
+            ctx.moveTo(pos.x, pos.y - 5);
+            ctx.lineTo(pos.x, pos.y + 5);
+            ctx.stroke();
+        }
+    }
+}
+
+// --- INITIALIZATION ---
+
+function resetSystem() {
+    state.phase = PHASES.IDLE;
+    state.timer = 0;
+    state.particles = [];
+    state.gpus = [];
+    
+    // Create GPUs
+    const gpuW = Math.min(200, W / 4.5);
+    const gpuH = 160;
+    const spacing = (W - (gpuW * 4)) / 5;
+    const startY = H - gpuH - 60;
+
+    for (let i = 0; i < 4; i++) {
+        state.gpus.push(new GPU(
+            spacing + (i * (gpuW + spacing)),
+            startY,
+            gpuW,
+            gpuH,
+            i
+        ));
+    }
+    
+    uiStep.innerText = "SYSTEM IDLE";
+    uiDesc.innerText = "INITIALIZING HARDWARE...";
+}
+
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    resetSystem(); // Full reset on resize to prevent broken layout
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// --- LOGIC LOOP ---
+
+function updateLogic() {
+    state.timer++;
+
+    switch(state.phase) {
+        
+        // 0. IDLE (Wait briefly before starting)
+        case PHASES.IDLE:
+            if(state.timer > 90) {
+                state.phase = PHASES.REPLICATE_MODEL;
+                state.timer = 0;
+                uiStep.innerText = "STEP 1: REPLICATE";
+                uiDesc.innerText = "COPYING MODEL TO ALL GPUS (REDUNDANT MEMORY)";
+            }
+            break;
+
+        // 1. REPLICATE MODEL (Fill Memory)
+        case PHASES.REPLICATE_MODEL:
+            let allFull = true;
+            state.gpus.forEach(gpu => {
+                if(gpu.memoryLoad < 0.5) {
+                    gpu.memoryLoad += SPEED_MEMORY;
+                    allFull = false;
+                } else {
+                    gpu.hasModel = true;
+                }
+            });
+            
+            // Wait for visual fill AND minimum time
+            if(allFull && state.timer > PHASE_DELAY) {
+                state.phase = PHASES.SCATTER_DATA;
+                state.timer = 0;
+                uiStep.innerText = "STEP 2: SCATTER";
+                uiDesc.innerText = "SPLITTING BATCH INTO SUBSETS";
+                
+                // Spawn Data Particles
+                state.gpus.forEach(gpu => {
+                    state.particles.push(new Particle(
+                        W/2, 100, 
+                        gpu.x + gpu.w/2, gpu.y + gpu.h/2, 
+                        'DATA'
+                    ));
+                });
+            }
+            break;
+
+        // 2. SCATTER DATA (Move Particles)
+        case PHASES.SCATTER_DATA:
+            // Ensure we wait for particles to actually travel
+            if(state.particles.length === 0 && state.timer > PHASE_DELAY) {
+                state.phase = PHASES.COMPUTE;
+                state.timer = 0;
+                uiStep.innerText = "STEP 3: COMPUTE";
+                uiDesc.innerText = "FORWARD/BACKWARD PASS (PARALLEL)";
+            }
+            break;
+
+        // 3. COMPUTE (Processing Noise)
+        case PHASES.COMPUTE:
+            state.gpus.forEach(gpu => gpu.processing = 1);
+            if(state.timer > 120) {
+                state.gpus.forEach(gpu => gpu.processing = 0);
+                state.phase = PHASES.SYNC_GRADIENTS;
+                state.timer = 0;
+                uiStep.innerText = "STEP 4: ALL-REDUCE";
+                uiDesc.innerText = "SYNCHRONIZING GRADIENTS (BOTTLENECK)";
+
+                // Spawn Gradients TO Center
+                state.gpus.forEach(gpu => {
+                    state.particles.push(new Particle(
+                        gpu.x + gpu.w/2, gpu.y + 20,
+                        W/2, H/2 - 50,
+                        'GRAD'
+                    ));
+                });
+            }
+            break;
+
+        // 4. SYNC (Gradients In -> Mix -> Gradients Out)
+        case PHASES.SYNC_GRADIENTS:
+            // Part A: Waiting for IN particles to die
+            
+            // Part B: Spawn OUT particles
+            if(state.timer === 80) { 
+                 state.gpus.forEach(gpu => {
+                    state.particles.push(new Particle(
+                        W/2, H/2 - 50,
+                        gpu.x + gpu.w/2, gpu.y + 20,
+                        'GRAD'
+                    ));
+                });
+            }
+
+            // Part C: Finish
+            if(state.timer > 180 && state.particles.length === 0) {
+                state.phase = PHASES.UPDATE_WEIGHTS;
+                state.timer = 0;
+                uiStep.innerText = "STEP 5: UPDATE";
+                uiDesc.innerText = "WEIGHTS UPDATED SIMULTANEOUSLY";
+            }
+            break;
+
+        // 5. UPDATE (Flash and Reset)
+        case PHASES.UPDATE_WEIGHTS:
+            if(state.timer === 1) {
+                state.gpus.forEach(gpu => gpu.flash = 1.0);
+            }
+            if(state.timer > 90) {
+                // Loop back to Step 2 (Data), keeping Model loaded
+                state.phase = PHASES.SCATTER_DATA;
+                state.timer = 0;
+                uiStep.innerText = "NEXT BATCH";
+                uiDesc.innerText = "PREPARING NEXT DATA SUBSET...";
+                
+                // Spawn new Data
+                state.gpus.forEach(gpu => {
+                    state.particles.push(new Particle(
+                        W/2, 100, 
+                        gpu.x + gpu.w/2, gpu.y + gpu.h/2, 
+                        'DATA'
+                    ));
+                });
+            }
+            break;
+    }
+
+    // Update Particles
+    for(let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        p.update();
+        if(p.dead) state.particles.splice(i, 1);
+    }
+}
+
+// --- RENDER LOOP ---
+
+function draw() {
+    ctx.fillStyle = COLOR_BG;
+    ctx.fillRect(0, 0, W, H);
+
+    // 1. Grid
+    ctx.strokeStyle = '#0f330f';
+    ctx.lineWidth = 1;
+    const gridSize = 40;
+    for(let x=0; x<W; x+=gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for(let y=0; y<H; y+=gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // 2. Master Model Block (Top)
+    ctx.strokeStyle = COLOR_FG;
+    ctx.strokeRect(W/2 - 40, 50, 80, 50);
+    ctx.fillStyle = COLOR_FG;
+    ctx.fillText("DATASET", W/2 - 25, 80);
+
+    // 3. Network Lines
+    ctx.strokeStyle = '#1a4d1a';
+    ctx.beginPath();
+    state.gpus.forEach(gpu => {
+        // Data path
+        ctx.moveTo(W/2, 100);
+        ctx.lineTo(gpu.x + gpu.w/2, gpu.y);
+        
+        // Gradient path (Conditional visibility)
+        if(state.phase === PHASES.SYNC_GRADIENTS) {
+             ctx.moveTo(gpu.x + gpu.w/2, gpu.y);
+             ctx.lineTo(W/2, H/2 - 50);
+        }
+    });
+    ctx.stroke();
+
+    // 4. GPUs
+    state.gpus.forEach(gpu => gpu.draw(ctx));
+
+    // 5. Particles
+    state.particles.forEach(p => {
+        const pos = {
+            x: p.x + (p.targetX - p.x) * p.progress,
+            y: p.y + (p.targetY - p.y) * p.progress
+        };
+        p.draw(ctx, pos);
+    });
+
+    // 6. Sync Orb
+    if(state.phase === PHASES.SYNC_GRADIENTS && state.timer > 30 && state.timer < 150) {
+        const pulse = Math.sin(frame * 0.2) * 10;
+        ctx.strokeStyle = COLOR_FG;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(W/2, H/2 - 50, 20 + pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        
+        ctx.fillText("AVG", W/2 - 12, H/2 - 50 + 4);
+    }
+
+    updateLogic();
+    frame++;
+    requestAnimationFrame(draw);
+}
+
+// Start
+draw();
+
+</script>
+</body>
+</html>
