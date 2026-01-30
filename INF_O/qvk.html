@@ -2,604 +2,630 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TRANSFORMER_SELF_ATTENTION // Q_K_V_VISUALIZER</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEURAL_DB // DITHER_VIS</title>
     <style>
         :root {
-            --bg-color: #050505;
+            --bg: #050505;
             --term-green: #33ff00;
-            --term-dim: #1a8000;
-            --scanline-color: rgba(0, 0, 0, 0.5);
+            --term-dim: #113300;
+            --ui-bg: rgba(5, 5, 5, 0.9);
+            --font-main: 'Courier New', Courier, monospace;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
             padding: 0;
-            background-color: var(--bg-color);
+            background-color: var(--bg);
             color: var(--term-green);
-            font-family: 'Courier New', Courier, monospace;
+            font-family: var(--font-main);
             overflow: hidden;
             height: 100vh;
             width: 100vw;
             user-select: none;
         }
 
-        /* CRT Overlay Effects */
-        #crt-overlay {
+        /* --- CRT OVERLAY --- */
+        .scanlines {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .vignette {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.6) 100%);
+            pointer-events: none;
+            z-index: 101;
+        }
+
+        /* --- RESPONSIVE UI LAYER --- */
+        #ui-layer {
             position: absolute;
             top: 0;
-            left: 0;
+            right: 0;
             width: 100%;
-            height: 100%;
-            pointer-events: none;
+            height: 40vh; /* Dedicate top 40% to UI to prevent overlap */
+            padding: 2vh 2vw;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end; /* Align right */
+            gap: 1vh;
             z-index: 10;
-            background: 
-                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 2px, 3px 100%;
-        }
-
-        #scanline {
-            width: 100%;
-            height: 100px;
-            z-index: 10;
-            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(51, 255, 0, 0.1) 50%, rgba(0,0,0,0) 100%);
-            opacity: 0.1;
-            position: absolute;
-            bottom: 100%;
-            animation: scanline 10s linear infinite;
             pointer-events: none;
         }
 
-        @keyframes scanline {
-            0% { bottom: 100%; }
-            100% { bottom: -100px; }
+        .panel {
+            background: var(--ui-bg);
+            border: 1px solid var(--term-green);
+            box-shadow: 4px 4px 0px var(--term-dim);
+            backdrop-filter: blur(2px);
+            display: flex;
+            flex-direction: column;
+            pointer-events: auto;
+            
+            /* Responsive Width Logic */
+            width: 35vw;
+            min-width: 280px;
+            max-width: 500px;
         }
 
-        /* Layout */
-        #canvas-container {
-            position: relative;
-            width: 100%;
-            height: 80%;
+        /* LOG PANEL SPECIFICS (Prevent Crushing) */
+        #panel-log {
+            flex: 2; /* Take up more space */
+            min-height: 100px; /* Absolute minimum */
+            max-height: 200px;
         }
 
-        canvas {
-            display: block;
+        #panel-matrix {
+            flex: 1;
+            min-height: 80px;
         }
 
-        /* Terminal Log Area */
-        #terminal {
-            height: 20%;
-            width: 100%;
-            border-top: 2px solid var(--term-green);
-            background: #000;
-            padding: 10px;
-            box-sizing: border-box;
-            overflow-y: auto;
-            font-size: 14px;
-            text-shadow: 0 0 5px var(--term-green);
-            z-index: 5;
-            position: relative;
+        .panel-header {
+            background: var(--term-green);
+            color: #000;
+            padding: 4px 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: clamp(10px, 1.2vh, 12px);
+            flex-shrink: 0; /* Header never shrinks */
+        }
+
+        #log-container {
+            flex-grow: 1; /* Fills remaining space */
+            overflow: hidden; /* Hide overflow, don't overlap */
+            padding: 8px;
+            display: flex;
+            flex-direction: column-reverse; /* Newest at bottom visually */
+            gap: 4px;
         }
 
         .log-entry {
-            margin-bottom: 4px;
-            opacity: 0.8;
+            font-size: clamp(11px, 1.2vw, 14px);
+            line-height: 1.4em; /* Strict line height */
+            border-bottom: 1px dashed var(--term-dim);
+            padding-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-shrink: 0; /* Prevent text crushing */
         }
+
         .log-entry.highlight {
+            background: var(--term-dim);
             color: #fff;
-            background: var(--term-dim);
-            font-weight: bold;
-        }
-        .timestamp {
-            color: var(--term-dim);
-            margin-right: 10px;
         }
 
-        /* Controls */
-        #controls {
+        #matrix-content {
+            padding: 8px;
+            font-size: clamp(10px, 1vw, 12px);
+            line-height: 1.2em;
+            font-family: monospace;
+            white-space: pre;
+            overflow: hidden;
+        }
+
+        /* --- MOBILE OVERRIDES --- */
+        @media (max-width: 600px) {
+            #ui-layer {
+                align-items: stretch; /* Full width on mobile */
+                height: 35vh;
+            }
+            .panel {
+                width: 100%; /* Force full width */
+                min-width: 0;
+                max-width: none;
+            }
+            #log-container {
+                gap: 2px;
+            }
+        }
+        
+        #canvas-wrapper {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 20;
-            display: flex;
-            gap: 10px;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
         }
-
-        button {
-            background: #000;
-            border: 1px solid var(--term-green);
-            color: var(--term-green);
-            padding: 8px 16px;
-            font-family: inherit;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-weight: bold;
-            box-shadow: 2px 2px 0px var(--term-dim);
-        }
-
-        button:active {
-            transform: translate(2px, 2px);
-            box-shadow: none;
-        }
-
-        button:hover {
-            background: var(--term-dim);
-            color: #000;
-        }
-
     </style>
 </head>
 <body>
 
-    <div id="crt-overlay"></div>
-    <div id="scanline"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
 
-    <div id="controls">
-        <button id="btn-reset">Reset</button>
-        <button id="btn-pause">Pause/Play</button>
-    </div>
-
-    <div id="canvas-container">
-        <canvas id="mainCanvas"></canvas>
-    </div>
-
-    <div id="terminal" id="log-container">
-        <div class="log-entry">
-            <span class="timestamp">SYS.INIT</span> SYSTEM READY. WAITING FOR INPUT SEQUENCE...
+    <div id="ui-layer">
+        <div id="panel-log" class="panel">
+            <div class="panel-header">SYS.LOG // SEQUENCE_OPS</div>
+            <div id="log-container">
+                </div>
         </div>
+        <div id="panel-matrix" class="panel">
+            <div class="panel-header">ATTENTION_MATRIX</div>
+            <div id="matrix-content">INITIALIZING...</div>
+        </div>
+    </div>
+
+    <div id="canvas-wrapper">
+        <canvas id="mainCanvas"></canvas>
     </div>
 
 <script>
 /**
- * DITHERPUNK VISUALIZER LOGIC
- * ---------------------------
- * Implements the Transformer Attention Mechanism (Q, K, V)
- * using HTML5 Canvas and procedurally generated dither patterns.
+ * DITHERPUNK NEURAL VISUALIZER v3 (Window Agnostic)
  */
 
 // --- CONFIGURATION ---
-const TEXT_SENTENCE = "The animal didn't cross the street because it was too tired";
-const TOKENS = TEXT_SENTENCE.split(" ");
-const TARGET_INDEX = 6; // "it"
-const ATTENTION_SCORES = {
-    "animal": 0.85, // "it" refers to animal
-    "street": 0.05,
-    "The": 0.01,
-    "didn't": 0.02,
-    "cross": 0.02,
-    "because": 0.01,
-    "it": 0.03,
-    "was": 0.00,
-    "too": 0.00,
-    "tired": 0.01
+const SENTENCE = "The animal didn't cross the street because it";
+const TOKENS_TEXT = SENTENCE.split(" ");
+const TARGET_IDX = 7; // "it"
+const ATTENTION_WEIGHTS = {
+    "The": 0.01, "animal": 0.85, "didn't": 0.02, "cross": 0.05,
+    "the": 0.01, "street": 0.15, "because": 0.05, "it": 0.0
 };
 
-// --- GLOBALS ---
+// --- GLOBAL STATE ---
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
-const term = document.getElementById('terminal');
+let W, H;
+let layoutScale = 1;
 
-let width, height;
-let frames = 0;
-let isPaused = false;
-
-// Animation State Machine
-const PHASES = {
-    IDLE: 0,
-    PROJECTION: 1, // Growing Q, K, V
-    SCANNING: 2,   // Q moving across K
-    WEIGHTS: 3,    // Showing Attention Scores
-    AGGREGATION: 4,// Pulling V
-    COMPLETE: 5
+// Phase Management
+const PHASES = { INIT: 0, PROJECTION: 1, SCAN: 2, EXTRACTION: 3, FINALIZE: 4, RESET: 5 };
+let state = {
+    phase: PHASES.INIT,
+    timer: 0,
+    scanIndex: 0,
+    tokens: [],
+    particles: []
 };
 
-let currentState = {
-    phase: PHASES.PROJECTION,
-    progress: 0,          // 0.0 to 1.0 for current phase
-    scanIndex: 0,         // Which token we are currently comparing against
-    activeToken: null,    // The "it" object
-    tokens: []            // Array of Token objects
-};
+// --- PATTERN GENERATION (DITHERING) ---
+const Patterns = {};
 
-// --- DITHER PATTERN GENERATORS ---
-// Create small off-screen canvases to use as fill patterns
-function createPattern(type, color = '#33ff00') {
-    const pCanvas = document.createElement('canvas');
-    const pCtx = pCanvas.getContext('2d');
-    pCanvas.width = 8;
-    pCanvas.height = 8;
+function createDitherPattern(type) {
+    const size = 4; // Small tile size for crisp pixel look
+    const pCan = document.createElement('canvas');
+    pCan.width = size;
+    pCan.height = size;
+    const pCtx = pCan.getContext('2d');
     
-    pCtx.fillStyle = color;
+    // Transparent Background by default
+    
+    pCtx.fillStyle = '#33ff00';
 
-    if (type === 'solid') {
-        pCtx.fillRect(0,0,8,8);
-    } else if (type === 'stripe') {
-        // Horizontal scanlines
-        pCtx.fillRect(0, 0, 8, 2);
-        pCtx.fillRect(0, 4, 8, 2);
-    } else if (type === 'grid') {
-        // Checkerboard / Dither
-        pCtx.fillRect(0, 0, 2, 2);
-        pCtx.fillRect(4, 0, 2, 2);
-        pCtx.fillRect(2, 2, 2, 2);
-        pCtx.fillRect(6, 2, 2, 2);
-        pCtx.fillRect(0, 4, 2, 2);
-        pCtx.fillRect(4, 4, 2, 2);
-        pCtx.fillRect(2, 6, 2, 2);
-        pCtx.fillRect(6, 6, 2, 2);
-    } else if (type === 'sparse') {
-        // Very light dither
-        pCtx.fillRect(2, 2, 1, 1);
-        pCtx.fillRect(6, 6, 1, 1);
+    if (type === 'stripe') {
+        // Horizontal Lines (Keys)
+        pCtx.fillRect(0, 0, size, 1); 
+    } else if (type === 'check') {
+        // Checkerboard (Values)
+        pCtx.fillRect(0,0,2,2);
+        pCtx.fillRect(2,2,2,2);
+    } else if (type === 'noise') {
+        // Noise (Query)
+        pCtx.fillRect(0,0,4,4);
+        pCtx.fillStyle = '#000';
+        pCtx.fillRect(1,1,1,1);
+        pCtx.fillRect(3,0,1,1);
+        pCtx.fillRect(0,3,1,1);
     }
-
-    return ctx.createPattern(pCanvas, 'repeat');
+    
+    return ctx.createPattern(pCan, 'repeat');
 }
 
-const PATTERNS = {
-    solid: null, // initialized in resize
-    stripe: null,
-    grid: null,
-    sparse: null
-};
+function initPatterns() {
+    Patterns.stripe = createDitherPattern('stripe');
+    Patterns.check = createDitherPattern('check');
+    Patterns.noise = createDitherPattern('noise');
+}
 
-// --- CLASS DEFINITIONS ---
+// --- CLASSES ---
+
+class Particle {
+    constructor(sx, sy, tx, ty) {
+        this.x = sx; this.y = sy;
+        this.tx = tx; this.ty = ty;
+        this.progress = 0;
+        // Speed relates to distance to keep animation timing consistent across sizes
+        this.speed = 0.015 + Math.random() * 0.02;
+        this.dead = false;
+        this.size = (2 + Math.random() * 4) * layoutScale;
+        this.wobbleFreq = Math.random() * 0.2;
+        this.wobbleAmp = (20 * layoutScale) * (Math.random() > 0.5 ? 1 : -1);
+    }
+
+    update() {
+        this.progress += this.speed;
+        if(this.progress >= 1) { this.progress = 1; this.dead = true; }
+        
+        // Linear path
+        const lx = this.x + (this.tx - this.x) * this.progress;
+        const ly = this.y + (this.ty - this.y) * this.progress;
+        
+        // Sine wobble
+        const w = Math.sin(this.progress * Math.PI * 2) * this.wobbleAmp * Math.sin(this.progress * Math.PI);
+        
+        this.cx = lx + w;
+        this.cy = ly;
+    }
+
+    draw(ctx) {
+        if(this.dead) return;
+        ctx.fillStyle = '#33ff00';
+        // Draw tiny rects
+        ctx.fillRect(this.cx, this.cy, this.size, this.size);
+    }
+}
 
 class Token {
     constructor(text, index, total) {
         this.text = text;
         this.index = index;
         this.total = total;
+        this.isTarget = (index === TARGET_IDX);
+        this.score = ATTENTION_WEIGHTS[text] || 0;
+        this.contextScale = 0;
         
-        // Layout metrics (calculated in updateLayout)
-        this.x = 0;
-        this.y = 0;
-        this.w = 0;
+        // Layout Properties
+        this.x = 0; this.y = 0; this.w = 0;
+        this.h = 0; 
         
-        // Vectors
-        this.qHeight = 0;
-        this.kHeight = 0;
-        this.vHeight = 0;
-        
-        // Logic
-        this.isSeeker = (index === TARGET_INDEX);
-        this.score = ATTENTION_SCORES[text] || 0;
+        // Heights of internal blocks
+        this.kH = 0; this.vH = 0;
     }
 
-    updateLayout(cw, ch) {
+    updateLayout(cw, ch, sc) {
+        // Margin: 5% on sides
         const margin = cw * 0.05;
-        const availableWidth = cw - (margin * 2);
-        this.w = availableWidth / this.total;
+        const availW = cw - (margin * 2);
+        
+        this.w = availW / this.total;
         this.x = margin + (this.index * this.w);
-        this.y = ch * 0.85; // Text baseline
+        this.cx = this.x + (this.w/2);
         
-        this.maxVecHeight = ch * 0.25;
+        // Y Position: Anchored to bottom 15%
+        this.y = ch * 0.85;
+        
+        // Dimensions
+        this.h = 40 * sc;
+        this.kH = 30 * sc;
+        this.vH = 35 * sc;
+        
+        // Font Calculation: Fit text inside box
+        // Base font size on Width
+        const charWidthEst = this.w / (this.text.length + 1);
+        this.fontSize = Math.min(18 * sc, charWidthEst * 1.5);
+        this.fontSize = Math.max(8, this.fontSize); // Min floor
     }
 
-    draw(ctx) {
-        // Draw Text Box
-        ctx.strokeStyle = '#1a8000';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.x + 2, this.y, this.w - 4, 30);
+    drawBase(ctx) {
+        const pad = 4 * layoutScale;
+        const bw = this.w - pad;
         
-        ctx.fillStyle = this.isSeeker ? '#33ff00' : '#1a8000';
-        ctx.font = 'bold 16px "Courier New"';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.text, this.x + (this.w/2), this.y + 20);
-
-        if (this.isSeeker) {
-            // Draw highlight under seeker
-            ctx.fillStyle = PATTERNS.sparse;
-            ctx.fillRect(this.x + 2, this.y + 32, this.w - 4, 5);
-        }
-    }
-    
-    drawVectors(ctx, phase, progress) {
-        const gap = 2;
-        const barW = (this.w - 10) / 3;
-        const baseX = this.x + 5;
-        const baseY = this.y; // growing upwards
-
-        // Determine target heights based on phase
-        let qT = this.isSeeker ? 1 : 0; // Only seeker has active Q
-        let kT = 1;
-        let vT = 1;
+        // Box
+        ctx.lineWidth = Math.max(1, 1 * layoutScale);
+        ctx.strokeStyle = "#1a4d00";
+        ctx.strokeRect(this.x + pad/2, this.y, bw, this.h);
         
-        // In projection phase, animate growth
-        let scale = (phase === PHASES.PROJECTION) ? progress : 1;
-
-        // Q Vector (Only relevant for "it")
-        if (this.isSeeker && phase >= PHASES.PROJECTION) {
-            const h = this.maxVecHeight * scale;
-            // If in Scanning phase, Q detaches, so we don't draw it here, 
-            // we draw it in the global scanning logic.
-            // Unless we are just starting projection.
-            if (phase === PHASES.PROJECTION) {
-                ctx.fillStyle = PATTERNS.solid; // Q is Solid
-                ctx.fillRect(baseX, baseY - h, barW, h);
-                // Label
-                if (progress > 0.8) this.drawLabel(ctx, "Q", baseX, baseY - h - 10);
-            }
+        if (this.isTarget) {
+            ctx.fillStyle = "rgba(51, 255, 0, 0.15)";
+            ctx.fillRect(this.x + pad/2, this.y, bw, this.h);
         }
 
-        // K Vector (Keys) - All tokens have this
-        if (phase >= PHASES.PROJECTION) {
-            const h = this.maxVecHeight * scale;
-            ctx.fillStyle = PATTERNS.stripe; // K is Striped
-            ctx.fillRect(baseX + barW + gap, baseY - h, barW, h);
-            if (phase === PHASES.PROJECTION && progress > 0.8) 
-                this.drawLabel(ctx, "K", baseX + barW + gap, baseY - h - 10);
-        }
-
-        // V Vector (Values) - All tokens have this
-        if (phase >= PHASES.PROJECTION) {
-            const h = this.maxVecHeight * scale;
-            ctx.fillStyle = PATTERNS.grid; // V is Grid/Dithered
-            ctx.fillRect(baseX + (barW + gap)*2, baseY - h, barW, h);
-             if (phase === PHASES.PROJECTION && progress > 0.8) 
-                this.drawLabel(ctx, "V", baseX + (barW + gap)*2, baseY - h - 10);
-        }
+        // Text
+        ctx.fillStyle = this.isTarget ? "#fff" : "#33ff00";
+        ctx.font = `${this.isTarget?"bold":""} ${this.fontSize}px monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(this.text, this.cx, this.y + this.h/2);
     }
 
-    drawLabel(ctx, txt, x, y) {
-        ctx.fillStyle = '#33ff00';
-        ctx.font = '10px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(txt, x, y);
+    drawArchive(ctx) {
+        if (this.isTarget) return;
+
+        const pad = 6 * layoutScale;
+        const bw = this.w - pad;
+        const gap = 4 * layoutScale;
+
+        // K Block
+        const ky = this.y - this.kH - gap;
+        ctx.fillStyle = Patterns.stripe;
+        ctx.fillRect(this.cx - bw/2, ky, bw, this.kH);
+        ctx.strokeStyle = "#33ff00";
+        ctx.strokeRect(this.cx - bw/2, ky, bw, this.kH);
+
+        // V Block
+        const vy = ky - this.vH - gap;
+        ctx.fillStyle = Patterns.check;
+        ctx.fillRect(this.cx - bw/2, vy, bw, this.vH);
+        ctx.strokeRect(this.cx - bw/2, vy, bw, this.vH);
+    }
+
+    drawQuery(ctx, rise) {
+        if (!this.isTarget) return;
+
+        const pad = 6 * layoutScale;
+        const bw = this.w - pad;
+        const qH = 30 * layoutScale;
+
+        // Float Destination: Middle of "Air" zone (approx 60% of screen height)
+        const startY = this.y;
+        const endY = H * 0.6; 
+        
+        const curY = startY - ((startY - endY) * rise);
+        
+        this.qBox = { x: this.cx - bw/2, y: curY, w: bw, h: qH };
+
+        ctx.fillStyle = Patterns.noise;
+        ctx.fillRect(this.qBox.x, this.qBox.y, bw, qH);
+        ctx.strokeStyle = "#fff";
+        ctx.strokeRect(this.qBox.x, this.qBox.y, bw, qH);
+        
+        // Q Label
+        ctx.fillStyle = "#000";
+        ctx.font = `bold ${this.fontSize}px monospace`;
+        ctx.fillText("Q", this.cx, curY + qH/2);
+    }
+
+    drawContext(ctx) {
+        if(this.contextScale <= 0.01) return;
+        
+        const pad = 6 * layoutScale;
+        const bw = this.w - pad;
+        const maxH = 60 * layoutScale;
+        const h = maxH * this.contextScale;
+        
+        // Positioned just above the Query Float position
+        const base = H * 0.6 - (10 * layoutScale);
+        const y = base - h;
+        
+        ctx.fillStyle = Patterns.check;
+        ctx.fillRect(this.cx - bw/2, y, bw, h);
+        
+        // Shimmer
+        if (Math.random() > 0.8) {
+             ctx.fillStyle = "rgba(255,255,255,0.5)";
+             ctx.fillRect(this.cx - bw/2, y, bw, h);
+        }
+
+        ctx.strokeStyle = "#fff";
+        ctx.strokeRect(this.cx - bw/2, y, bw, h);
     }
 }
 
-// --- INITIALIZATION ---
-function init() {
-    TOKENS.forEach((t, i) => {
-        currentState.tokens.push(new Token(t, i, TOKENS.length));
-    });
-    currentState.activeToken = currentState.tokens[TARGET_INDEX];
-    
-    resize();
-    window.addEventListener('resize', resize);
-    
-    // Init patterns
-    PATTERNS.solid = createPattern('solid');
-    PATTERNS.stripe = createPattern('stripe');
-    PATTERNS.grid = createPattern('grid');
-    PATTERNS.sparse = createPattern('sparse');
-
-    log("VISUALIZATION ENGINE STARTED.");
-    log("LOADING WEIGHTS FOR TOKEN ID: [it]...");
-    
-    requestAnimationFrame(loop);
-}
+// --- SYSTEM FUNCTIONS ---
 
 function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight; // Keep canvas inside container
-    
-    const container = document.getElementById('canvas-container');
-    canvas.width = container.offsetWidth;
-    canvas.height = container.offsetHeight;
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
 
-    currentState.tokens.forEach(t => t.updateLayout(canvas.width, canvas.height));
+    // SCALING LOGIC
+    // We want the visualization to look good on 320px width and 2560px width.
+    // We use the smaller dimension to drive scale, but clamped.
+    const rawScale = Math.min(W / 800, H / 800);
+    layoutScale = Math.max(0.6, Math.min(rawScale, 1.5)); // Clamp scale 0.6x to 1.5x
+
+    state.tokens.forEach(t => t.updateLayout(W, H, layoutScale));
 }
 
 function log(msg, highlight=false) {
+    const el = document.getElementById('log-container');
     const div = document.createElement('div');
-    div.className = 'log-entry' + (highlight ? ' highlight' : '');
-    const time = new Date().toISOString().split('T')[1].split('.')[0];
-    div.innerHTML = `<span class="timestamp">[${time}]</span> ${msg}`;
-    term.prepend(div);
-    // Limit log size
-    if (term.children.length > 20) term.removeChild(term.lastChild);
+    div.className = `log-entry${highlight ? ' highlight' : ''}`;
+    
+    const d = new Date();
+    const ts = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+    
+    div.innerHTML = `<span style="opacity:0.6">[${ts}]</span> ${msg}`;
+    el.prepend(div);
+    
+    // Cleanup: Keep only 20 items in DOM to prevent memory leak
+    if(el.children.length > 20) el.removeChild(el.lastChild);
 }
 
-// --- DRAWING LOGIC ---
+function updateMatrix() {
+    const el = document.getElementById('matrix-content');
+    let str = "";
+    state.tokens.forEach(t => {
+        if(t.isTarget) return;
+        const isScan = (state.phase === PHASES.SCAN && state.scanIndex === t.index);
+        const marker = isScan ? ">" : " ";
+        // Format: "> anim : 0.85"
+        // Pad text to align colons
+        const txt = t.text.substring(0,5).padEnd(5);
+        str += `${marker} ${txt} : ${t.score.toFixed(2)}\n`;
+    });
+    el.innerText = str;
+}
 
-function drawBackground() {
-    // Fill Black
-    ctx.fillStyle = '#050505';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Add Random noise for ditherpunk feel
-    ctx.fillStyle = '#33ff00';
-    for(let i=0; i<50; i++) {
-        const rx = Math.random() * canvas.width;
-        const ry = Math.random() * canvas.height;
-        ctx.fillRect(rx, ry, 1, 1);
+function nextPhase(p) {
+    state.phase = p;
+    state.timer = 0;
+    
+    if (p === PHASES.PROJECTION) log("TOKEN 'it': VECTORIZING QUERY...", true);
+    if (p === PHASES.SCAN) {
+        state.scanIndex = 0;
+        log("SCANNING KEY VECTORS...", true);
+    }
+    if (p === PHASES.EXTRACTION) {
+        log("RETRIEVING VALUES...", true);
+        spawnParticles();
+    }
+    if (p === PHASES.FINALIZE) log("CONTEXT UPDATED.", true);
+    if (p === PHASES.RESET) {
+        log("--- SEQUENCE COMPLETE ---");
+        state.particles = [];
+        state.tokens[TARGET_IDX].contextScale = 0;
+        setTimeout(() => nextPhase(PHASES.PROJECTION), 1000);
     }
 }
 
-function drawScanningPhase() {
-    const p = currentState.progress; // 0 to 1
-    const seeker = currentState.activeToken;
-    const tokens = currentState.tokens;
-    
-    // We scan one token at a time based on progress
-    // Map progress 0..1 to index 0..length
-    const totalScanTime = tokens.length;
-    const currentIndexRaw = p * totalScanTime;
-    const currentIndex = Math.floor(currentIndexRaw);
-    
-    // Just changed index?
-    if (currentIndex !== currentState.scanIndex && currentIndex < tokens.length) {
-        currentState.scanIndex = currentIndex;
-        const t = tokens[currentIndex];
-        const score = t.score.toFixed(3);
-        const intensity = t.score > 0.1 ? "HIGH" : "LOW";
-        log(`> DOT_PRODUCT( Q(it), K(${t.text}) ) = ${score} [${intensity}]`, t.score > 0.1);
-    }
-
-    if (currentIndex >= tokens.length) return;
-
-    const target = tokens[currentIndex];
-
-    // Draw Floating Q Block
-    // It stays above the current target being scanned
-    const barW = (seeker.w - 10) / 3;
-    const floatY = seeker.y - seeker.maxVecHeight - 80; // Scanning lane height
-    
-    // Interpolate X position smoothly
-    const startX = seeker.x + 5; 
-    const targetX = target.x + 5 + barW + 2; // Above the K vector of target
-    
-    // Determine current visual X of the Q-Head
-    const currentQX = targetX; // Snap to target for clear step visualization
-    
-    // Draw The Seeker (Q)
-    ctx.fillStyle = PATTERNS.solid;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = '#33ff00';
-    ctx.fillRect(currentQX, floatY, barW, seeker.maxVecHeight);
-    ctx.shadowBlur = 0;
-    
-    ctx.fillStyle = '#fff';
-    ctx.fillText("Q:it", currentQX, floatY - 5);
-
-    // Draw Laser Line to K
-    const kTopX = target.x + 5 + barW + 2 + (barW/2);
-    const kTopY = target.y - target.maxVecHeight;
-    
-    ctx.beginPath();
-    ctx.moveTo(currentQX + (barW/2), floatY + seeker.maxVecHeight);
-    ctx.lineTo(kTopX, kTopY);
-    
-    // Line style depends on score match
-    const match = target.score;
-    if (match > 0.1) {
-        ctx.strokeStyle = '#33ff00';
-        ctx.lineWidth = 3 + (Math.random() * 2); // Flicker
-    } else {
-        ctx.strokeStyle = '#1a4000';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
+function spawnParticles() {
+    const tgt = state.tokens[TARGET_IDX];
+    state.tokens.forEach(t => {
+        if(t.isTarget || t.score < 0.05) return;
+        
+        const count = Math.floor(t.score * 40);
+        // Source: Top of V block
+        const sy = t.y - t.kH - t.vH - (10*layoutScale);
+        // Dest: Target Query Box
+        const dy = tgt.qBox.y; 
+        
+        for(let i=0; i<count; i++) {
+            const p = new Particle(t.cx, sy, tgt.cx, dy);
+            // Stagger start
+            p.progress = -(Math.random() * 0.5); 
+            state.particles.push(p);
+        }
+    });
 }
 
-function drawAggregationPhase() {
-    const p = currentState.progress;
-    const seeker = currentState.activeToken;
-    
-    // Draw the accumulation point above "it"
-    const destX = seeker.x + 5 + (seeker.w/3)*2;
-    const destY = seeker.y - seeker.maxVecHeight * 2.5;
-    
-    // Draw "Ghost" container
-    ctx.strokeStyle = '#33ff00';
-    ctx.strokeRect(destX, destY, (seeker.w-10)/3, seeker.maxVecHeight);
-    
-    // Particles flowing from High-Attention words
-    currentState.tokens.forEach(t => {
-        if (t.score < 0.05) return; // Ignore low relevance
-        
-        // Source V vector top
-        const barW = (t.w - 10) / 3;
-        const srcX = t.x + 5 + (barW + 2)*2;
-        const srcY = t.y - t.maxVecHeight;
-        
-        // Lerp position
-        const curX = srcX + (destX - srcX) * p;
-        const curY = srcY + (destY - srcY) * p;
-        
-        // Draw Chunk
-        const size = t.score * 20; // Size based on relevance
-        ctx.fillStyle = PATTERNS.grid;
-        ctx.fillRect(curX, curY, barW, size);
-        
-        // Draw Connecting Stream
-        ctx.beginPath();
-        ctx.moveTo(srcX + barW/2, srcY);
-        ctx.lineTo(curX + barW/2, curY + size);
-        ctx.strokeStyle = `rgba(51, 255, 0, ${1-p})`;
-        ctx.stroke();
+// --- DRAW LOOP ---
+
+function draw() {
+    // Clear
+    ctx.clearRect(0, 0, W, H); // Transparent clear (bg is handled by CSS)
+
+    const target = state.tokens[TARGET_IDX];
+
+    // 1. Draw Passive
+    state.tokens.forEach(t => {
+        t.drawBase(ctx);
+        t.drawArchive(ctx);
+        t.drawContext(ctx);
     });
 
-    // Fill the bucket
-    if (p > 0.5) {
-        const fillH = seeker.maxVecHeight * ((p - 0.5) * 2);
-        ctx.fillStyle = PATTERNS.solid;
-        ctx.fillRect(destX, destY + seeker.maxVecHeight - fillH, (seeker.w-10)/3, fillH);
+    // 2. Logic
+    if (state.phase === PHASES.PROJECTION) {
+        state.timer += 0.02;
+        target.drawQuery(ctx, Math.min(state.timer, 1));
+        if (state.timer > 1.2) nextPhase(PHASES.SCAN);
+    }
+    else if (state.phase === PHASES.SCAN) {
+        target.drawQuery(ctx, 1);
+        state.timer += 0.05;
         
-        ctx.fillStyle = '#fff';
-        ctx.fillText("NEW_CONTEXT", destX, destY - 10);
+        // Scan cadence
+        if (state.timer > 1) {
+            state.timer = 0;
+            const t = state.tokens[state.scanIndex];
+            // Log interaction
+            const hit = t.score > 0.1;
+            log(`Q·K(${t.text}) = ${t.score} ${hit?"[MATCH]":""}`, hit);
+            
+            state.scanIndex++;
+            if (state.scanIndex >= TARGET_IDX) nextPhase(PHASES.EXTRACTION);
+        }
+        
+        updateMatrix();
+        
+        // Render Scan Beam
+        const curr = state.tokens[state.scanIndex];
+        if (curr) {
+            // Ghost Q over K
+            const gy = curr.y - curr.kH - (50 * layoutScale);
+            ctx.strokeStyle = "rgba(255,255,255,0.5)";
+            ctx.setLineDash([2, 4]);
+            ctx.strokeRect(curr.cx - target.w/2, gy, target.w, 20*layoutScale);
+            ctx.setLineDash([]);
+            
+            // Beam
+            ctx.beginPath();
+            ctx.moveTo(curr.cx, gy + 20*layoutScale);
+            ctx.lineTo(curr.cx, curr.y - curr.kH);
+            const intense = curr.score > 0.1;
+            ctx.lineWidth = (intense ? 3 : 1) * layoutScale;
+            ctx.strokeStyle = intense ? "#fff" : "#1a4d00";
+            ctx.stroke();
+            
+            if(intense) {
+                ctx.fillStyle = "#fff";
+                ctx.fillText(`${(curr.score*100).toFixed(0)}%`, curr.cx + (15*layoutScale), gy + (30*layoutScale));
+            }
+        }
+    }
+    else if (state.phase === PHASES.EXTRACTION) {
+        target.drawQuery(ctx, 1);
+        updateMatrix();
+        
+        let active = 0;
+        state.particles.forEach(p => {
+            if(!p.dead) {
+                if(p.progress >= 0) {
+                    p.update();
+                    p.draw(ctx);
+                } else {
+                    p.progress += 0.05;
+                }
+                active++;
+            }
+        });
+        
+        // Grow Context
+        state.timer += 0.01;
+        target.contextScale = Math.min(state.timer, 1);
+        
+        if(active === 0 && state.timer > 1) nextPhase(PHASES.FINALIZE);
+    }
+    else if (state.phase === PHASES.FINALIZE) {
+        target.drawQuery(ctx, 1);
+        state.timer += 0.01;
+        if(state.timer > 2) nextPhase(PHASES.RESET);
     }
 }
 
-// --- MAIN LOOP ---
-
 function loop() {
-    if (isPaused) {
-        requestAnimationFrame(loop);
-        return;
-    }
-
-    frames++;
-    drawBackground();
-
-    // 1. Draw Static Elements (Text base)
-    currentState.tokens.forEach(t => t.draw(ctx));
-
-    // 2. Draw Rising Vectors (Base state for all phases)
-    // If we are past projection, draw them fully rose
-    currentState.tokens.forEach(t => t.drawVectors(ctx, currentState.phase, currentState.progress));
-
-    // 3. Handle Phase Logic
-    if (currentState.phase === PHASES.PROJECTION) {
-        currentState.progress += 0.01;
-        if (currentState.progress >= 1) {
-            currentState.phase = PHASES.SCANNING;
-            currentState.progress = 0;
-            log("VECTORS PROJECTED. INITIATING SEARCH SEQUENCE...");
-        }
-    } 
-    else if (currentState.phase === PHASES.SCANNING) {
-        drawScanningPhase();
-        currentState.progress += 0.005; // Slow scan
-        if (currentState.progress >= 1) {
-            currentState.phase = PHASES.AGGREGATION;
-            currentState.progress = 0;
-            log("ATTENTION WEIGHTS COMPUTED. AGGREGATING VALUES...");
-        }
-    }
-    else if (currentState.phase === PHASES.AGGREGATION) {
-        drawAggregationPhase();
-        currentState.progress += 0.01;
-        if (currentState.progress >= 1) {
-            currentState.phase = PHASES.COMPLETE;
-            log("CONTEXT INTEGRATION COMPLETE. TOKEN 'it' UPDATED.");
-        }
-    }
-    else if (currentState.phase === PHASES.COMPLETE) {
-        // Draw final state indefinitely
-        drawAggregationPhase(); // Keep showing the result
-        
-        // Auto Reset after delay
-        if (frames % 300 === 0) {
-            reset();
-        }
-    }
-
+    draw();
     requestAnimationFrame(loop);
 }
 
-function reset() {
-    currentState.phase = PHASES.PROJECTION;
-    currentState.progress = 0;
-    currentState.scanIndex = -1;
-    log("--------------------------------");
-    log("SYSTEM RESET. RESTARTING LOOP.");
-}
-
-// --- EVENTS ---
-document.getElementById('btn-reset').addEventListener('click', reset);
-document.getElementById('btn-pause').addEventListener('click', () => {
-    isPaused = !isPaused;
-    log(isPaused ? "SYSTEM PAUSED." : "SYSTEM RESUMED.");
+// Bootstrap
+initPatterns();
+TOKENS_TEXT.forEach((t, i) => {
+    state.tokens.push(new Token(t, i, TOKENS_TEXT.length));
 });
 
-// Start
-init();
+window.addEventListener('resize', resize);
+resize(); // Initial calc
+log("SYSTEM ONLINE.");
+setTimeout(() => nextPhase(PHASES.PROJECTION), 1000);
+loop();
 
 </script>
 </body>
