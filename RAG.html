@@ -438,12 +438,11 @@
                             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                         </svg>
                     </button>
-                    <ul>
-                        <li>Quantization approximates precise values using limited "centroids."</li>
-                        <li>PQ is vital when datasets exceed RAM limits. It acts as a rapid <strong>pre-filter</strong>.</li>
-                        <li>Breaks vectors into sub-parts, quantizing each to create a compact code. The <strong>Signature Matrix</strong> stores these compressed IDs.</li>
-                        <li><strong>When to use:</strong> Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.</li>
-                    </ul>
+                    <p>
+                        Compresses high-dimensional vectors by breaking them into smaller <strong>sub-parts</strong> and mapping each part to its nearest "representative" value, or <strong>centroid</strong>. Instead of storing massive raw numbers, a <strong>Signature Matrix</strong> stores compact IDs, drastically lowering the <strong>RAM footprint</strong>.
+                        <br><br>
+                        <strong>When to use:</strong> Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.
+                    </p>
                 </div>
         
                 <div class="subsection">
