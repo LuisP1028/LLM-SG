@@ -3,17 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LoRA Protocol: Adaptive Visualization</title>
+    <title>LoRA Protocol: Ditherpunk Viz (Responsive)</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <style>
         :root {
-            --bg-color: #080808;
-            --fg-color: #00FF41;
+            --bg-color: #050505;
+            --fg-color: #00FF41; /* Matrix Green */
             --dim-color: #003B0F;
-            --term-bg: rgba(0, 15, 5, 0.90);
-            --border-color: #008F24;
-            /* Responsive spacing vars */
-            --spacing-unit: clamp(15px, 3vw, 30px);
-            --font-base: clamp(12px, 2vw, 16px);
+            --alert-color: #00E050; 
+            
+            /* Responsive Spacing */
+            --space-sm: clamp(10px, 2vw, 20px);
+            --space-md: clamp(20px, 4vw, 40px);
+            
+            /* Responsive Typography */
+            --font-xs: clamp(10px, 2.5vw, 12px); /* For mobile logs */
+            --font-sm: clamp(12px, 3vw, 16px);   /* Standard text */
+            --font-lg: clamp(16px, 5vw, 24px);   /* Headers */
         }
         
         body, html {
@@ -26,10 +33,9 @@
             font-family: 'Courier New', Courier, monospace;
             color: var(--fg-color);
             user-select: none;
-            -webkit-font-smoothing: none;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* --- LAYOUT CONTAINER --- */
         #canvas-container {
             position: absolute;
             top: 0;
@@ -43,147 +49,96 @@
             display: block;
             width: 100%;
             height: 100%;
-            image-rendering: pixelated; 
         }
 
-        /* --- HEADER UI --- */
-        #header-layer {
+        /* --- UI OVERLAYS --- */
+        #ui-layer {
             position: absolute;
-            top: var(--spacing-unit);
-            left: var(--spacing-unit);
-            z-index: 5;
+            top: var(--space-sm);
+            left: var(--space-sm);
+            z-index: 10;
             pointer-events: none;
-            max-width: 90%;
+            width: calc(100% - (var(--space-sm) * 2));
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
         }
 
         h1 {
-            font-size: clamp(1.2rem, 4vw, 2rem);
-            margin: 0;
+            font-size: var(--font-lg);
+            margin: 0 0 var(--space-sm) 0;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
             border-bottom: 2px solid var(--fg-color);
             padding-bottom: 0.2em;
-            display: inline-block;
-            text-shadow: 0 0 8px var(--dim-color);
-            background: rgba(8,8,8,0.7);
+            background: rgba(5, 5, 5, 0.85); /* Readability over canvas */
+            backdrop-filter: blur(2px);
         }
 
-        .phase-badge {
-            margin-top: 0.8em;
-            background: var(--fg-color);
-            color: var(--bg-color);
-            padding: 0.3em 0.8em;
-            font-weight: 900;
-            font-size: clamp(0.8rem, 2.5vw, 1.1rem);
-            display: inline-block;
-            box-shadow: 0.2em 0.2em 0px var(--dim-color);
+        #status-box {
+            border: 1px solid var(--fg-color);
+            padding: var(--space-sm);
+            background: rgba(0,0,0,0.85);
+            /* Responsive Width Logic */
+            width: 100%; 
+            max-width: clamp(300px, 50vw, 600px); 
+            box-sizing: border-box;
+            box-shadow: 4px 4px 0px var(--dim-color);
         }
 
-        /* --- TERMINAL LOG (Responsive) --- */
-        #terminal-container {
-            position: absolute;
-            bottom: var(--spacing-unit);
-            left: var(--spacing-unit);
-            width: clamp(280px, 40vw, 500px);
-            max-height: 40vh;
-            background: var(--term-bg);
-            border: 1px solid var(--border-color);
-            z-index: 20;
-            box-shadow: 6px 6px 0px #001a05;
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s ease;
+        .log-line {
+            font-size: var(--font-sm);
+            line-height: 1.5;
+            margin: 0;
+            display: block;
+            white-space: pre-wrap; 
         }
 
-        /* Mobile Adjustment for Terminal */
-        @media (max-width: 768px) {
-            #terminal-container {
-                width: calc(100% - (var(--spacing-unit) * 2));
-                bottom: calc(var(--spacing-unit) + 60px); /* Make room for button */
-                box-shadow: 4px 4px 0px #001a05;
-            }
-        }
-
-        #term-header {
-            background: var(--dim-color);
-            color: var(--fg-color);
-            padding: 0.5em 1em;
-            font-size: 0.8rem;
-            font-weight: bold;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            text-transform: uppercase;
-        }
-
-        #term-body {
-            padding: 1em;
-            font-size: var(--font-base);
-            line-height: 1.4;
-            white-space: pre-wrap;
-            overflow-y: auto;
-            /* Custom Scrollbar for Webkit */
-            scrollbar-width: thin;
-            scrollbar-color: var(--fg-color) var(--bg-color);
-        }
-
-        #term-body::-webkit-scrollbar { width: 6px; }
-        #term-body::-webkit-scrollbar-thumb { background: var(--fg-color); }
-        #term-body::-webkit-scrollbar-track { background: var(--bg-color); }
-
-        .cursor {
-            display: inline-block;
-            width: 0.6em;
-            height: 1.2em;
-            background: var(--fg-color);
-            vertical-align: text-bottom;
-            animation: blink 1s step-end infinite;
-        }
-
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
-        /* --- BUTTON CONTROLS --- */
+        /* --- CONTROLS --- */
         #controls {
             position: absolute;
-            bottom: var(--spacing-unit);
-            right: var(--spacing-unit);
+            bottom: var(--space-md);
+            right: var(--space-sm);
+            left: var(--space-sm); /* Full width on mobile */
             z-index: 20;
-        }
-
-        /* On mobile, center the button at very bottom */
-        @media (max-width: 768px) {
-            #controls {
-                left: var(--spacing-unit);
-                right: var(--spacing-unit);
-                bottom: var(--spacing-unit);
-                display: flex;
-            }
-            button {
-                width: 100%;
-            }
+            display: flex;
+            justify-content: flex-end; /* Right align on desktop */
+            pointer-events: none; /* Let clicks pass through empty space */
         }
 
         button {
-            background: var(--bg-color);
-            border: 2px solid var(--fg-color);
+            pointer-events: auto;
+            background: #000;
             color: var(--fg-color);
-            padding: 0.8em 1.5em;
+            border: 2px solid var(--fg-color);
+            padding: var(--space-sm) var(--space-md);
             font-family: inherit;
-            font-size: clamp(0.9rem, 3vw, 1.1rem);
             font-weight: bold;
-            text-transform: uppercase;
+            font-size: var(--font-sm);
             cursor: pointer;
-            box-shadow: 4px 4px 0px var(--dim-color);
-            transition: transform 0.1s, box-shadow 0.1s;
-            white-space: nowrap;
+            text-transform: uppercase;
+            box-shadow: clamp(2px, 0.5vw, 4px) clamp(2px, 0.5vw, 4px) 0px var(--dim-color);
+            transition: transform 0.1s;
+            /* Mobile adjustment */
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        @media (min-width: 768px) {
+            #controls {
+                left: auto; /* Revert to right-only on tablet+ */
+                width: auto;
+            }
+            button {
+                width: auto;
+            }
         }
 
-        button:active {
-            transform: translate(2px, 2px);
-            box-shadow: 2px 2px 0px var(--dim-color);
+        button:active { 
+            transform: translate(2px, 2px); 
+            box-shadow: 2px 2px 0px var(--dim-color); 
         }
 
-        /* --- RETRO OVERLAY --- */
+        /* --- EFFECTS --- */
         #scanlines {
             position: fixed;
             top: 0;
@@ -194,455 +149,479 @@
                 to bottom,
                 rgba(255,255,255,0),
                 rgba(255,255,255,0) 50%,
-                rgba(0,0,0,0.3) 50%,
-                rgba(0,0,0,0.3)
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
             );
             background-size: 100% 4px;
             pointer-events: none;
-            z-index: 10;
+            z-index: 5;
+        }
+        
+        /* MathJax Styling */
+        mjx-container {
+            color: var(--fg-color) !important;
+            font-size: 100% !important;
         }
     </style>
 </head>
 <body>
 
-    <div id="header-layer">
-        <h1>LoRA Visualization</h1><br>
-        <div id="phase-badge" class="phase-badge">SYSTEM INITIALIZED</div>
+    <div id="ui-layer">
+        <h1>LoRA Architecture // v1.2</h1>
+        <div id="status-box">
+            <span id="log-display" class="log-line">SYSTEM INITIALIZED...</span>
+        </div>
     </div>
 
     <div id="canvas-container">
         <canvas id="mainCanvas"></canvas>
     </div>
 
-    <div id="terminal-container">
-        <div id="term-header">
-            <span>SYS.LOG</span>
-            <span>:: EXEC_MODE</span>
-        </div>
-        <div id="term-body"><span id="typewriter-text"></span><span class="cursor"></span></div>
-    </div>
-
     <div id="scanlines"></div>
 
     <div id="controls">
-        <button id="nextBtn">START PROCESS >></button>
+        <button id="nextBtn">NEXT PHASE >></button>
     </div>
 
     <script>
         /**
          * RESPONSIVE LORA VISUALIZER
-         * Scale-agnostic logic for Ditherpunk Aesthetic
+         * Uses relative geometry units (vmin/vmax) for window-agnostic rendering.
          */
 
         const canvas = document.getElementById('mainCanvas');
         const ctx = canvas.getContext('2d');
-        const phaseBadge = document.getElementById('phase-badge');
-        const typeTextSpan = document.getElementById('typewriter-text');
+        const logDisplay = document.getElementById('log-display');
         const nextBtn = document.getElementById('nextBtn');
 
-        // Theme Constants
-        const C_BG = '#080808';
-        const C_FG = '#00FF41'; 
-        const C_ERR = '#FF0055'; 
-        const C_WHT = '#EEFFEE';
+        // --- CONFIG & STATE ---
+        const COLORS = {
+            bg: '#050505',
+            fg: '#00FF41',
+            dim: '#003B0F',
+            hot: '#00E050', 
+            white: '#EEFFEE'
+        };
 
-        // State
-        let width, height;
-        let frame = 0;
-        let stepIndex = 0;
-        
-        // Logical Step Definitions
-        const STEPS = [
-            {
-                title: "1. BASE MODEL PREPARATION",
-                log: "> ACTION: Load Pre-trained Base Model.\n> OPTIMIZATION: Quantize to 4-bit (Save Memory).\n> STATE: WEIGHTS FROZEN. No parameter updates allowed.\n> NOTE: Simulates massive neural network structure."
-            },
-            {
-                title: "2. CONFIGURATION (ONTOLOGY)",
-                log: "> DEFINE: LoraConfig Object.\n> R (RANK)=8: Sets bottleneck size.\n> ALPHA=16: Scaling factor.\n> TARGETS: Attaching adapters to Linear layers (q_proj, v_proj).\n> VISUAL: Matrix A compresses (d→r), Matrix B expands (r→d)."
-            },
-            {
-                title: "3. MODEL INJECTION",
-                log: "> INJECTING: Parallel Adapter Structure.\n> LOGIC: The small orange path runs ALONGSIDE the frozen blue path.\n> INIT: Weights set to Zero/Gaussian.\n> RESULT: Total trainable params < 1%."
-            },
-            {
-                title: "4. TRAINING (FINE-TUNING)",
-                log: "> PROCESS: Backpropagation.\n> MECHANISM: Gradients (Red) bypass the frozen block.\n> UPDATE: Only Matrices A & B are modified.\n> BENEFIT: No Catastrophic Forgetting of base knowledge."
-            },
-            {
-                title: "5. MERGING & INFERENCE",
-                log: "> DEPLOYMENT: Merging Adapter into Base.\n> MATH: W_final = W_base + (B × A × α/r).\n> RESULT: Single optimized model structure.\n> LATENCY: Zero additional overhead."
+        const PHASES = [
+            { id: 0, title: "BASE_MODEL_LOAD", msg: "> Base Model Weights (W0) Loaded. FROZEN." },
+            { id: 1, title: "ADAPTER_INJECTION", msg: "> Injecting Low-Rank Matrices A & B. r=8." },
+            { id: 2, title: "INFERENCE_FWD", msg: "> Data splits. Main Path + Adapter Path." },
+            { id: 3, title: "TRAINING_BWD", msg: "> Backprop. Gradients update A & B ONLY. W0 is safe." },
+            { 
+                id: 4, 
+                title: "MERGE_DEPLOY", 
+                msg: "Merging & Inference: The math for the final output is: \\( W_{final} = W_{base} + (B \\times A \\times \\alpha/r) \\). Because LoRA is additive, you nudge the model's general knowledge rather than replacing it." 
             }
         ];
 
-        // Entity State Objects
-        // Positions are calculated in resize()
-        let baseModel = { frozen: false, scanLine: 0 };
-        let adapterA = { opacity: 0 };
-        let adapterB = { opacity: 0 };
-        let mergeProgress = 0;
-        let particles = [];
+        let state = {
+            phase: 0,
+            width: 0,
+            height: 0,
+            frame: 0,
+            particles: [],
+            adapterOffset: 0,
+            mergeProgress: 0
+        };
 
-        // Pre-rendered Patterns
-        let noisePat, gridPat, densePat, stripePat;
-        // Typewriter State
-        let typeTarget = "";
-        let typeIdx = 0;
+        // Geometry Cache
+        let geo = {
+            base: {x:0, y:0, w:0, h:0},
+            adapter: {x:0, y:0, w:0, h:0, neck:0},
+            fontSize: 12
+        };
 
-        /**
-         * RESPONSIVE GEOMETRY CALCULATION
-         * This ensures visual consistency across Mobile (Portrait) and Desktop (Landscape)
-         */
-        function resize() {
-            // Get actual display size in pixels
-            width = canvas.parentElement.clientWidth;
-            height = canvas.parentElement.clientHeight;
-            
-            // Update Canvas Resolution
-            canvas.width = width;
-            canvas.height = height;
-            
-            // Determine orientation
-            const isPortrait = height > width;
-            const cx = width / 2;
-            const cy = height / 2;
-            
-            // Reference Unit: Min dimension to ensure square-ish elements don't stretch
-            const ref = Math.min(width, height);
+        // Patterns
+        let patGrid, patNoise, patStripes, patSolid;
 
-            // Calculate Base Model Dimensions
-            // Landscape: wider blocks. Portrait: narrower blocks.
-            const bW = isPortrait ? width * 0.35 : width * 0.15;
-            const bH = isPortrait ? height * 0.40 : height * 0.55;
-            
-            // Clamp max size for ultra-wide monitors
-            const maxW = 200; 
-            const clampedBW = Math.min(bW, maxW);
-            
-            baseModel.w = clampedBW;
-            baseModel.h = bH;
-            
-            // Position Base Model
-            // Shift left to make room for adapter
-            const xOffset = isPortrait ? clampedBW * 0.8 : clampedBW * 1.2;
-            baseModel.x = cx - xOffset; 
-            baseModel.y = cy - (bH / 2);
-
-            // Calculate Adapter Dimensions (Relative to Base)
-            const aW = clampedBW * 0.6; // Adapter width relative to base
-            const aH = bH * 0.15;       // Matrix height relative to base
-            
-            // Adapter Gap
-            const gap = isPortrait ? width * 0.05 : width * 0.05; 
-            const adapterX = baseModel.x + baseModel.w + gap;
-            
-            adapterA.w = aW; 
-            adapterA.h = aH;
-            adapterA.x = adapterX;
-            adapterA.y = baseModel.y + bH - aH; // Bottom Matrix (Compress)
-
-            adapterB.w = aW;
-            adapterB.h = aH;
-            adapterB.x = adapterX;
-            adapterB.y = baseModel.y; // Top Matrix (Expand)
-
-            createPatterns();
+        // --- PATTERN GENERATOR ---
+        function createPattern(drawFn) {
+            const pCan = document.createElement('canvas');
+            pCan.width = 8; pCan.height = 8;
+            const pCtx = pCan.getContext('2d');
+            drawFn(pCtx);
+            return ctx.createPattern(pCan, 'repeat');
         }
 
-        // --- PATTERN GENERATION (Window Agnostic) ---
-        function createPatterns() {
-            const mkPat = (draw) => {
-                const c = document.createElement('canvas');
-                c.width = 8; c.height = 8; // Pattern tile size
-                draw(c.getContext('2d'));
-                return ctx.createPattern(c, 'repeat');
-            };
-
-            // 1. Noise (Unfrozen)
-            noisePat = mkPat(c => {
-                c.fillStyle = C_BG; c.fillRect(0,0,8,8);
-                c.fillStyle = '#003300';
-                for(let i=0; i<12; i++) c.fillRect(Math.random()*8, Math.random()*8, 1, 1);
+        function initPatterns() {
+            patGrid = createPattern(c => {
+                c.fillStyle = COLORS.bg; c.fillRect(0,0,8,8);
+                c.strokeStyle = COLORS.dim; c.lineWidth = 1;
+                c.moveTo(0,0); c.lineTo(8,8); c.stroke();
             });
-
-            // 2. Grid (Frozen)
-            gridPat = mkPat(c => {
-                c.fillStyle = C_BG; c.fillRect(0,0,8,8);
-                c.strokeStyle = '#004411'; c.lineWidth = 1;
-                c.strokeRect(0.5,0.5,7,7);
-                c.fillStyle = '#001a05'; c.fillRect(2,2,4,4);
+            patNoise = createPattern(c => {
+                c.fillStyle = COLORS.bg; c.fillRect(0,0,8,8);
+                c.fillStyle = COLORS.fg;
+                c.fillRect(2,2,2,2); c.fillRect(6,0,2,2); c.fillRect(0,6,2,2);
             });
-
-            // 3. Dense (Merged)
-            densePat = mkPat(c => {
-                c.fillStyle = '#00220a'; c.fillRect(0,0,8,8);
-                c.fillStyle = C_FG; c.fillRect(1,1,1,1); c.fillRect(5,5,1,1);
-            });
-
-            // 4. Adapter (Active)
-            stripePat = mkPat(c => {
-                c.fillStyle = C_BG; c.fillRect(0,0,8,8);
-                c.strokeStyle = C_FG;
+            patStripes = createPattern(c => {
+                c.fillStyle = COLORS.bg; c.fillRect(0,0,8,8);
+                c.strokeStyle = COLORS.fg;
                 c.beginPath(); c.moveTo(0,8); c.lineTo(8,0); c.stroke();
             });
+            patSolid = createPattern(c => {
+                c.fillStyle = COLORS.dim; c.fillRect(0,0,8,8);
+                c.fillStyle = COLORS.fg; c.fillRect(0,0,2,2); c.fillRect(4,4,2,2);
+            });
         }
 
-        // --- STATE MANAGEMENT ---
-        function setStep(idx) {
-            stepIndex = idx;
-            phaseBadge.textContent = STEPS[idx].title;
-            typeTarget = STEPS[idx].log;
-            typeIdx = 0;
-            typeTextSpan.textContent = "";
+        // --- RESPONSIVE GEOMETRY CALCULATION ---
+        function resize() {
+            // 1. Setup Canvas Resolution
+            // Multiplier helps crispness on high DPI, but simple 1:1 is best for retro performance
+            state.width = canvas.parentElement.clientWidth;
+            state.height = canvas.parentElement.clientHeight;
+            canvas.width = state.width;
+            canvas.height = state.height;
+
+            const cx = state.width / 2;
+            const cy = state.height / 2;
+            const isPortrait = state.height > state.width;
+
+            // 2. Define Unit Sizes (VMIN driven)
+            // This ensures elements don't get too small on mobile or too huge on ultrawide
+            const vmin = Math.min(state.width, state.height);
             
-            // Reset Visual State
-            if(idx === 0) {
-                baseModel.scanLine = 0;
-                baseModel.frozen = false;
-                adapterA.opacity = 0;
-                adapterB.opacity = 0;
-                mergeProgress = 0;
+            // 3. Base Model Calculation
+            let bW, bH;
+            
+            if (isPortrait) {
+                // Mobile/Portrait: Wider boxes relative to screen width
+                bW = state.width * 0.40; // 40% of screen width
+                bH = state.height * 0.35;
+            } else {
+                // Desktop/Landscape: Standard ratio
+                bW = state.width * 0.20; // 20% of screen width
+                bH = state.height * 0.50;
             }
+
+            // Cap max sizes for Ultrawide monitors so it doesn't look comical
+            // We use a "soft cap" by mixing pixels and percentages if needed, 
+            // but sticking to % keeps it truly agnostic.
+            
+            geo.base = {
+                w: bW,
+                h: bH,
+                // Center, then offset left to make room for adapter
+                x: cx - (bW * 0.8), 
+                y: cy - (bH / 2)
+            };
+
+            // 4. Adapter Calculation (Relative to Base)
+            const aW = bW * 0.5; // Adapter is half the width of base
+            const neckW = aW * 0.25; 
+            const gap = state.width * 0.05; // 5% Gap
+
+            geo.adapter = {
+                w: aW,
+                h: bH,
+                x: geo.base.x + geo.base.w + gap,
+                y: geo.base.y,
+                neckW: neckW
+            };
+
+            // 5. Dynamic Font Size for Canvas Text
+            // Scale font based on the Base Model width
+            geo.fontSize = Math.max(10, Math.floor(bW / 12));
+
+            initPatterns();
         }
 
-        function updateTypewriter() {
-            if (typeIdx < typeTarget.length) {
-                // Type 3 chars per frame for responsive feel
-                for(let i=0; i<3; i++) {
-                    if(typeIdx < typeTarget.length) {
-                        typeTextSpan.textContent += typeTarget.charAt(typeIdx);
-                        typeIdx++;
+        // --- PARTICLE SYSTEM ---
+        function spawnParticle(type) {
+            const isTraining = (state.phase === 3);
+            // Spawn far off screen to ensure smooth entry
+            const startY = isTraining ? -50 : state.height + 50;
+            
+            // Speed scaled by height so it feels same speed on all devices
+            const speedBase = state.height * 0.005; 
+            const speed = isTraining ? (Math.random() * speedBase + speedBase) : -(Math.random() * speedBase + speedBase);
+
+            return {
+                x: 0, 
+                y: startY,
+                vx: 0,
+                vy: speed,
+                type: type,
+                life: 1.0
+            };
+        }
+
+        function updateParticles() {
+            if (state.phase >= 2) {
+                if (Math.random() > 0.8) {
+                    // Main Stream
+                    let p = spawnParticle('main');
+                    // Randomize X within Base width
+                    p.x = geo.base.x + geo.base.w/2 + (Math.random() - 0.5) * geo.base.w * 0.6;
+                    state.particles.push(p);
+
+                    // Adapter Stream
+                    if (state.phase !== 4 || state.mergeProgress < 1) {
+                        let p2 = spawnParticle('adapter');
+                        // Calculate X based on animation state
+                        let currentAdapterX = geo.adapter.x - (state.mergeProgress * (geo.adapter.x - geo.base.x));
+                        p2.x = currentAdapterX + geo.adapter.w/2 + (Math.random() - 0.5) * geo.adapter.w * 0.4;
+                        state.particles.push(p2);
                     }
+                }
+            }
+
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                let p = state.particles[i];
+                p.y += p.vy;
+
+                // Collision / Logic
+                if (state.phase === 3) {
+                    // Bounce off Base (Frozen)
+                    if (p.type === 'main' && p.y > geo.base.y && p.y < geo.base.y + geo.base.h) {
+                        p.vy *= -0.5;
+                        p.vx = (Math.random() - 0.5) * (state.width * 0.02); // Responsive horizontal bounce
+                        p.life -= 0.1;
+                    }
+                }
+
+                if (p.y < -100 || p.y > state.height + 100 || p.life <= 0) {
+                    state.particles.splice(i, 1);
                 }
             }
         }
 
         // --- DRAWING HELPERS ---
-        function drawRect(x, y, w, h, pat, stroke=true, glow=false) {
+        function drawRect(x, y, w, h, pat, stroke = true) {
             ctx.fillStyle = pat;
-            ctx.fillRect(x,y,w,h);
-            if(stroke) {
-                ctx.strokeStyle = glow ? C_WHT : C_FG;
-                ctx.lineWidth = glow ? 3 : 2;
-                ctx.strokeRect(x,y,w,h);
+            ctx.fillRect(x, y, w, h);
+            if (stroke) {
+                ctx.strokeStyle = COLORS.fg;
+                ctx.lineWidth = Math.max(1, state.width * 0.001); // Responsive line width
+                ctx.strokeRect(x, y, w, h);
             }
         }
 
-        function drawConnector(x1, y1, x2, y2) {
-            ctx.strokeStyle = C_FG;
-            ctx.setLineDash([4,4]);
-            ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-            ctx.setLineDash([]);
-        }
+        function drawHourglass(x, y, w, h, neckW, pat) {
+            ctx.fillStyle = pat;
+            ctx.strokeStyle = COLORS.fg;
+            ctx.lineWidth = Math.max(1, state.width * 0.001);
 
-        function drawParticles() {
-            const isTraining = (stepIndex === 3);
-            const isForward = (stepIndex === 2);
+            const midY = y + h/2;
+            const midX = x + w/2;
 
-            if (!isTraining && !isForward) {
-                particles = [];
-                return;
-            }
+            ctx.beginPath();
+            // Top (Matrix B)
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w, y);
+            ctx.lineTo(midX + neckW, midY);
+            ctx.lineTo(midX - neckW, midY);
+            ctx.lineTo(x, y);
+            
+            // Bottom (Matrix A)
+            ctx.moveTo(midX - neckW, midY);
+            ctx.lineTo(midX + neckW, midY);
+            ctx.lineTo(x + w, y + h);
+            ctx.lineTo(x, y + h);
+            ctx.lineTo(midX - neckW, midY);
 
-            // Spawn Rate
-            if(Math.random() > 0.8) {
-                const spawnY = isTraining ? -20 : height + 20;
-                const speed = isTraining ? height * 0.015 : -(height * 0.015); // Scale speed by height
+            ctx.fill();
+            ctx.stroke();
+
+            // Label "r=8"
+            if (state.phase >= 1) {
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = COLORS.bg;
+                const tagW = w * 0.6;
+                const tagH = h * 0.05;
+                ctx.fillRect(midX - tagW/2, midY - tagH/2, tagW, tagH);
                 
-                // Main Stream
-                particles.push({
-                    x: baseModel.x + baseModel.w/2 + (Math.random()*baseModel.w*0.2 - baseModel.w*0.1),
-                    y: spawnY,
-                    vx: 0,
-                    vy: speed, 
-                    type: 'main',
-                    life: 200
-                });
-                
-                // Adapter Stream
-                particles.push({
-                    x: adapterA.x + adapterA.w/2 + (Math.random()*adapterA.w*0.4 - adapterA.w*0.2),
-                    y: spawnY,
-                    vx: 0,
-                    vy: speed,
-                    type: 'bypass',
-                    life: 200
-                });
-            }
-
-            // Update & Draw
-            for (let i = particles.length-1; i>=0; i--) {
-                let p = particles[i];
-                p.y += p.vy;
-                p.life--;
-
-                let color = C_FG;
-                const pSize = Math.max(2, width * 0.003); // Responsive particle size
-
-                if (isTraining) {
-                    color = C_ERR; 
-                    
-                    // Bounce off Frozen Model
-                    if(p.type === 'main') {
-                        if(p.y > baseModel.y && p.y < baseModel.y + baseModel.h) {
-                            p.vy *= -1; 
-                            p.vx = (Math.random()-0.5) * (width * 0.02);
-                            p.life = 15;
-                        }
-                    }
-                    
-                    // Absorb in Adapter
-                    if(p.type === 'bypass') {
-                        if(p.y > adapterB.y && p.y < adapterA.y + adapterA.h) {
-                            color = C_WHT; 
-                            // Spark effect
-                            if(Math.random()>0.7) {
-                                ctx.fillStyle = C_WHT;
-                                ctx.fillRect(p.x - pSize*2, p.y, pSize*4, pSize);
-                            }
-                        }
-                    }
-                }
-
-                ctx.fillStyle = color;
-                ctx.fillRect(p.x, p.y, pSize, pSize);
-                
-                if(p.life <= 0 || p.y < -50 || p.y > height + 50) particles.splice(i,1);
+                ctx.fillStyle = COLORS.fg;
+                ctx.font = `${Math.floor(geo.fontSize * 0.8)}px Courier New`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("r=8", midX, midY);
             }
         }
 
-        // --- MAIN ANIMATION LOOP ---
+        // --- MAIN LOOP ---
         function loop() {
-            frame++;
-            updateTypewriter();
-
-            // Clear Canvas
-            ctx.fillStyle = C_BG;
-            ctx.fillRect(0,0,width,height);
-
-            // --- ANIMATION LOGIC ---
+            state.frame++;
             
-            // 1. Base Model Scan
-            if (stepIndex === 0) {
-                const scanSpeed = baseModel.h * 0.02;
-                if (baseModel.scanLine < baseModel.h) baseModel.scanLine += scanSpeed;
-                else baseModel.frozen = true;
+            // 1. Clear
+            ctx.fillStyle = COLORS.bg;
+            ctx.fillRect(0, 0, state.width, state.height);
+
+            // 2. Logic Update
+            updateParticles();
+
+            // Animation Scalars
+            if (state.phase === 4) {
+                if (state.mergeProgress < 1.0) state.mergeProgress += 0.01;
             } else {
-                baseModel.scanLine = baseModel.h; 
-                baseModel.frozen = true;
+                state.mergeProgress = 0;
             }
 
-            // 2. Adapter Fade In
-            let showAdapters = stepIndex >= 1 && stepIndex !== 4; 
-            let targetOpacity = showAdapters ? 1 : 0;
-            
-            if (stepIndex !== 4) {
-                adapterA.opacity += (targetOpacity - adapterA.opacity) * 0.1;
-                adapterB.opacity = adapterA.opacity;
+            let slideIn = 1;
+            if (state.phase === 1) {
+                state.adapterOffset = Math.min(state.adapterOffset + 0.02, 1);
+                slideIn = state.adapterOffset;
+            } else if (state.phase === 0) {
+                slideIn = 0;
+                state.adapterOffset = 0;
             }
 
-            // 3. Merge Logic
-            let renderBaseX = baseModel.x;
-            let renderAdapterX = adapterA.x;
-            
-            if (stepIndex === 4) {
-                // Determine destination
-                let dist = adapterA.x - baseModel.x;
-                let speed = dist * 0.05;
-                if (mergeProgress < dist) mergeProgress += speed;
-                renderAdapterX -= mergeProgress;
+            // Calc Positions
+            const baseX = geo.base.x;
+            const targetX = geo.base.x + (geo.base.w - geo.adapter.w)/2;
+            const startX = geo.adapter.x;
+            // Linear interpolation for merge animation
+            const renderAdapterX = startX - (state.mergeProgress * (startX - targetX));
+            // Slide in offset for injection phase
+            const injectOffset = (1 - slideIn) * (state.width * 0.05);
+
+            // 3. Draw Connections (Responsive Lines)
+            if (state.phase >= 2) {
+                ctx.strokeStyle = COLORS.dim;
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 1;
                 
-                if (mergeProgress > dist * 0.8) {
-                    adapterA.opacity = Math.max(0, adapterA.opacity - 0.05);
-                    adapterB.opacity = adapterA.opacity;
-                }
-            }
+                const splitY = geo.base.y + geo.base.h + (state.height * 0.05);
+                const mergeY = geo.base.y - (state.height * 0.05);
 
-            // --- RENDER OBJECTS ---
-
-            // Draw Base
-            let mPat = baseModel.frozen ? gridPat : noisePat;
-            if (stepIndex === 4 && adapterA.opacity <= 0.1) mPat = densePat;
-            drawRect(renderBaseX, baseModel.y, baseModel.w, baseModel.h, mPat);
-
-            // Draw Scanline
-            if (stepIndex === 0 && baseModel.scanLine < baseModel.h) {
-                ctx.fillStyle = C_FG;
-                ctx.fillRect(baseModel.x, baseModel.y + baseModel.scanLine, baseModel.w, height * 0.005);
-            }
-
-            // Draw Adapters
-            if (adapterA.opacity > 0.01) {
-                ctx.save();
-                ctx.globalAlpha = adapterA.opacity;
-                
-                let glow = (stepIndex === 3 && frame % 10 < 5);
-                
-                drawRect(renderAdapterX, adapterB.y, adapterB.w, adapterB.h, stripePat, true, glow);
-                drawRect(renderAdapterX, adapterA.y, adapterA.w, adapterA.h, stripePat, true, glow);
-
-                // Rank Neck (Hourglass)
-                const neckTop = adapterB.y + adapterB.h;
-                const neckBot = adapterA.y;
-                const midX = renderAdapterX + adapterA.w/2;
-                
-                ctx.strokeStyle = glow ? C_WHT : C_FG;
-                ctx.lineWidth = 2;
+                // Split
                 ctx.beginPath();
-                ctx.moveTo(renderAdapterX, neckTop); 
-                ctx.lineTo(midX - 3, (neckTop+neckBot)/2); 
-                ctx.lineTo(renderAdapterX, neckBot);
-                ctx.moveTo(renderAdapterX + adapterA.w, neckTop); 
-                ctx.lineTo(midX + 3, (neckTop+neckBot)/2); 
-                ctx.lineTo(renderAdapterX + adapterA.w, neckBot);
+                ctx.moveTo(baseX + geo.base.w/2, state.height);
+                ctx.lineTo(baseX + geo.base.w/2, splitY);
+                ctx.lineTo(renderAdapterX + geo.adapter.w/2, splitY);
                 ctx.stroke();
 
-                // Labels
-                if(stepIndex === 1) {
-                    ctx.fillStyle = C_FG;
-                    ctx.font = `bold ${Math.max(10, width*0.01)}px Courier`;
-                    ctx.fillText("r=8", midX + 8, (neckTop+neckBot)/2 + 4);
+                // Merge
+                ctx.beginPath();
+                ctx.moveTo(renderAdapterX + geo.adapter.w/2, geo.base.y);
+                ctx.lineTo(renderAdapterX + geo.adapter.w/2, mergeY);
+                ctx.lineTo(baseX + geo.base.w/2, mergeY);
+                ctx.stroke();
+                
+                ctx.setLineDash([]);
+            }
+
+            // 4. Draw Base Model
+            let basePat = patGrid; 
+            if (state.phase === 4 && state.mergeProgress > 0.8) basePat = patSolid;
+            drawRect(baseX, geo.base.y, geo.base.w, geo.base.h, basePat);
+
+            // Lock Icon
+            if (state.phase !== 4) {
+                const iconSize = geo.base.w * 0.15;
+                const iconX = baseX + (geo.base.w * 0.05);
+                const iconY = geo.base.y + (geo.base.w * 0.05);
+                
+                ctx.fillStyle = COLORS.bg;
+                ctx.fillRect(iconX, iconY, iconSize, iconSize);
+                ctx.strokeStyle = COLORS.fg;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(iconX, iconY, iconSize, iconSize);
+                
+                // Lock shackle
+                ctx.beginPath();
+                ctx.arc(iconX + iconSize/2, iconY + iconSize*0.3, iconSize*0.2, Math.PI, 0);
+                ctx.stroke();
+                // Lock body center
+                ctx.fillRect(iconX + iconSize*0.3, iconY + iconSize*0.3, iconSize*0.4, iconSize*0.4);
+            }
+
+            // 5. Draw Adapter
+            if (state.phase >= 1) {
+                ctx.save();
+                ctx.globalAlpha = slideIn;
+                
+                let isFlashing = false;
+                // Flash Green Glow
+                if (state.phase === 3 && Math.floor(state.frame / 5) % 2 === 0) {
+                    isFlashing = true;
+                    ctx.shadowColor = COLORS.hot;
+                    ctx.shadowBlur = state.width * 0.02; // Responsive Blur
+                    ctx.fillStyle = COLORS.hot; 
                 }
 
+                if (state.mergeProgress < 0.95) {
+                    drawHourglass(
+                        renderAdapterX + injectOffset, 
+                        geo.adapter.y, 
+                        geo.adapter.w, 
+                        geo.adapter.h, 
+                        geo.adapter.neckW,
+                        isFlashing ? COLORS.hot : patStripes
+                    );
+                }
                 ctx.restore();
             }
 
-            // Connectors
-            if (stepIndex >= 2 && stepIndex !== 4) {
-                const offset = height * 0.05;
-                const inY = baseModel.y + baseModel.h + offset;
-                const outY = baseModel.y - offset;
+            // 6. Particles
+            const pSize = Math.max(2, state.width * 0.003); // Responsive particles
+            state.particles.forEach(p => {
+                ctx.save();
+                ctx.fillStyle = (p.type === 'main') ? COLORS.white : COLORS.fg;
                 
-                drawConnector(baseModel.x + baseModel.w/2, inY, adapterA.x + adapterA.w/2, inY);
-                drawConnector(baseModel.x + baseModel.w/2, outY, adapterB.x + adapterB.w/2, outY);
-                
-                // Sum Node
-                ctx.fillStyle = C_FG;
-                ctx.font = `bold ${Math.max(16, width*0.02)}px Courier`;
-                ctx.textAlign = "center";
-                ctx.fillText("+", (baseModel.x + adapterA.x)/2 + baseModel.w/2, outY);
+                if (state.phase === 3) {
+                    ctx.fillStyle = COLORS.hot; 
+                    ctx.shadowColor = COLORS.hot;
+                    ctx.shadowBlur = pSize * 2;
+                }
+
+                ctx.fillRect(p.x, p.y, pSize, pSize);
+                ctx.restore();
+            });
+
+            // 7. Labels
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = COLORS.fg;
+            ctx.font = `bold ${geo.fontSize}px Courier New`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            // Base Label (Auto-wrap not supported in canvas easily, so we break line manually if needed or keep short)
+            // We split "Base Model" and "(Frozen)" to vertical stack
+            ctx.fillText("BASE MODEL", baseX + geo.base.w/2, geo.base.y + geo.base.h/2 - geo.fontSize);
+            ctx.fillText("(FROZEN)", baseX + geo.base.w/2, geo.base.y + geo.base.h/2 + geo.fontSize);
+
+            // Adapter Labels
+            if (state.phase >= 1 && state.mergeProgress < 0.8) {
+                const acx = renderAdapterX + geo.adapter.w/2;
+                // B is Top, A is Bottom
+                ctx.fillText("B", acx, geo.adapter.y + geo.adapter.h * 0.15);
+                ctx.fillText("A", acx, geo.adapter.y + geo.adapter.h * 0.85);
             }
 
-            drawParticles();
             requestAnimationFrame(loop);
         }
 
-        // --- INITIALIZATION ---
-        window.addEventListener('resize', resize);
-        
+        // --- EVENTS ---
         nextBtn.addEventListener('click', () => {
-            let nextStep = stepIndex + 1;
-            if(nextStep >= STEPS.length) nextStep = 0;
-            setStep(nextStep);
+            let next = state.phase + 1;
+            if (next >= PHASES.length) next = 0;
+            state.phase = next;
+            logDisplay.innerHTML = PHASES[next].msg;
             
-            if(nextStep === 0) nextBtn.textContent = "START PROCESS >>";
-            else if(nextStep === 4) nextBtn.textContent = "RESET SIMULATION";
-            else nextBtn.textContent = "NEXT PHASE >>";
+            if (window.MathJax) {
+                MathJax.typesetPromise([logDisplay]).catch(e => console.log(e));
+            }
+            
+            if (next === 0) {
+                state.mergeProgress = 0;
+                state.particles = [];
+                nextBtn.innerText = "INJECT ADAPTERS >>";
+            } else if (next === 4) {
+                nextBtn.innerText = "RESET SYSTEM";
+            } else {
+                nextBtn.innerText = "NEXT PHASE >>";
+            }
         });
 
-        // Boot
+        window.addEventListener('resize', resize);
+        
+        // Init
         resize();
-        setStep(0);
+        logDisplay.innerHTML = PHASES[0].msg;
+        if (window.MathJax) MathJax.typesetPromise([logDisplay]);
         loop();
 
     </script>

@@ -618,16 +618,106 @@
                             <div class="subsection">
                                 <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen.</p>
                                 
-                                <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. You must "freeze" the model, ensuring no original parameters will be updated during training. The PEFT library handles this freezing automatically.</p>
+                                <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. You must "freeze" the model, ensuring no original parameters will be updated during training.</p>
                                 
                                 <p><strong>2. Configuration (The Ontology):</strong> You must define a <code>LoraConfig</code> object to dictate how the adaptation works:</p>
                                 <ul>
                                     <li><strong>r (Rank):</strong> Set the dimension of the low-rank matrices ($A$ and $B$). Start with 8 or 16. Higher ranks allow for more complex learning but increase VRAM usage.</li>
                                     <li><strong>lora_alpha (Alpha):</strong> The scaling factor. A standard heuristic is $\alpha = 2 \times r$.</li>
-                                    <li><strong>target_modules:</strong> Specific layers to attach LoRA to. Target <code>["q_proj", "v_proj"]</code> for style/format; add <code>["gate_proj", "up_proj", "down_proj"]</code> for reasoning/facts.</li>
+                                    <li><strong>target_modules:</strong> Specific layers to attach LoRA to.
+                                        <details class="nested-accordion">
+                                            <summary>Attention Layers: The Relational "Knobs"</summary>
+                                            <div class="accordion-content">
+                                                <p>In a Transformer, the Attention mechanism determines how tokens interact. Tweaking these layers is about modifying <strong>behavior, focus, and structure</strong>.</p>
+                                                
+                                                <div class="subsection">
+                                                    <span class="subsection-title">Query (q_proj) & Key (k_proj)</span>
+                                                    <p>These define the "Search & Match" logic. The Query asks a question ("Is there a subject here?"), and the Key provides the answer ("I am the subject").</p>
+                                                    <p><strong>When to Tweak:</strong> Use these when the model struggles with <strong>contextual logic</strong> or <strong>instruction following</strong>. If the model loses the thread in long-form RAG prompts or fails to identify specific entities you've defined, updating $Q$ and $K$ improves its "navigational" accuracy within the text.</p>
+                                                </div>
+                                    
+                                                <div class="subsection">
+                                                    <span class="subsection-title">Value (v_proj) & Output (o_proj)</span>
+                                                    <p>These carry the "Payload." Once the "Match" is made, the Value layer determines exactly <em>what</em> information is passed forward.</p>
+                                                    <p><strong>When to Tweak:</strong> These are the primary targets for <strong>Style, Tone, and Format</strong>. If you want your model to adopt a "Ditherpunk" technical persona or strictly output valid JSON, $V$ is where those stylistic "flavors" are encoded. It changes the <em>result</em> of the attention, not just what the model is looking at.</p>
+                                                </div>
+                                    
+                                                <p><strong>The Selection Rule:</strong> If you want to change <strong>how the model thinks</strong> or <strong>how it speaks</strong>, focus on Attention. It is the most VRAM-efficient way to steer a model's existing personality toward a new task.</p>
+                                            </div>
+                                        </details>
+                                    
+                                        <details class="nested-accordion">
+                                            <summary>MLP Layers: The Knowledge "Storage"</summary>
+                                            <div class="accordion-content">
+                                                <p>The Multi-Layer Perceptron (MLP) acts as the model's <strong>internal database</strong>. It processes tokens in isolation to refine their meaning based on learned patterns.</p>
+                                                
+                                                <div class="subsection">
+                                                    <span class="subsection-title">Gate (gate_proj) & Up (up_proj)</span>
+                                                    <p>These act as the "Filter & Expand" mechanism (specifically in SwiGLU architectures like Llama). They determine which features of a token are important and project them into a higher-dimensional space for processing.</p>
+                                                    <p><strong>When to Tweak:</strong> Tweak these when you are performing <strong>Domain Adaptation</strong>. If you are introducing the model to "Core deep learning methods for CNNs" or specific "Bayesian Modeling" concepts that weren't in the base training, these layers act as the "empty shelves" where new factual associations are stored.</p>
+                                                </div>
+                                    
+                                                <div class="subsection">
+                                                    <span class="subsection-title">Down (down_proj)</span>
+                                                    <p>This projects the expanded information back down to the model's standard dimension. It acts as a "Summary" step.</p>
+                                                    <p><strong>When to Tweak:</strong> This is crucial for <strong>high-density technical learning</strong>. It helps the model "compress" new, complex domain knowledge into its existing architecture without causing "catastrophic forgetting."</p>
+                                                </div>
+                                    
+                                                <p><strong>The Selection Rule:</strong> If you are teaching the model <strong>new facts, specialized jargon, or complex data relationships</strong> (like your work in Distributed Learning), you <em>must</em> include MLP layers. While Attention handles the "vibe," the MLP handles the "substance."</p>
+                                            </div>
+                                        </details>
+                                    </li>
                                 </ul>
                                 
-                                <p><strong>3. Model Injection:</strong> This attaches small, trainable matrices ($A$ and $B$) to the frozen layers. Initially representing zero change, $A$ and $B$ learn the delta ($\Delta W$)—the precise mathematical offset required to steer the model's output.</p>
+                                <p><strong>3. Model Injection:</strong> Model Injection involves attaching small, trainable matrices ($A$ and $B$) to the frozen layers of the base model. During the forward pass, data flows through both the frozen base model and the parallel adapters simultaneously to achieve two goals:</p>
+    
+                                <div class="directory-tree" style="padding-left: 10px;">
+                                    <style>
+                                        /* Specific styling for the directory tree visualization within this block */
+                                        .directory-tree .nested-accordion {
+                                            position: relative;
+                                            border-left: 2px dashed var(--fg-color); /* The trunk */
+                                            margin-left: 10px;
+                                            padding-left: 20px;
+                                            margin-bottom: 10px;
+                                        }
+                                        .directory-tree .nested-accordion::before {
+                                            content: '';
+                                            position: absolute;
+                                            top: 15px; /* Aligns branch with the summary text */
+                                            left: 0;
+                                            width: 15px;
+                                            height: 2px;
+                                            background-color: var(--fg-color); /* The branch */
+                                        }
+                                        .directory-tree summary {
+                                            cursor: pointer;
+                                            transition: all 0.2s ease;
+                                            display: inline-block;
+                                            width: auto;
+                                        }
+                                        .directory-tree summary:hover {
+                                            background-color: var(--fg-color);
+                                            color: var(--bg-color);
+                                        }
+                                    </style>
+                                    
+                                    <details class="nested-accordion">
+                                        <summary>Establishing the Baseline</summary>
+                                        <div class="accordion-content">
+                                            <p>The data passes through the Base Model to utilize its massive, pre-trained knowledge bank. This provides the foundational "guess" for the output.</p>
+                                        </div>
+                                    </details>
+    
+                                    <details class="nested-accordion">
+                                        <summary>Calculating the Nudge</summary>
+                                        <div class="accordion-content">
+                                            <p>Simultaneously, the data flows through Matrices $A$ and $B$. These matrices learn the delta ($\Delta W$)—a precise mathematical offset. Initially, this path represents zero change, but over time, it learns exactly how much to "tweak" the baseline output to meet the new target.</p>
+                                        </div>
+                                    </details>
+                                </div>
+    
+                                <p style="margin-top: 10px;">This parallel flow is the key to LoRA's efficiency: by comparing the base model's static prediction with the adapter's variable "tweak," the system can steer the model's output without risking catastrophic forgetting of the original general knowledge.</p>
                                 
                                 <p><strong>4. Training:</strong> During backpropagation, the optimizer only updates the specific LoRA matrices. This prevents "catastrophic forgetting" of the base model's knowledge.</p>
                                 
@@ -635,15 +725,13 @@
                             </div>
                         </div>
                     </details>
-    
+                    
                     <details class="nested-accordion">
                         <summary>QLoRA - Quantized LoRA</summary>
                         <div class="accordion-content">
                             <div class="subsection">
                                 <p>Think of QLoRA as LoRA with a world-class packing strategy. It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware.</p>
                                 
-                                
-
                                 <p><strong>1. Base Model Preparation (4-bit Quantization):</strong> Loads weights using 4-bit NormalFloat (NF4). This specialized data type ensures minimal information loss while slashing VRAM requirements by up to 75% compared to full-precision tuning.</p>
                                 
                                 <p><strong>2. Configuration:</strong> Adds two critical features via <code>BitsAndBytesConfig</code>:</p>
@@ -668,7 +756,7 @@
                 <summary>Reinforcement Learning from Human Feedback (RLHF)</summary>
                 <div class="accordion-content">
                     <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
-                                        <ol>
+                    <ol>
                         <li><strong>The Reward Model (Learning "Taste"):</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
                         <li><strong>Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
                         <li><strong>How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the <strong>Advantage</strong>: how much better this response was compared to the model's average.
@@ -689,7 +777,7 @@
                     <div class="subsection">
                         <span class="subsection-title">Direct Preference Optimization (DPO)</span>
                         
-                        <p>Maximize the accuracy, diversity, and complexity of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
+                        <p>Maximize the <strong>accuracy, diversity, and complexity</strong> of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
                         
                         
                         <p><strong>Data Quantity:</strong> DPO is sample-efficient, meaning it requires significantly less data than SFT to fundamentally change a model’s behavior.</p>
