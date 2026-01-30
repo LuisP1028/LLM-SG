@@ -478,7 +478,7 @@
                         <h3>Process:</h3>
                         <ol>
                             <li>
-                                <strong>Scope and Configuration:</strong> This step defines the boundaries. It loads the metadata schema (the "rulebook") to tell the AI which specific fields exist—like Price, Date, or Author. It sets the stage so the AI knows exactly what categories are valid before processing begins.
+                                <strong>Scope and Schema Declaration:</strong> This step defines the boundaries. It loads the metadata schema (the "rulebook") to tell the AI which specific fields exist—like Price, Date, or Author. It sets the stage so the AI knows exactly what categories are valid before processing begins.
                             </li>
                             <li>
                                 <strong>Schema-Based Extraction:</strong> This step applies the rules. The AI parses a messy natural language query and "filters" it into the fields defined in Step 1. It transforms "stuff from last week" into Date: >2026-01-22, turning "vibes" into actionable, structured filters.
@@ -487,10 +487,13 @@
                                 <strong>Entity Resolution:</strong> This step identifies the specific row. It maps extracted names (like "Paul") to unique IDs (UUIDs). By resolving "the author" into a precise database entry, it prevents identity confusion and ensures the system targets the exact record intended.
                             </li>
                             <li>
-                                <strong>Query Enrichment:</strong> This step builds the dual-input command. Instead of merging them, it generates a Semantic Vector (the "seeker") and bundles it alongside the Metadata Filters (the "boundaries"). The database receives two distinct instructions: Search using this vector, but ONLY inside this specific fence.
+                                <strong>Query Enrichment:</strong> This step builds the dual-input command. Instead of merging them, it generates a Semantic Vector (a high-dimensional mathematical representation of the core intent and meaning of the query, stripped of the filter logic) and bundles it alongside the Metadata Filters (the "boundaries"). The database receives two distinct instructions: Search using this vector, but ONLY inside this specific fence.
                             </li>
                             <li>
                                 <strong>Filtered Retrieval:</strong> The execution phase. The database applies the Metadata Filters first, masking all non-compliant documents (the "Gate"). The Semantic Vector then calculates similarity only against the remaining "open" candidates, ensuring the search never even "sees" restricted data.
+                            </li>
+                            <li>
+                                <strong>Schema & Metadata:</strong> <strong>The Schema</strong> defines the structure and fields. <strong>Metadata</strong> is the actual data in those fields. Definitions guide the LLM on what to extract.    
                             </li>
                         </ol>
                     
