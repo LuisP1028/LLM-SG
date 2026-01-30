@@ -127,32 +127,7 @@
     }
     .section-content { padding: 20px; }
 
-    /* Nested Subsections (Specifically for Section 6) */
-    details.subsection-accordion {
-        margin: 15px 0;
-        border: 1px solid var(--dim-color);
-        background: #020202;
-    }
-    details.subsection-accordion > summary {
-        font-family: var(--font-main);
-        font-size: 0.95rem;
-        padding: 10px;
-        background: #051005;
-        color: var(--text-color);
-        cursor: pointer;
-        list-style: none;
-        border-bottom: 1px solid transparent;
-    }
-    details.subsection-accordion > summary:hover { background: var(--dim-color); }
-    details.subsection-accordion[open] > summary {
-        background: var(--dim-color);
-        color: #fff;
-        border-bottom: 1px dashed var(--accent-color);
-    }
-    details.subsection-accordion[open] > summary::before { content: "[-] "; }
-    details.subsection-accordion > summary::before { content: "[+] "; color: var(--accent-color); }
-
-    /* Directory Tree Styling (New) */
+    /* Directory Tree Styling */
     .tree-root {
         border-left: 1px dashed var(--accent-color);
         margin-left: 1rem;
@@ -356,7 +331,7 @@
             <summary>1. RAG Overview & Modules</summary>
             <div class="section-content">
                 <p><strong>RAG:</strong> Pulling new, updated, tailored information from a vector store to concatenate as context to a user prompt, before feeding a foundational model.</p>
-                <p><strong>A RAG system is composed of three main modules:</strong></p>
+                                <p><strong>A RAG system is composed of three main modules:</strong></p>
                 <ul>
                     <li>Ingestion pipeline: A batch or streaming pipeline used to populate the vector DB</li>
                     <li>Retrieval pipeline: A module that queries the vector DB and retrieves relevant entries to the user’s input</li>
@@ -455,7 +430,7 @@
                 <p><strong>Cross-Encoders (Relevance Scoring):</strong> Foundation for deep relevance. Unlike bi-encoders that collapse text into independent "summary" vectors, this architecture processes a query and document pair simultaneously. By concatenating both into a single input sequence, it enables the <strong>Self-Attention</strong> mechanism to perform exhaustive, token-to-token comparisons.<br>
                 <strong>Example:</strong> For the query "Is caffeine good for sleep?", the model's attention heads identify specific relationships—detecting if the text claims caffeine helps or hinders rest, rather than just matching keywords.<br>
                 <strong>When to use:</strong> Use as a reranker in the final stage of retrieval. Because the O(N²) self-attention over the combined sequence is computationally heavy, it is reserved for the top 50–100 candidates to provide maximum precision.</p>
-            </div>
+                            </div>
         </details>
 
         <details class="section">
@@ -517,19 +492,15 @@
             <div class="section-content">
                 <p>This module covers advanced techniques to optimize vector search for either precision (Metadata Filtering) or recall (Expansion & Reranking).</p>
         
-                <details class="subsection-accordion">
+                <details class="nested-accordion">
                     <summary>A. Self-Querying / Filtered Vector Search</summary>
-                    <div class="section-content">
+                    <div class="nested-content">
                         <span class="tag">Focus: Precision & Security</span>
                         <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/self_query.html'; v.classList.add('active');">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </button>
                         <p><em>Best for finding "x" with strict constraints "y".</em></p>
-                        
-                        <div class="img-placeholder">
-                            
-                        </div>
-        
+                                
                         <div class="tree-root">
                             
                             <details class="nested-accordion">
@@ -586,18 +557,13 @@
                     </div>
                 </details>
         
-                <details class="subsection-accordion">
+                <details class="nested-accordion">
                     <summary>B. Query Expansion & Reranking</summary>
-                    <div class="section-content">
+                    <div class="nested-content">
                         <span class="tag">Focus: Recall</span>
                         <p><em>Best for finding "x" and synonyms.</em></p>
                         
-                        <p><strong>Overview:</strong> Increasing retrieval recall by capturing semantically related context that a single vector might overlook. </p>
-                        
-                        <div class="img-placeholder">
-                            
-                        </div>
-        
+                        <p><strong>Overview:</strong> Increasing retrieval recall by capturing semantically related context that a single vector might overlook. </p>                        
                         <p><em>Warning: Although query expansion is useful, it can introduce latency as a consequence of searching for multiple vectors instead of one; to mitigate this, you can introduce parallelization methods.</em></p>
                         
                         <div class="tree-root">
@@ -646,13 +612,12 @@
                     </div>
                 </details>
         
-                <details class="subsection-accordion">
+                <details class="nested-accordion">
                     <summary>C. Strategic Application Matrix</summary>
-                    <div class="section-content">
+                    <div class="nested-content">
                         
                         <div class="img-placeholder">
-                            
-                        </div>
+                                                    </div>
                         
                         <div class="tree-root">
                             <details class="nested-accordion">
@@ -697,93 +662,109 @@
         <details class="section">
             <summary>7. RAG Evaluation</summary>
             <div class="section-content">
-                <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: <strong>Retrieval</strong> (finding facts) and <strong>Generation</strong> (using them). It measures Faithfulness, Answer Relevance, and Context Relevance to ensure the output is grounded in the source.</p>
-        
-                <details class="subsection">
-                    <summary>The RAGAS Framework</summary>
-                    <div class="subsection-content">
-                        <p><strong>RAGAS (Retrieval-Augmented Generation Assessment)</strong> is a framework used to quantify the performance of your RAG pipeline. Ragas uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between the <strong>Question</strong>, the <strong>Context</strong> (retrieved facts), and the <strong>Answer</strong>.</p>
-                        
-                        <details class="subsection">
-                            <summary>1. Faithfulness [EVALUATE LLM -> HALLUCINATION METRIC]</summary>
-                            <div class="subsection-content">
-                                <p><strong>Core Concept:</strong> It strictly measures <strong>grounding</strong>: the extent to which the generated answer is derived <em>only</em> from the retrieved context, ignoring the model's pre-trained world knowledge.</p>
-                                
-                                
-                                <div class="process-step">
-                                    <p><strong>1. Statement Extraction:</strong> The judge takes a multi-sentence response and strips it to atomic claims [single verifiable facts]. By isolating these individual atomic claims, the model prevents a single correct statement from "masking" a hallucination hidden within the same sentence. </p>
-                                    <blockquote>
-                                        <strong>Example:</strong><br>
-                                        <em>Generated Answer:</em> "The sky is blue because of Rayleigh scattering and it's 70°F."<br>
-                                        <em>Atomic Claims:</em>
-                                        <ul>
-                                            <li>(A) "The sky is blue."</li>
-                                            <li>(B) "The reason is Rayleigh scattering."</li>
-                                            <li>(C) "The temperature is 70°F."</li>
-                                        </ul>
-                                    </blockquote>
+                <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: <strong>Retrieval</strong> (finding facts) and <strong>Generation</strong> (LLM). It measures Faithfulness, Answer Relevance, and Context Precision to ensure the output is grounded in the source.</p>
+                
+                <div class="tree-root">
+                    <details class="nested-accordion">
+                        <summary>The RAGAS Framework</summary>
+                        <div class="nested-content">
+                            <p><strong>RAGAS (Retrieval-Augmented Generation Assessment)</strong> is a framework used to quantify the performance of your RAG pipeline. Ragas uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between the <strong>Question</strong>, the <strong>Context</strong> (retrieved facts), and the <strong>Answer</strong>.</p>
+                                                        
+                            <details class="nested-accordion">
+                                <summary>1. Faithfulness [EVALUATE LLM -> HALLUCINATION METRIC]</summary>
+                                <div class="nested-content">
+                                    <p><strong>Core Concept:</strong> It strictly measures <strong>grounding</strong>: the extent to which the generated answer is derived <em>only</em> from the retrieved context, ignoring the model's pre-trained world knowledge.</p>
+                                    
+                                    <div class="process-step">
+                                        <p><strong>1. Statement Extraction:</strong> The judge takes a multi-sentence response and strips it to atomic claims [single verifiable facts]. By isolating these individual atomic claims, the model prevents a single correct statement from "masking" a hallucination hidden within the same sentence. </p>
+                                        <blockquote>
+                                            <strong>Example:</strong><br>
+                                            <em>Generated Answer:</em> "The sky is blue because of Rayleigh scattering and it's 70°F."<br>
+                                            <em>Atomic Claims:</em>
+                                            <ul>
+                                                <li>(A) "The sky is blue."</li>
+                                                <li>(B) "The reason is Rayleigh scattering."</li>
+                                                <li>(C) "The temperature is 70°F."</li>
+                                            </ul>
+                                        </blockquote>
+                                    </div>
+                            
+                                    <div class="process-step">
+                                        <p><strong>2. Ground Truth Verification:</strong> It takes each atomic claim and holds it up against the provided context (<strong>only</strong> the context). It asks: "Is this specific fact supported by the text?" If the context explicitly confirms the claim, it receives a 1 (True); if the context is silent or contradicts it, it receives a 0 (False).</p>
+                                        <blockquote>
+                                            <strong>Example:</strong><br>
+                                            <em>Retrieved Context:</em> "Atmospheric scattering causes a blue hue."<br>
+                                            <em>Audit Results:</em>
+                                            <ul>
+                                                <li>(A) Verified (Atmospheric scattering/blue hue).</li>
+                                                <li>(B) Verified (Rayleigh is the specific scattering type implied).</li>
+                                                <li>(C) Hallucination (The context does not mention temperature).</li>
+                                            </ul>
+                                        </blockquote>
+                                    </div>
+                            
+                                    <p><strong>The Calculation:</strong> <code>Faithfulness = # of verified statements / total number of statements</code></p>
+                                    <p><em>Calculation for example: 2 verified / 3 total = 0.66 Faithfulness.</em></p>
+                                    
+                                    <p><strong>Why It Matters:</strong> Critical for enterprise applications (like legal or medical bots). If the context doesn't say it, the model shouldn't say it, even if it is true in the real world.</p>
                                 </div>
-                        
-                                <div class="process-step">
-                                    <p><strong>2. Ground Truth Verification:</strong> It takes each atomic claim and holds it up against the provided context (<strong>only</strong> the context). It asks: "Is this specific fact supported by the text?" If the context explicitly confirms the claim, it receives a 1 (True); if the context is silent or contradicts it, it receives a 0 (False).</p>
-                                    <blockquote>
-                                        <strong>Example:</strong><br>
-                                        <em>Retrieved Context:</em> "Atmospheric scattering causes a blue hue."<br>
-                                        <em>Audit Results:</em>
-                                        <ul>
-                                            <li>(A) Verified (Atmospheric scattering/blue hue).</li>
-                                            <li>(B) Verified (Rayleigh is the specific scattering type implied).</li>
-                                            <li>(C) Hallucination (The context does not mention temperature).</li>
-                                        </ul>
-                                    </blockquote>
+                            </details>
+            
+                            <details class="nested-accordion">
+                                <summary>2. Answer Relevancy [EVALUATE LLM]</summary>
+                                <div class="nested-content">
+                                    <p><strong>Core Concept:</strong> To measure Answer Relevancy, the "Judge" uses a Reverse Engineering strategy to see if the answer actually addresses the user's intent:</p>
+                                    <p><strong>The "Judge" Process (Reverse Engineering):</strong></p>
+                                    <ul>
+                                        <li><strong>Question Generation:</strong> The LLM acts as an inverted strategist. It ignores the original user query and examines only the generated answer, attempting to reverse-engineer the intent. It generates several potential questions that would logically lead to that specific answer, revealing what the model actually addressed.</li>
+                                        <li><strong>Embedding Similarity:</strong> RAGAS converts the Original Query and the Generated Questions into high-dimensional vector embeddings. It then calculates the Cosine Similarity (the angle) between them.</li>
+                                    </ul>
+                                    <p><strong>The Calculation:</strong> The final score is the mean cosine similarity of all generated questions. A score near 1.0 indicates the answer is a direct hit, while a low score suggests the model is "hedging" or providing a generic summary that doesn't target the prompt.</p>                                
                                 </div>
-                        
-                                <p><strong>The Calculation:</strong> <code>Faithfulness = # of verified statements / total number of statements</code></p>
-                                <p><em>Calculation for example: 2 verified / 3 total = 0.66 Faithfulness.</em></p>
-                                
-                                <p><strong>Why It Matters:</strong> Critical for enterprise applications (like legal or medical bots). If the context doesn't say it, the model shouldn't say it, even if it is true in the real world.</p>
-                            </div>
-                        </details>
-        
-                        <details class="subsection">
-                            <summary>2. Answer Relevancy [EVALUATE LLM]</summary>
-                            <div class="subsection-content">
-                                <p><strong>Core Concept:</strong> To measure Answer Relevancy, the "Judge" uses a Reverse Engineering strategy to see if the answer actually addresses the user's intent:</p>
-                                <p><strong>The "Judge" Process (Reverse Engineering):</strong></p>
-                                <ul>
-                                    <li><strong>Question Generation:</strong> The LLM acts as an inverted strategist. It ignores the original user query and examines only the generated answer, attempting to reverse-engineer the intent. It generates several potential questions that would logically lead to that specific answer, revealing what the model actually addressed.</li>
-                                    <li><strong>Embedding Similarity:</strong> RAGAS converts the Original Query and the Generated Questions into high-dimensional vector embeddings. It then calculates the Cosine Similarity (the angle) between them.</li>
-                                </ul>
-                                <p><strong>The Calculation:</strong> The final score is the mean cosine similarity of all generated questions. A score near 1.0 indicates the answer is a direct hit, while a low score suggests the model is "hedging" or providing a generic summary that doesn't target the prompt.</p>                                
-                            </div>
-                        </details>
-        
-                        <details class="subsection">
-                            <summary>3. Context Precision [EVALUATE RETRIEVER]</summary>
-                            <div class="subsection-content">
-                                <p><strong>Core Concept:</strong> In Context Precision, the "chunks" being measured are the specific text segments returned by your retriever for a given query.</p>
-                                <p><strong>The "Judge" Process:</strong></p>
-                                <ul>
-                                    <li><strong>Verification:</strong> The LLM compares retrieved chunks against Ground Truth to classify them as Relevant or Irrelevant.</li>
-                                    <li><strong>Ranking Check:</strong> It analyzes the list order, checking if "Relevant" chunks appear before "Irrelevant" ones.</li>
-                                </ul>
-                                <p><strong>The Calculation:</strong> Uses <strong>Average Precision</strong>, calculating the mean precision score at every rank position where a relevant chunk is found.</p>
-                            </div>
-                        </details>
-                    </div>
-                </details>
-        
-                <details class="subsection">
-                    <summary>HOW: The Evaluation Workflow</summary>
-                    <div class="subsection-content">
-                        <ol>
-                            <li><strong>Data Preparation:</strong> Organize RAG outputs into a dataset containing: Question, Contexts, Answer, and Ground Truth (optional).</li>
-                            <li><strong>The Evaluation Loop:</strong> Initialize an Evaluator LLM (e.g., GPT-4o) and call the <code>evaluate()</code> function.</li>
-                            <li><strong>Under the Hood:</strong> The judge performs specific linguistic tasks: <em>Extraction</em> (for Faithfulness), <em>Verification</em> (logic checks), and <em>Back-Projection</em> (for Answer Relevancy).</li>
-                            <li><strong>Output:</strong> A dataframe or dictionary with scores (0 to 1) identifying exactly where the system is failing—whether it's the search (retriever) or the writing (generator).</li>
-                        </ol>
-                    </div>
-                </details>
+                            </details>
+            
+                            <details class="nested-accordion">
+                                <summary>3. Context Precision [EVALUATE RETRIEVER]</summary>
+                                <div class="nested-content">
+                                    <p><strong>Core Concept:</strong> In Context Precision, the "chunks" being measured are the specific text segments returned by your retriever for a given query.</p>
+                                    <p><strong>The "Judge" Process:</strong></p>
+                                    <ul>
+                                        <li><strong>Verification:</strong> The LLM compares retrieved chunks against Ground Truth to classify them as Relevant or Irrelevant.</li>
+                                        <li><strong>Ranking Check:</strong> It analyzes the list order, checking if "Relevant" chunks appear before "Irrelevant" ones.</li>
+                                    </ul>
+                                    <p><strong>The Calculation:</strong> Uses <strong>Average Precision</strong>, calculating the mean precision score at every rank position where a relevant chunk is found.</p>
+                                </div>
+                            </details>
+                        </div>
+                    </details>
+            
+                    <details class="nested-accordion">
+                        <summary>HOW: The Evaluation Workflow</summary>
+                        <div class="nested-content">
+                            <p>To quantify your pipeline's performance, organize your RAG outputs into a structured dataset. RAGAS utilizes four primary data points to calculate its metrics:</p>
+                            <ul>
+                                <li><strong>Question:</strong> The user's input query.</li>
+                                <li><strong>Contexts:</strong> The specific chunks of information retrieved from your vector database. These are the "facts" the model is supposed to use.</li>
+                                <li><strong>Answer:</strong> The response actually generated by your LLM.</li>
+                                <li><strong>Ground Truth:</strong> The "ideal" or human-verified answer (optional, but required for measuring Context Recall and Answer Correctness).</li>
+                            </ul>
+                                                        
+                            <p><strong>The Evaluation Loop</strong></p>
+                            <p>Once the data is prepared, the process follows three main steps:</p>
+                            <ol>
+                                <li><strong>Initialization:</strong> Select and initialize an Evaluator LLM (the "Judge"), such as GPT-4o or a fine-tuned open-source model like Prometheus.</li>
+                                <li><strong>Execution:</strong> Call the <code>evaluate()</code> function. Under the hood, the judge performs specific linguistic tasks:
+                                    <ul>
+                                        <li><em>Extraction:</em> Breaking the Answer into atomic claims.</li>
+                                        <li><em>Verification:</em> Comparing those claims against the Contexts (Faithfulness).</li>
+                                        <li><em>Back-Projection:</em> Generating questions from the Answer to see if they align with the original Question (Relevancy).</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Output:</strong> A dataframe or dictionary with scores (0 to 1). This allows you to pinpoint whether failures occur in the Retriever (low context scores) or the Generator (low faithfulness/relevancy).</li>
+                            </ol>
+                        </div>
+                    </details>
+                </div>
             </div>
         </details>
 
