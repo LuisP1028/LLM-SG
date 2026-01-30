@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LLM-RAG-SFT-CORES</title>
+
+<script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']]
+        }
+    };
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
 <style>
     /* --- STYLE CONFIGURATION --- 
        Terminal Green Ditherpunk Theme
@@ -81,6 +91,8 @@
         text-align: center;
         word-wrap: break-word;
     }
+    
+    h3, h4, h5 { margin-top: 20px; color: var(--accent-color); text-transform: uppercase; }
 
     /* --- NAVIGATION / ACCORDION SYSTEM (OUTER LAYERS) --- */
 
@@ -168,7 +180,6 @@
     @keyframes scanFade { from { opacity: 0; } to { opacity: 1; } }
 
     /* --- GLOBAL INTERACTIVE ELEMENTS (BUTTONS) --- */
-    /* Added to fix "missing eye button" issue when loading external files */
     
     .eye-btn {
         position: relative;
@@ -241,7 +252,7 @@
     .vp-body iframe { width: 100%; height: 100%; border: none; }
 
 
-    /* --- IMPORTED CONTENT STYLES (Fix for Nested Rendering) --- */
+    /* --- IMPORTED CONTENT STYLES --- */
 
     /* Inner Accordion (The "Section" inside the Part) */
     details.section {
@@ -314,6 +325,89 @@
         overflow-x: auto;
         white-space: pre-wrap;
         font-size: 0.9rem;
+    }
+
+    /* ----------------------------------------------------- */
+    /* NEW: MODULE-SPECIFIC STYLES (MERGED FOR COMPATIBILITY) */
+    /* ----------------------------------------------------- */
+
+    /* --- OPTIMIZATION MODULE: TREE VIEW STYLES --- */
+    details.nested-entry {
+        margin-bottom: 5px;
+        margin-left: 10px; 
+        padding-left: 20px; 
+        border-left: 2px dashed var(--dim-color); /* The Tree Trunk */
+        position: relative;
+    }
+
+    /* The Horizontal Branch Line */
+    details.nested-entry::before {
+        content: '';
+        position: absolute;
+        top: 18px; 
+        left: 0;
+        width: 15px;
+        height: 2px;
+        background-color: var(--dim-color);
+    }
+
+    details.nested-entry > summary {
+        cursor: pointer;
+        list-style: none;
+        outline: none;
+        padding: 5px 10px;
+        transition: background-color 0.1s, color 0.1s;
+        display: block; 
+    }
+    details.nested-entry > summary::-webkit-details-marker { display: none; }
+
+    /* HOVER EFFECT: Invert Colors */
+    details.nested-entry > summary:hover {
+        background-color: var(--accent-color);
+        color: #000000;
+        font-weight: bold;
+    }
+    details.nested-entry > summary:hover strong {
+        color: #000000;
+        text-decoration: none;
+    }
+
+    details.nested-entry[open] {
+        margin-top: 10px;
+        margin-bottom: 20px;
+    }
+
+    .nested-content {
+        padding-top: 10px;
+        padding-left: 10px;
+        border-left: 2px solid var(--dim-color); 
+        margin-left: -2px; 
+    }
+
+    /* --- SFT MODULE: BOXED ACCORDION STYLES --- */
+    details.nested-accordion {
+        margin: 10px 0 10px 15px;
+        border-left: 2px solid var(--dim-color);
+        background: #020502;
+    }
+
+    details.nested-accordion > summary {
+        font-family: var(--font-main);
+        font-size: 0.95rem;
+        padding: 8px 12px;
+        background-color: #051505;
+        cursor: pointer;
+        list-style: none;
+        color: #80ff9e; /* Specific SFT text color */
+    }
+
+    details.nested-accordion > summary:hover {
+        color: var(--accent-color);
+        background-color: var(--dim-color);
+    }
+
+    .accordion-content {
+        padding: 15px;
     }
 
     @media (max-width: 600px) {
@@ -440,6 +534,11 @@
             
             // 7. Mark as loaded
             loadedModules.add(fileName);
+
+            // 8. Re-trigger MathJax if it's loaded
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([contentDiv]).catch((err) => console.log('MathJax error:', err));
+            }
 
         } catch (error) {
             contentDiv.innerHTML = `
