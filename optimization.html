@@ -27,7 +27,7 @@
         overflow-x: hidden;
     }
 
-    /* --- VISUALS --- */
+    /* --- VISUALS (Restored Original) --- */
     .dither-layer {
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
@@ -51,13 +51,14 @@
         width: 100%;
         margin: 0 auto;
         padding: 40px 20px;
+        /* Restored Original Dashed Borders */
         border-left: 2px dashed var(--dim-color);
         border-right: 2px dashed var(--dim-color);
         background-color: rgba(0, 10, 0, 0.9);
         min-height: 100vh;
     }
 
-    /* --- TYPOGRAPHY --- */
+    /* --- TYPOGRAPHY (Restored Original) --- */
     h1 {
         font-family: var(--font-header);
         text-transform: uppercase;
@@ -74,37 +75,13 @@
     strong { color: var(--accent-color); text-decoration: underline; }
     em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
 
-    /* --- ACCORDION STYLES --- */
-    /* Outer Parts */
-    details.part {
-        margin-bottom: 30px;
-        border: 2px solid var(--border-color);
-        background: #000;
-        box-shadow: 6px 6px 0px var(--dim-color);
-        transition: transform 0.1s;
-    }
-    details.part[open] { box-shadow: 4px 4px 0px var(--dim-color); transform: translate(2px, 2px); }
-    details.part > summary {
-        font-family: var(--font-header);
-        font-size: 1.5rem;
-        padding: 15px 20px;
-        background-color: var(--accent-color);
-        color: var(--bg-color);
-        cursor: pointer;
-        list-style: none;
-        text-transform: uppercase;
-        position: relative;
-    }
-    details.part > summary::-webkit-details-marker { display: none; }
-    details.part > summary::after { content: '+'; position: absolute; right: 20px; font-weight: 900; }
-    details.part[open] > summary::after { content: '-'; }
-    .part-content { padding: 20px; border-top: 2px solid var(--border-color); }
-
-    /* Inner Sections */
+    /* --- ACCORDION STYLES (Restored Original) --- */
+    /* Main Sections */
     details.section {
         margin-bottom: 15px;
         border: 1px solid var(--dim-color);
         background: #050505;
+        transition: all 0.2s;
     }
     details.section > summary {
         font-family: var(--font-main);
@@ -118,6 +95,7 @@
         text-transform: uppercase;
         font-size: 1.1rem;
     }
+    /* Original Hover for Main Sections */
     details.section > summary:hover { background: var(--dim-color); color: var(--accent-color); }
     details.section[open] > summary {
         border-bottom: 1px solid var(--dim-color);
@@ -127,32 +105,61 @@
     }
     .section-content { padding: 20px; }
 
-    /* Nested Details (New) */
+    /* --- NESTED ENTRIES (TREE VISUALIZATION & HOVER ADDED) --- */
     details.nested-entry {
         margin-bottom: 5px;
+        margin-left: 10px; /* Indent */
+        padding-left: 20px; /* Space for the branch line */
+        border-left: 2px dashed var(--dim-color); /* The Tree Trunk */
+        position: relative;
     }
+    
+    /* The Horizontal Branch Line */
+    details.nested-entry::before {
+        content: '';
+        position: absolute;
+        top: 18px; /* Aligns with text center approx */
+        left: 0;
+        width: 15px;
+        height: 2px;
+        background-color: var(--dim-color);
+    }
+
     details.nested-entry > summary {
         cursor: pointer;
         list-style: none;
         outline: none;
+        padding: 5px 10px;
+        transition: background-color 0.1s, color 0.1s;
+        display: block; /* Ensure full width for hover */
     }
     details.nested-entry > summary::-webkit-details-marker { display: none; }
-    details.nested-entry > summary:hover strong {
-        background-color: var(--dim-color);
-        color: #fff;
+
+    /* HOVER EFFECT: Invert Colors (Green BG, Black Text) */
+    details.nested-entry > summary:hover {
+        background-color: var(--accent-color);
+        color: #000000;
+        font-weight: bold;
     }
+    /* Ensure child elements inside summary also invert */
+    details.nested-entry > summary:hover strong {
+        color: #000000;
+        text-decoration: none;
+    }
+
     details.nested-entry[open] {
         margin-top: 10px;
         margin-bottom: 20px;
-        border-left: 2px solid var(--accent-color);
-        padding-left: 15px;
-        background: rgba(0, 20, 0, 0.3);
+        /* Remove background tint from original, keep tree look clean */
     }
     .nested-content {
         padding-top: 10px;
+        padding-left: 10px;
+        border-left: 2px solid var(--dim-color); /* Solid line for content block */
+        margin-left: -2px; /* Align with dashed border */
     }
 
-    /* Subsections */
+    /* --- SUBSECTIONS (Restored Original) --- */
     .subsection {
         margin-bottom: 25px;
         border-left: 4px solid var(--dim-color);
@@ -206,15 +213,6 @@
         box-shadow: 2px 2px 0px var(--dim-color);
     }
     .eye-btn:hover svg { fill: #000; }
-
-    .dither-bg {
-        background-image: 
-            linear-gradient(45deg, var(--dim-color) 25%, transparent 25%), 
-            linear-gradient(-45deg, var(--dim-color) 25%, transparent 25%), 
-            linear-gradient(45deg, transparent 75%, var(--dim-color) 75%), 
-            linear-gradient(-45deg, transparent 75%, var(--dim-color) 75%);
-        background-size: 4px 4px;
-    }
 
     .retro-viewport {
         position: fixed;
