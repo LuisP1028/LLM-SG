@@ -394,7 +394,15 @@ Step 3: [3, 1, hidden_dim]
         <div class="section-content">
             
             <details class="nested-entry">
-                <summary><strong>Data Parallelism (DP)</strong></summary>
+                <summary>
+                    <strong>Data Parallelism (DP)</strong>
+                    <button class="eye-btn" onclick="const viewport = document.querySelector('.retro-viewport'); viewport.querySelector('iframe').src='INF_O/data_p.html'; viewport.classList.add('active');" style="background: none; border: none; cursor: pointer; padding: 0; margin-left: 8px; vertical-align: middle;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </summary>
                 <div class="nested-content">
                     <p>DP replicates the <strong>entire model</strong> onto every GPU, allowing each to process a different data subset simultaneously. DP is superior for throughput because it minimizes communication; GPUs only sync once per step (after gradients).</p>
                     <p><strong>When to choose:</strong> Use <strong>Data Parallelism</strong> when your bottleneck is <strong>data volume</strong>, not model size. It is the easiest to implement and scales linearly across nodes, provided your model isn't so large that it leaves no room for the data batch itself.</p>
@@ -407,7 +415,15 @@ Step 3: [3, 1, hidden_dim]
             </details>
 
             <details class="nested-entry">
-                <summary><strong>Pipeline Parallelism (PP)</strong></summary>
+                <summary>
+                    <strong>Pipeline Parallelism (PP)</strong>
+                    <button class="eye-btn" onclick="const viewport = document.querySelector('.retro-viewport'); viewport.querySelector('iframe').src = 'INF_O/pipeline_p.html'; viewport.classList.add('active');">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </summary>
                 <div class="nested-content">
                     <p>Pipeline Parallelism partitions a model <strong>vertically</strong> by layers. Instead of every GPU holding the entire model, the layers are divided into segments and distributed across a sequence of GPUs (the "degree of parallelism").</p>
                     <p><strong>When to choose:</strong> Use PP when <strong>memory</strong> is the bottleneck. It allows you to "stack" GPUs to hold the model. It is ideal for scaling <strong>between different servers</strong> because it only transmits activations, which is less data-intensive than TP.</p>
@@ -421,7 +437,15 @@ Step 3: [3, 1, hidden_dim]
             </details>
 
             <details class="nested-entry">
-                <summary><strong>Tensor Parallelism (TP)</strong></summary>
+                <summary>
+                    <strong>Tensor Parallelism (TP)</strong>
+                    <button class="eye-btn" onclick="const viewport = document.querySelector('.retro-viewport'); viewport.querySelector('iframe').src = 'INF_O/tensor_p.html'; viewport.classList.add('active');">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </summary>
                 <div class="nested-content">
                     <p>Tensor Parallelism splits a model <strong>horizontally</strong> by partitioning individual weight matrices (tensors) across multiple GPUs.</p>
                     <p><strong>When to choose:</strong> Use TP for <strong>latency-sensitive</strong> tasks and ultra-large models <strong>within a single server.</strong> It requires <strong>NVLink</strong> speeds to handle constant syncing. It is often combined with PP (forming 3D parallelism) to manage both layer depth and layer width.</p>

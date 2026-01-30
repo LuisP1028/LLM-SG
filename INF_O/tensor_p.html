@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tensor Parallelism: Megatron-LM Logic</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glCanvas"></canvas>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">#version 300 es
+        in vec2 a_position;
+        in vec2 a_texCoord;
+        out vec2 v_texCoord;
+        
+        void main() {
+            // Flip Y for texture coordinates to match Canvas 2D orientation
+            gl_Position = vec4(a_position * vec2(1, -1), 0.0, 1.0);
+            v_texCoord = a_texCoord;
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">#version 300 es
+        precision mediump float;
+        
+        uniform sampler2D u_image;
+        uniform vec2 u_resolution;
+        in vec2 v_texCoord;
+        out vec4 outColor;
+
+        // 8x8 Bayer Matrix for Ordered Dithering
+        const float bayer[64] = float[](
+            0.0, 32.0, 8.0, 40.0, 2.0, 34.0, 10.0, 42.0,
+            48.0, 16.0, 56.0, 24.0, 50.0, 18.0, 58.0, 26.0,
+            12.0, 44.0, 4.0, 36.0, 14.0, 46.0, 6.0, 38.0,
+            60.0, 28.0, 52.0, 20.0, 62.0, 30.0, 54.0, 22.0,
+            3.0, 35.0, 11.0, 43.0, 1.0, 33.0, 9.0, 41.0,
+            51.0, 19.0, 59.0, 27.0, 49.0, 17.0, 57.0, 25.0,
+            15.0, 47.0, 7.0, 39.0, 13.0, 45.0, 5.0, 37.0,
+            63.0, 31.0, 55.0, 23.0, 61.0, 29.0, 53.0, 21.0
+        );
+
+        void main() {
+            vec4 color = texture(u_image, v_texCoord);
+            
+            // Convert to grayscale for thresholding
+            float luminance = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+
+            // Map screen pixels to Bayer Matrix
+            int x = int(mod(gl_FragCoord.x, 8.0));
+            int y = int(mod(gl_FragCoord.y, 8.0));
+            int index = x + y * 8;
+            
+            // Normalize bayer value (0.0 to 1.0)
+            float threshold = bayer[index] / 64.0;
+
+            // Apply Dither Threshold
+            // If the pixel is brighter than the pattern threshold -> Green
+            // Otherwise -> Black
+            if (luminance > threshold) {
+                outColor = vec4(0.2, 1.0, 0.0, 1.0); // Terminal Green
+            } else {
+                outColor = vec4(0.0, 0.0, 0.0, 1.0); // Void Black
+            }
+        }
+    </script>
+
+    <script>
+        /**
+         * TENSOR PARALLELISM ENGINE
+         * Visualizes Megatron-LM Style: Column Parallel -> Row Parallel -> All-Reduce
+         */
+
+        const canvas = document.getElementById("glCanvas");
+        const gl = canvas.getContext("webgl2");
+        if (!gl) { document.body.innerText = "WebGL 2 Not Supported"; }
+
+        // We draw to a 2D canvas first, then send it to WebGL as a texture
+        const ctxCanvas = document.createElement('canvas');
+        const ctx = ctxCanvas.getContext('2d', { alpha: false });
+
+        // --- WebGL Setup (Boilerplate) ---
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(shader));
+                return null;
+            }
+            return shader;
+        }
+
+        const program = gl.createProgram();
+        const vs = createShader(gl, gl.VERTEX_SHADER, document.getElementById("vertex-shader").text);
+        const fs = createShader(gl, gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").text);
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+        const texCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, 1,0, 0,1, 0,1, 1,0, 1,1]), gl.STATIC_DRAW);
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+
+        const posLoc = gl.getAttribLocation(program, "a_position");
+        gl.enableVertexAttribArray(posLoc);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+        const texLoc = gl.getAttribLocation(program, "a_texCoord");
+        gl.enableVertexAttribArray(texLoc);
+        gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+        gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
+
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // --- State Management ---
+        let width, height;
+        let phase = 0; // 0:Idle, 1:Broadcast, 2:ColParallel, 3:RowParallel, 4:AllReduce
+        let tick = 0;
+        const PHASES = [
+            { id: 'IDLE', frames: 100, text: "SYSTEM IDLE // AWAITING TENSOR" },
+            { id: 'BROADCAST', frames: 180, text: "PHASE 1: INPUT BROADCAST (COPY X)" },
+            { id: 'COL', frames: 250, text: "PHASE 2: COLUMN PARALLEL (SPLIT W1)" },
+            { id: 'ROW', frames: 250, text: "PHASE 3: ROW PARALLEL (SPLIT W2)" },
+            { id: 'SYNC', frames: 200, text: "PHASE 4: ALL-REDUCE (SYNC & SUM)" }
+        ];
+
+        // --- Layout Variables ---
+        let leftCenterX, rightCenterX;
+        let gpuAY, gpuBY;
+        let cellSize = 15;
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            ctxCanvas.width = width;
+            ctxCanvas.height = height;
+            gl.viewport(0, 0, width, height);
+
+            cellSize = Math.min(width, height) / 40;
+            leftCenterX = width * 0.25;
+            rightCenterX = width * 0.75;
+            gpuAY = height * 0.3;
+            gpuBY = height * 0.7;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Drawing Helpers (Drawing to 2D Context) ---
+        // Note: We draw in Grayscale/White. The Shader turns this to Green/Dithered.
+        
+        function drawGrid(x, y, rows, cols, fillPerc, pattern = 'solid') {
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, cols * cellSize, rows * cellSize);
+            
+            // Fill content based on pattern
+            ctx.fillStyle = "white";
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (Math.random() > fillPerc) continue;
+                    
+                    let px = x + c * cellSize;
+                    let py = y + r * cellSize;
+                    
+                    if (pattern === 'solid') {
+                        ctx.fillRect(px + 2, py + 2, cellSize - 4, cellSize - 4);
+                    } else if (pattern === 'striped') {
+                        ctx.fillRect(px + 4, py + 2, 2, cellSize - 4);
+                        ctx.fillRect(px + 8, py + 2, 2, cellSize - 4);
+                    }
+                }
+            }
+        }
+
+        function drawVector(x, y, size, label) {
+            drawGrid(x, y, size, 1, 1.0, 'solid');
+            if (label) {
+                ctx.fillStyle = "white";
+                ctx.font = "14px monospace";
+                ctx.fillText(label, x, y - 5);
+            }
+        }
+
+        function drawArrow(x1, y1, x2, y2) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = "white";
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Arrowhead
+            let angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - 10 * Math.cos(angle - Math.PI / 6), y2 - 10 * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - 10 * Math.cos(angle + Math.PI / 6), y2 - 10 * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+        }
+
+        // --- Main Render Loop ---
+        function render() {
+            // 1. Logic Update
+            tick++;
+            if (tick > PHASES[phase].frames) {
+                tick = 0;
+                phase = (phase + 1) % PHASES.length;
+            }
+            let progress = tick / PHASES[phase].frames;
+
+            // 2. Clear Canvas (Black)
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, width, height);
+
+            // 3. UI Static Elements
+            ctx.fillStyle = "white";
+            ctx.font = "20px monospace";
+            ctx.fillText(PHASES[phase].text, 20, 30);
+            
+            ctx.beginPath();
+            ctx.moveTo(width/2, 50);
+            ctx.lineTo(width/2, height - 50);
+            ctx.strokeStyle = "#333";
+            ctx.stroke();
+
+            ctx.font = "16px monospace";
+            ctx.fillStyle = "#888";
+            ctx.fillText("LOGICAL VIEW (Conceptual)", leftCenterX - 100, 60);
+            ctx.fillText("PHYSICAL VIEW (Hardware)", rightCenterX - 100, 60);
+
+            // GPU Boxes
+            let gpuW = cellSize * 12;
+            let gpuH = cellSize * 10;
+            ctx.strokeStyle = "#555";
+            ctx.strokeRect(rightCenterX - gpuW/2, gpuAY - gpuH/2, gpuW, gpuH);
+            ctx.strokeRect(rightCenterX - gpuW/2, gpuBY - gpuH/2, gpuW, gpuH);
+            ctx.fillStyle = "#555";
+            ctx.fillText("GPU A", rightCenterX - gpuW/2, gpuAY - gpuH/2 - 10);
+            ctx.fillText("GPU B", rightCenterX - gpuW/2, gpuBY - gpuH/2 - 10);
+
+
+            // --- ANIMATION LOGIC ---
+
+            // LOGICAL VIEW (Left Side - Always visible reference)
+            let logX = leftCenterX - cellSize * 4;
+            let logY = height / 2 - cellSize * 4;
+            drawGrid(logX + cellSize * 2, logY, 8, 8, 0.2, 'solid'); // W1
+            drawVector(logX, logY, 8, "X"); // Input
+            
+            // Connecting Arrow
+            if (phase > 0) {
+                 // Simple logic flow animation
+                 let flowY = logY + (tick % 200); 
+                 // Just a static diagram on left usually, keeping it simple
+            }
+
+
+            // PHYSICAL VIEW (Right Side - The Action)
+
+            // PHASE 1: BROADCAST
+            if (phase === 1) {
+                // Input X appears at center
+                let startX = rightCenterX - cellSize * 8; // roughly "system input"
+                let startY = height / 2 - cellSize * 4;
+                
+                // Lerp to GPU A
+                let ax = startX + (rightCenterX - gpuW/2 + 10 - startX) * progress;
+                let ay = startY + (gpuAY - startY) * progress;
+                drawVector(ax, ay, 8, "X");
+
+                // Lerp to GPU B
+                let bx = startX + (rightCenterX - gpuW/2 + 10 - startX) * progress;
+                let by = startY + (gpuBY - startY) * progress;
+                drawVector(bx, by, 8, "X");
+                
+                // Draw Target Placeholders
+                ctx.globalAlpha = 0.3;
+                drawVector(rightCenterX - gpuW/2 + 10, gpuAY, 8);
+                drawVector(rightCenterX - gpuW/2 + 10, gpuBY, 8);
+                ctx.globalAlpha = 1.0;
+            }
+
+            // PHASE 2: COLUMN PARALLEL
+            else if (phase === 2) {
+                // Inputs are set
+                let inX = rightCenterX - gpuW/2 + 10;
+                drawVector(inX, gpuAY, 8, "X");
+                drawVector(inX, gpuBY, 8, "X");
+
+                // Matrices (Split Vertically!)
+                // GPU A gets Left Half (Cols 0-3)
+                let matX = inX + cellSize * 2;
+                drawGrid(matX, gpuAY, 8, 4, 0.5, 'solid'); 
+                ctx.fillText("W1(Left)", matX, gpuAY - 5);
+
+                // GPU B gets Right Half (Cols 4-7)
+                drawGrid(matX, gpuBY, 8, 4, 0.5, 'striped');
+                ctx.fillText("W1(Right)", matX, gpuBY - 5);
+
+                // Compute Visualization (Scanline)
+                let scanX = matX + (progress * cellSize * 4);
+                ctx.fillStyle = "white";
+                ctx.fillRect(scanX, gpuAY, 2, cellSize * 8);
+                ctx.fillRect(scanX, gpuBY, 2, cellSize * 8);
+
+                // Output Accumulation (Partial Y)
+                // In Col parallel, output size matches shard width (here 4)
+                if (progress > 0.2) {
+                     let outX = matX + cellSize * 5;
+                     drawVector(outX, gpuAY, 4, "Y_part");
+                     drawVector(outX, gpuBY, 4, "Y_part");
+                }
+            }
+
+            // PHASE 3: ROW PARALLEL
+            else if (phase === 3) {
+                // Inputs from prev phase
+                let inX = rightCenterX - gpuW/2 + 10;
+                // Note: The input to Row Parallel is the output of Col parallel.
+                // But Row parallel requires the FULL vector size split by parts?
+                // Actually, ColParallel output is Size/N. 
+                // RowParallel expects input Size/N to multiply by Row Shard (N x Size).
+                // Let's visualize the flow.
+                
+                drawVector(inX, gpuAY, 4, "Y_part");
+                drawVector(inX, gpuBY, 4, "Y_part");
+
+                // Matrices (Split Horizontally!)
+                let matX = inX + cellSize * 2;
+                
+                // GPU A gets Top Rows
+                drawGrid(matX, gpuAY, 4, 8, 0.5, 'solid'); 
+                ctx.fillText("W2(Top)", matX, gpuAY - 5);
+
+                // GPU B gets Bottom Rows
+                drawGrid(matX, gpuBY, 4, 8, 0.5, 'striped'); 
+                ctx.fillText("W2(Btm)", matX, gpuBY - 5);
+
+                // Compute Scanline
+                let scanY_A = gpuAY + (progress * cellSize * 4);
+                let scanY_B = gpuBY + (progress * cellSize * 4);
+                ctx.fillRect(matX, scanY_A, cellSize * 8, 2);
+                ctx.fillRect(matX, scanY_B, cellSize * 8, 2);
+
+                // Output (Full Size Vector, Partial Sum)
+                if (progress > 0.2) {
+                    let outX = matX + cellSize * 9;
+                    drawVector(outX, gpuAY, 8, "Z_part");
+                    drawVector(outX, gpuBY, 8, "Z_part");
+                }
+            }
+
+            // PHASE 4: ALL-REDUCE
+            else if (phase === 4) {
+                // Showing the Sync
+                let startX = rightCenterX - gpuW/2 + 10 + cellSize * 11;
+                
+                // Positions
+                let ay = gpuAY;
+                let by = gpuBY;
+                
+                // Move towards center vertical
+                let targetY = height / 2;
+                let currAY = ay + (targetY - ay) * progress;
+                let currBY = by + (targetY - by) * progress;
+                
+                // Move towards right
+                let targetX = rightCenterX + 50;
+                let currX = startX + (targetX - startX) * progress;
+
+                // Draw moving vectors
+                if (progress < 0.8) {
+                    drawVector(currX, currAY, 8, "Z_A");
+                    drawVector(currX, currBY, 8, "Z_B");
+                    
+                    // Connection Lines
+                    ctx.strokeStyle = "#888";
+                    ctx.beginPath();
+                    ctx.moveTo(startX, ay);
+                    ctx.lineTo(currX, currAY);
+                    ctx.moveTo(startX, by);
+                    ctx.lineTo(currX, currBY);
+                    ctx.stroke();
+                } else {
+                    // Merge / Explosion
+                    let flash = Math.sin(tick * 0.5) * 50;
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(targetX - 10, targetY - cellSize * 4 - 10, cellSize + 20, cellSize * 8 + 20);
+                    
+                    ctx.fillStyle = "black";
+                    ctx.fillText("SUM", targetX, targetY);
+                    
+                    // Final Result
+                    drawVector(targetX + 50, targetY - cellSize*4, 8, "FINAL");
+                }
+            }
+            
+            // IDLE / RESET
+            else {
+                // Just blink the cursor or something
+            }
+
+            // --- 4. Render to WebGL ---
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ctxCanvas);
+            
+            // Pass resolution for potentially fancier shader math (unused currently but good practice)
+            gl.uniform1i(gl.getUniformLocation(program, "u_image"), 0);
+            
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+            requestAnimationFrame(render);
+        }
+
+        render();
+
+    </script>
+</body>
+</html>
