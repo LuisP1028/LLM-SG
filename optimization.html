@@ -127,6 +127,31 @@
     }
     .section-content { padding: 20px; }
 
+    /* Nested Details (New) */
+    details.nested-entry {
+        margin-bottom: 5px;
+    }
+    details.nested-entry > summary {
+        cursor: pointer;
+        list-style: none;
+        outline: none;
+    }
+    details.nested-entry > summary::-webkit-details-marker { display: none; }
+    details.nested-entry > summary:hover strong {
+        background-color: var(--dim-color);
+        color: #fff;
+    }
+    details.nested-entry[open] {
+        margin-top: 10px;
+        margin-bottom: 20px;
+        border-left: 2px solid var(--accent-color);
+        padding-left: 15px;
+        background: rgba(0, 20, 0, 0.3);
+    }
+    .nested-content {
+        padding-top: 10px;
+    }
+
     /* Subsections */
     .subsection {
         margin-bottom: 25px;
@@ -263,11 +288,82 @@
                 </ul>
                 <p><strong>Choosing the right technique depends on your specific bottleneck:</strong></p>
                 <ul>
-                    <li><strong>KV Cache</strong>: Non-negotiable for all LLM deployments to avoid 𝑂(𝑛²) re-computation.</li>
-                    <li><strong>Static Caching</strong> (torch.compile): Best for latency-critical apps with fixed sequence limits; use when you need maximum GPU utilization without recompilation overhead.</li>
+                    <li>
+                        <details class="nested-entry">
+                            <summary><strong>KV Cache</strong>: Non-negotiable for all LLM deployments to avoid 𝑂(𝑛²) re-computation.</summary>
+                            <div class="nested-content">
+                                <div class="subsection">
+                                    <span class="subsection-title">KEY-VALUE CACHING</span>
+                                    <p>When the model predicts the 101st token, the Keys (𝐾) and Values (𝑉) for tokens 1–100 are identical to what they were during the previous step. KV Caching exploits this by saving those vectors in GPU memory.</p>
+                                    <ol>
+                                        <li><strong>The Retrieval:</strong> Instead of re-processing the entire sequence, the model only generates a Query (𝑄), Key (𝐾), and Value (𝑉) for the newest token.</li>
+                                        <li><strong>The Lookup:</strong> The new 𝑄 scans the cached 𝐾s (the "addresses") of all previous tokens to determine relevance.</li>
+                                        <li><strong>The Extraction:</strong> It then pulls the corresponding information from the cached 𝑉s (the "payloads").</li>
+                                    </ol>
+                                    <p>By only calculating one new 𝐾/𝑉 pair per step and reading the rest from the cache, the model avoids redundant math, transforming an 𝑂(𝑛²) computational burden into a much faster linear process.</p>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
+                    <li>
+                        <details class="nested-entry">
+                            <summary><strong>Static Caching</strong> (torch.compile): Best for latency-critical apps with fixed sequence limits; use when you need maximum GPU utilization without recompilation overhead.</summary>
+                            <div class="nested-content">
+                                <div class="subsection">
+                                    <span class="subsection-title">TORCH.COMPILE — STATIC CACHING</span>
+                                    <p>Standard PyTorch runs line-by-line, creating <strong>communication lag</strong> between the CPU and GPU. <code>torch.compile</code> "fuses" these separate steps into a single <strong>optimized kernel</strong>. Instead of sending many small tasks, it sends one "super-instruction," letting the GPU work at max speed without interruptions.</p>
+                                    <p>In a computer's memory, a tensor is defined by its <strong>shape</strong>. When the KV cache is dynamic, the tensor representing it looks like this:</p>
+                                    <div class="code-block">
+Step 1: [1, 1, hidden_dim]
+Step 2: [2, 1, hidden_dim]
+Step 3: [3, 1, hidden_dim]
+                                    </div>
+                                    <p>Every time that first number (the sequence length) increases, the GPU sees a "new" object. It has to "re-compile" or look up a new way to handle a 3-row matrix versus a 2-row matrix, the GPU cannot reuse the exact same machine-code instructions it just used.</p>
+                                    <p><strong>Static Caching</strong> sets the dimension to a maximum (e.g., <code>[2048, 1, hidden_dim]</code>) immediately. Because the shape never changes, the GPU can use one single, hyper-optimized execution path for every single step of the generation.</p>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
                     <li><strong>Continuous Batching <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='INF_O/continuous_batch.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></strong>: Best for high-throughput APIs; use when serving multiple concurrent users to prevent "stragglers" from stalling the GPU.</li>
                     <li><strong>Tensor Parallelism</strong>: Best for large models (e.g., 70B+) where memory bandwidth is the bottleneck; use if you have a compatible, smaller draft model.</li>
-                    <li><strong>Speculative Decoding <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='INF_O/speculative_decoding.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></strong>: Best for tasks with high input-to-output overlap (e.g., summarization, document Q&A, editing); use when you want the acceleration of speculative decoding without the VRAM cost or complexity of managing a second draft model.</li>
+                    
+                    <li>
+                        <details class="nested-entry">
+                            <summary><strong>Speculative Decoding <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='INF_O/speculative_decoding.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></strong>: Best for tasks with high input-to-output overlap (e.g., summarization, document Q&A, editing); use when you want the acceleration of speculative decoding without the VRAM cost or complexity of managing a second draft model.</summary>
+                            <div class="nested-content">
+                                <div class="subsection">
+                                    <span class="subsection-title">SPECULATIVE DECODING</span>
+                                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/speculative_decoding.html'; vp.classList.add('active');">
+                                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                        </svg>
+                                    </button>
+                                    <p>In standard generation, a massive model must load all its parameters from memory just to produce one token. The bottleneck isn't the <strong>math</strong>; it's the <strong>delivery</strong>. Loading 70B parameters to calculate one token wastes 99% of the GPU's computing power.</p>
+                                    <ol>
+                                        <li>To fix this, a Draft Model (small and fast) "guesses" a sequence of future tokens (e.g., 5 tokens). A small draft model has fewer layers and parameters, so it fits better in memory and generates 5 tokens fast.</li>
+                                        <li>The large model validates the draft’s “future” tokens by running them through its own layers as a batch. If the draft guessed [𝐴, 𝐵, 𝐶, 𝐷, 𝐸] and the large model agrees with all five, you’ve effectively skipped 5 expensive memory-loading cycles.</li>
+                                        <li>If the large model disagrees at 𝐶, it keeps 𝐴 and 𝐵, provides its own “correct” 𝐶, and discards the rest. You still come out ahead because you got 3 tokens for the price of 1.</li>
+                                    </ol>
+                                    <p>Both models must use the same tokenizer — Models use IDs, not words. If ID 1520 is "apple" to the draft model but "cat" to the large model, the math breaks. They need a shared "dictionary" to ensure ID numbers represent the same concepts.</p>
+                                </div>
+                
+                                <div class="subsection">
+                                    <span class="subsection-title">PROMPT LOOKUP DECODING</span>
+                                    <p>Prompt Lookup Decoding accelerates text generation by exploiting the high probability that the output will repeat phrases found in the input (e.g., in summarization). It removes the need for a separate "draft model" used in standard speculative decoding.</p>
+                                    <p>Here is the step-by-step process:</p>
+                                    <ul>
+                                        <li><strong>Generate:</strong> The main Large Language Model (LLM) produces a few current tokens (words) as normal.</li>
+                                        <li><strong>Match:</strong> The system scans the original <strong>input prompt</strong> to see if this exact sequence of tokens appears somewhere in the source text.</li>
+                                        <li><strong>Speculate:</strong> If a match is found, the system "copies" the subsequent tokens directly from the prompt, hypothesizing that the model will continue to follow that source text.</li>
+                                        <li><strong>Validate:</strong> The LLM checks all these speculated tokens simultaneously in a single <strong>parallel pass</strong>. If they are correct, they are accepted instantly; if not, the model discards them and generates the next token normally.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+                    
                     <li><strong>Quantization</strong>: Best for memory-constrained hardware; use when the model won't fit in VRAM or to increase batch sizes.</li>
                 </ul>
             </div>
@@ -283,61 +379,9 @@
             </div>
 
             <div class="subsection">
-                <span class="subsection-title">KEY-VALUE CACHING</span>
-                <p>When the model predicts the 101st token, the Keys (𝐾) and Values (𝑉) for tokens 1–100 are identical to what they were during the previous step. KV Caching exploits this by saving those vectors in GPU memory.</p>
-                <ol>
-                    <li><strong>The Retrieval:</strong> Instead of re-processing the entire sequence, the model only generates a Query (𝑄), Key (𝐾), and Value (𝑉) for the newest token.</li>
-                    <li><strong>The Lookup:</strong> The new 𝑄 scans the cached 𝐾s (the "addresses") of all previous tokens to determine relevance.</li>
-                    <li><strong>The Extraction:</strong> It then pulls the corresponding information from the cached 𝑉s (the "payloads").</li>
-                </ol>
-                <p>By only calculating one new 𝐾/𝑉 pair per step and reading the rest from the cache, the model avoids redundant math, transforming an 𝑂(𝑛²) computational burden into a much faster linear process.</p>
-            </div>
-
-            <div class="subsection">
-                <span class="subsection-title">TORCH.COMPILE — STATIC CACHING</span>
-                <p>Standard PyTorch runs line-by-line, creating <strong>communication lag</strong> between the CPU and GPU. <code>torch.compile</code> "fuses" these separate steps into a single <strong>optimized kernel</strong>. Instead of sending many small tasks, it sends one "super-instruction," letting the GPU work at max speed without interruptions.</p>
-                <p>In a computer's memory, a tensor is defined by its <strong>shape</strong>. When the KV cache is dynamic, the tensor representing it looks like this:</p>
-                <div class="code-block">
-Step 1: [1, 1, hidden_dim]
-Step 2: [2, 1, hidden_dim]
-Step 3: [3, 1, hidden_dim]
-</div>
-<p>Every time that first number (the sequence length) increases, the GPU sees a "new" object. It has to "re-compile" or look up a new way to handle a 3-row matrix versus a 2-row matrix, the GPU cannot reuse the exact same machine-code instructions it just used.</p>
-<p><strong>Static Caching</strong> sets the dimension to a maximum (e.g., <code>[2048, 1, hidden_dim]</code>) immediately. Because the shape never changes, the GPU can use one single, hyper-optimized execution path for every single step of the generation.</p>
-</div>
-
-<div class="subsection">
                 <span class="subsection-title">CONTINUOUS BATCHING</span>
                 <p>If processing batch A, and 80% finishes, with 20% remaining; In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced.</p>
                 <p>Instead of waiting for that final 20% (the "straggler") to finish, the system inserts new requests into the available slots of the current batch. This ensures the GPU never sits idle while waiting for a single long-running task to complete.</p>
-            </div>
-
-            <div class="subsection">
-                <span class="subsection-title">SPECULATIVE DECODING</span>
-                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/speculative_decoding.html'; vp.classList.add('active');">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                    </svg>
-                </button>
-                <p>In standard generation, a massive model must load all its parameters from memory just to produce one token. The bottleneck isn't the <strong>math</strong>; it's the <strong>delivery</strong>. Loading 70B parameters to calculate one token wastes 99% of the GPU's computing power.</p>
-                <ol>
-                    <li>To fix this, a Draft Model (small and fast) "guesses" a sequence of future tokens (e.g., 5 tokens). A small draft model has fewer layers and parameters, so it fits better in memory and generates 5 tokens fast.</li>
-                    <li>The large model validates the draft’s “future” tokens by running them through its own layers as a batch. If the draft guessed [𝐴, 𝐵, 𝐶, 𝐷, 𝐸] and the large model agrees with all five, you’ve effectively skipped 5 expensive memory-loading cycles.</li>
-                    <li>If the large model disagrees at 𝐶, it keeps 𝐴 and 𝐵, provides its own “correct” 𝐶, and discards the rest. You still come out ahead because you got 3 tokens for the price of 1.</li>
-                </ol>
-                <p>Both models must use the same tokenizer — Models use IDs, not words. If ID 1520 is "apple" to the draft model but "cat" to the large model, the math breaks. They need a shared "dictionary" to ensure ID numbers represent the same concepts.</p>
-            </div>
-
-            <div class="subsection">
-                <span class="subsection-title">PROMPT LOOKUP DECODING</span>
-                <p>Prompt Lookup Decoding accelerates text generation by exploiting the high probability that the output will repeat phrases found in the input (e.g., in summarization). It removes the need for a separate "draft model" used in standard speculative decoding.</p>
-                <p>Here is the step-by-step process:</p>
-                <ul>
-                    <li><strong>Generate:</strong> The main Large Language Model (LLM) produces a few current tokens (words) as normal.</li>
-                    <li><strong>Match:</strong> The system scans the original <strong>input prompt</strong> to see if this exact sequence of tokens appears somewhere in the source text.</li>
-                    <li><strong>Speculate:</strong> If a match is found, the system "copies" the subsequent tokens directly from the prompt, hypothesizing that the model will continue to follow that source text.</li>
-                    <li><strong>Validate:</strong> The LLM checks all these speculated tokens simultaneously in a single <strong>parallel pass</strong>. If they are correct, they are accepted instantly; if not, the model discards them and generates the next token normally.</li>
-                </ul>
             </div>
 
             <div class="subsection">
