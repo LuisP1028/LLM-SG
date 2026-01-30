@@ -324,7 +324,22 @@
         </details>
 
         <details class="section">
-            <summary>2. RAG: Chunking</summary>
+            <summary>2. RAG Ingestion: Walkthrough</summary>
+            <div class="section-content">
+                <ol>
+                    <li><strong>Pull in the raw data (Data extraction/Ingestion):</strong> Collect documents from databases, PDFs, APIs, etc.</li>
+                    <li><strong>Clean it up (Cleaning layer):</strong> Fix messy text: remove weird characters, strip URLs, delete headers/footers.</li>
+                    <li><strong>Break into smaller pieces (Chunking/Splitting):</strong> Split large documents into 300-800 word chunks. Smart chunking keeps complete thoughts together.</li>
+                    <li><strong>Turn into vectors (Embedding):</strong> Send chunks to an embedding model. Text becomes numerical vectors capturing meaning.</li>
+                    <li><strong>Save in vector database (Loading):</strong> Store vectors + metadata (source URL, date, title) in a vector DB.</li>
+                </ol>
+                <p><strong>Result:</strong> When users ask questions, the system searches vectors for relevant chunks, adds them to the prompt, and the LLM generates accurate, grounded answers.</p>
+                <p><strong>In short:</strong> Raw documents &rarr; cleaned &rarr; chunked &rarr; vectorized &rarr; stored &rarr; ready for AI retrieval.</p>
+            </div>
+        </details>
+
+        <details class="section">
+            <summary>3. RAG: Chunking</summary>
             <div class="section-content">
                 <p>Chunking is the process of splitting large documents into smaller, discrete segments. In RAG systems, it is essential for:</p>
                 <ul>
@@ -367,7 +382,7 @@
         </details>
 
         <details class="section">
-            <summary>3. RAG: Embedding</summary>
+            <summary>4. RAG: Embedding</summary>
             <div class="section-content">
                 <p><strong>Dense Embeddings (Bi-Encoders):</strong> Foundation for semantic search. Captures abstract meaning by collapsing an entire sequence into a single "summary" vector.<br>
                 <strong>When to use:</strong> Use this when the intent matters more than specific words. It bridges the gap between synonyms and related concepts by mapping them to the same mathematical space, making it the bedrock of modern semantic search, though it may lose granular word-level nuance.</p>
@@ -386,21 +401,6 @@
                 <p><strong>Cross-Encoders (Relevance Scoring):</strong> Foundation for deep relevance. Unlike bi-encoders that collapse text into independent "summary" vectors, this architecture processes a query and document pair simultaneously. By concatenating both into a single input sequence, it enables the <strong>Self-Attention</strong> mechanism to perform exhaustive, token-to-token comparisons.<br>
                 <strong>Example:</strong> For the query "Is caffeine good for sleep?", the model's attention heads identify specific relationships—detecting if the text claims caffeine helps or hinders rest, rather than just matching keywords.<br>
                 <strong>When to use:</strong> Use as a reranker in the final stage of retrieval. Because the O(N²) self-attention over the combined sequence is computationally heavy, it is reserved for the top 50–100 candidates to provide maximum precision.</p>
-            </div>
-        </details>
-
-        <details class="section">
-            <summary>4. RAG Ingestion: Walkthrough</summary>
-            <div class="section-content">
-                <ol>
-                    <li><strong>Pull in the raw data (Data extraction/Ingestion):</strong> Collect documents from databases, PDFs, APIs, etc.</li>
-                    <li><strong>Clean it up (Cleaning layer):</strong> Fix messy text: remove weird characters, strip URLs, delete headers/footers.</li>
-                    <li><strong>Break into smaller pieces (Chunking/Splitting):</strong> Split large documents into 300-800 word chunks. Smart chunking keeps complete thoughts together.</li>
-                    <li><strong>Turn into vectors (Embedding):</strong> Send chunks to an embedding model. Text becomes numerical vectors capturing meaning.</li>
-                    <li><strong>Save in vector database (Loading):</strong> Store vectors + metadata (source URL, date, title) in a vector DB.</li>
-                </ol>
-                <p><strong>Result:</strong> When users ask questions, the system searches vectors for relevant chunks, adds them to the prompt, and the LLM generates accurate, grounded answers.</p>
-                <p><strong>In short:</strong> Raw documents &rarr; cleaned &rarr; chunked &rarr; vectorized &rarr; stored &rarr; ready for AI retrieval.</p>
             </div>
         </details>
 
@@ -459,7 +459,7 @@
         </details>
 
         <details class="section">
-            <summary>6. Advanced Retrieval Strategies:</summary>
+            <summary>6. Advanced Retrieval Strategies</summary>
             <div class="section-content">
                 <p>This module covers advanced techniques to optimize vector search for either precision (Metadata Filtering) or recall (Expansion & Reranking).</p>
         
