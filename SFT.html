@@ -249,10 +249,11 @@
         </details>
 
         <details class="nested-accordion">
-            <summary>Data Augmentation (Evol-Instruct & UltraFeedback)</summary>
+            <summary>Data Augmentation (Evol-Instruct)</summary>
             <div class="accordion-content">
-                <p>In this context, <strong>data augmentation</strong> refers to the process of increasing both the quantity and the quality of data samples. While generation creates data from scratch, augmentation takes actual, existing samples and transforms them (e.g., rewording) to add variety or fix errors.</p>
-                                <hr>
+                <p>In this context, <strong>data augmentation</strong> focuses on the <strong>Input</strong> side: upgrading simple prompts into complex training signals to ensure the model isn't just learning simple patterns.</p>
+                
+                <hr>
                 
                 <details class="nested-accordion">
                     <summary>1. Evol-Instruct (Upgrading the Prompt)</summary>
@@ -276,23 +277,7 @@
                 </details>
 
                 <details class="nested-accordion">
-                    <summary>2. UltraFeedback (Upgrading the Output)</summary>
-                    <div class="accordion-content">
-                        <p><strong>UltraFeedback</strong> upgrades the <strong>Answer</strong>. It keeps the prompt the same but generates multiple responses from different models, using an <strong>LLM as a Judge</strong> to select the best one.</p>
-                        
-                        <h5>The Workflow:</h5>
-                        <ul>
-                            <li><strong>The Inputs:</strong> Generate multiple answers (e.g., 4) for one question using different models.</li>
-                            <li><strong>The Rubric:</strong> Provide a "Judge" LLM with a specific scorecard (e.g., "Score 1-5 on technical accuracy and safety").</li>
-                            <li><strong>The Selection:</strong> The Judge evaluates the responses against the rubric and keeps only the highest-scoring answer for the final dataset.</li>
-                        </ul>
-                    </div>
-                </details>
-        
-                <p style="margin-top: 15px;"><em><strong>Summary:</strong> One builds better prompts (Evol-Instruct); the other curates better answers (UltraFeedback).</em></p>
-
-                <details class="nested-accordion">
-                    <summary>3. Evol Instruct Examples</summary>
+                    <summary>2. Evol-Instruct Examples</summary>
                     <div class="accordion-content">
                         <div class="subsection">
                             <span class="subsection-title">Infrastructure</span>
@@ -356,6 +341,7 @@
             <div class="accordion-content">
                 <p>In practice, these steps are the "safeguards" of a pipeline, ensuring the model doesn't just memorize patterns or "leak" answers. Engineers use <strong>MinHash LSH</strong> to scale this across millions of rows efficiently. <strong>Fuzzy Deduplication</strong> identifies "near-misses"—like the same recipe with different line breaks—and deletes them to prevent the model from overfitting on repetitive content. <strong>Decontamination</strong> acts as a "cheat check," where the training set is compared against benchmark test sets (like MMLU); any training sample too similar to a test question is purged to ensure the final evaluation measures true reasoning, not memorization.</p>
                 
+
                 <details class="nested-accordion">
                     <summary>Exact Deduplication</summary>
                     <div class="accordion-content">
@@ -401,7 +387,8 @@
             <summary>Data Quality Evaluation (LLM-as-a-judge)</summary>
             <div class="accordion-content">
                 <p>Measures attributes like accuracy, diversity, and complexity to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use <strong>LLM-as-a-judge</strong> workflows to automate this assessment.</p>
-                        
+                
+        
                 <details class="nested-accordion">
                     <summary>LLM-as-a-Judge: Scoring vs. Ranking</summary>
                     <div class="accordion-content">
@@ -433,61 +420,76 @@
                             <li><strong>Verbosity Bias:</strong> Preferring longer responses.</li>
                             <li><strong>Self-Preference:</strong> Rating their own model family higher.</li>
                         </ul>
-                        <p>Counter these by randomizing order, length normalization, and using diverse judges.</p>        
-                        <details class="nested-accordion">
-                            <summary>Domain-Specific Implementation Examples</summary>
-                            <div class="accordion-content">
-                                <ol>
-                                    <li><strong>Software Engineering (Ground Truth + Pairwise):</strong>
-                                        <ul>
-                                            <li><strong>The Packet:</strong> Prompt (Fibonacci function), Response A (Recursive/Slow), Response B (Iterative/Syntax Error), Ground Truth (Verified Textbook Script).</li>
-                                            <li><strong>The Ingestion:</strong> The Judge compares A and B against the Ground Truth. It identifies B's syntax error despite its "advanced" appearance and selects A for the SFT training set.</li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Medical/BioTech (The Rubric + Pairwise):</strong>
-                                        <ul>
-                                            <li><strong>The Packet:</strong> Prompt (Summarize clinical trial), Response A (Jargon-heavy), Response B (Missing safety warnings), The Rubric (8th-grade level, must include contraindications).</li>
-                                            <li><strong>The Ingestion:</strong> The Judge checks both against the Rubric. Both are flagged for failure; the Judge may reject both or pick the "least bad" for further refinement.</li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Roleplay/Persona (CoT + Pairwise):</strong>
-                                        <ul>
-                                            <li><strong>The Packet:</strong> Prompt (Request for comfort), Response A (Empathetic/Generic), Response B (Stoic/Principled), Instruction (Use Chain of Thought).</li>
-                                            <li><strong>Internal Reasoning:</strong> "A is empathetic but lacks the 'Stoic' persona. B uses Stoic principles regarding control. B matches the specific domain requirement." Winner: B.</li>
-                                        </ul>
-                                    </li>
-                                </ol>
-                            </div>
-                        </details>
-        
-                        <details class="nested-accordion">
-                            <summary>Task-Specific Implementation Examples</summary>
-                            <div class="accordion-content">
-                                <ol>
-                                    <li><strong>Mathematical Reasoning (Ground Truth + Pairwise):</strong>
-                                        <ul>
-                                            <li><strong>The Packet:</strong> Prompt (Derivative of $\sin(x^2)$), Response A (Answer only), Response B (Correct steps, sign error), Ground Truth (Step-by-step key).</li>
-                                            <li><strong>The Ingestion:</strong> The Judge aligns both against the Ground Truth. It rejects A for failing to show work and flags B for factual error.</li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Data Extraction (The Rubric + Pairwise):</strong>
-                                        <ul>
-                                            <li><strong>The Packet:</strong> Prompt (Extract contract entities), Response A (Conversational paragraph), Response B (Clean JSON), The Rubric (Valid JSON, specific keys, no filler).</li>
-                                            <li><strong>The Ingestion:</strong> The Judge ignores accuracy momentarily to check Rubric constraints. Response A fails; Response B passes all points and is selected.</li>
-                                        </ul>
-                                    </li>
-                                    <li><strong>Creative Writing/Style Transfer (CoT + Pairwise):</strong>
-                                        <ul>
-                                            <li><strong>The Packet:</strong> Prompt (Rewrite manual in '1950s Noir'), Response A (Slang only), Response B (Atmospheric narrative with technical accuracy).</li>
-                                            <li><strong>Internal Reasoning:</strong> "A is brief but lacks narrative depth. B maintains the technical requirement (grounded outlet) while committing to the genre's tropes." Winner: B.</li>
-                                        </ul>
-                                    </li>
-                                </ol>
-                            </div>
-                        </details>
-        
+                        <p>Counter these by randomizing order, length normalization, and using diverse judges.</p>  
                     </div>
                 </details>
+
+                <details class="nested-accordion">
+                    <summary>Implementation: UltraFeedback Workflow</summary>
+                    <div class="accordion-content">
+                        <p>UltraFeedback is the primary implementation of the LLM-as-a-judge ranking system used to curate high-quality SFT datasets. It upgrades the <strong>Answer</strong> by generating multiple responses and selecting the best one.</p>
+                        
+                        <h5>The Workflow:</h5>
+                        <ul>
+                            <li><strong>The Inputs:</strong> Generate multiple answers (e.g., 4) for one question using different models.</li>
+                            <li><strong>The Rubric:</strong> Provide a "Judge" LLM with a specific scorecard (e.g., "Score 1-5 on technical accuracy and safety").</li>
+                            <li><strong>The Selection:</strong> The Judge evaluates the responses against the rubric and keeps only the highest-scoring answer for the final dataset.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="nested-accordion">
+                    <summary>Domain-Specific Implementation Examples</summary>
+                    <div class="accordion-content">
+                        <ol>
+                            <li><strong>Software Engineering (Ground Truth + Pairwise):</strong>
+                                <ul>
+                                    <li><strong>The Packet:</strong> Prompt (Fibonacci function), Response A (Recursive/Slow), Response B (Iterative/Syntax Error), Ground Truth (Verified Textbook Script).</li>
+                                    <li><strong>The Ingestion:</strong> The Judge compares A and B against the Ground Truth. It identifies B's syntax error despite its "advanced" appearance and selects A for the SFT training set.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Medical/BioTech (The Rubric + Pairwise):</strong>
+                                <ul>
+                                    <li><strong>The Packet:</strong> Prompt (Summarize clinical trial), Response A (Jargon-heavy), Response B (Missing safety warnings), The Rubric (8th-grade level, must include contraindications).</li>
+                                    <li><strong>The Ingestion:</strong> The Judge checks both against the Rubric. Both are flagged for failure; the Judge may reject both or pick the "least bad" for further refinement.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Roleplay/Persona (CoT + Pairwise):</strong>
+                                <ul>
+                                    <li><strong>The Packet:</strong> Prompt (Request for comfort), Response A (Empathetic/Generic), Response B (Stoic/Principled), Instruction (Use Chain of Thought).</li>
+                                    <li><strong>Internal Reasoning:</strong> "A is empathetic but lacks the 'Stoic' persona. B uses Stoic principles regarding control. B matches the specific domain requirement." Winner: B.</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+                </details>
+
+                <details class="nested-accordion">
+                    <summary>Task-Specific Implementation Examples</summary>
+                    <div class="accordion-content">
+                        <ol>
+                            <li><strong>Mathematical Reasoning (Ground Truth + Pairwise):</strong>
+                                <ul>
+                                    <li><strong>The Packet:</strong> Prompt (Derivative of $\sin(x^2)$), Response A (Answer only), Response B (Correct steps, sign error), Ground Truth (Step-by-step key).</li>
+                                    <li><strong>The Ingestion:</strong> The Judge aligns both against the Ground Truth. It rejects A for failing to show work and flags B for factual error.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Data Extraction (The Rubric + Pairwise):</strong>
+                                <ul>
+                                    <li><strong>The Packet:</strong> Prompt (Extract contract entities), Response A (Conversational paragraph), Response B (Clean JSON), The Rubric (Valid JSON, specific keys, no filler).</li>
+                                    <li><strong>The Ingestion:</strong> The Judge ignores accuracy momentarily to check Rubric constraints. Response A fails; Response B passes all points and is selected.</li>
+                                </ul>
+                            </li>
+                            <li><strong>Creative Writing/Style Transfer (CoT + Pairwise):</strong>
+                                <ul>
+                                    <li><strong>The Packet:</strong> Prompt (Rewrite manual in '1950s Noir'), Response A (Slang only), Response B (Atmospheric narrative with technical accuracy).</li>
+                                    <li><strong>Internal Reasoning:</strong> "A is brief but lacks narrative depth. B maintains the technical requirement (grounded outlet) while committing to the genre's tropes." Winner: B.</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </div>
+                </details>
+
             </div>
         </details>
     </div>
@@ -523,46 +525,62 @@
         <summary>4. Training & Alignment</summary>
         <div class="section-content">
             <p>Execution of the training process and alignment with human preferences.</p>
-            
+    
             <details class="nested-accordion">
-                <summary>Fine Tuning Methods (LoRA & QLoRA)</summary>
+                <summary>Fine-Tuning Methods (LoRA & QLoRA)</summary>
                 <div class="accordion-content">
-                    <div class="subsection">
-                        <span class="subsection-title">LoRA - Low Rank Adaptation</span>
-                                                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen. </p>
-                        
-                        <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. At this stage, the model is standard. You must "freeze" the model, ensuring no original parameters will be updated during training. The PEFT library handles this freezing automatically when you apply the configuration.</p>
-                        
-                        <p><strong>2. Configuration (The Ontology):</strong> You must define a LoraConfig object to dictate how the adaptation works.</p>
-                        <ul>
-                            <li><strong>r (Rank):</strong> Set the dimension of the low-rank matrices ($A$ and $B$). Start with 8 or 16. Higher ranks (e.g., 64) allow for more complex learning but increase VRAM usage.</li>
-                            <li><strong>lora_alpha (Alpha):</strong> Set the scaling factor. A standard heuristic is $\alpha = 2 \times r$ (e.g., if rank is 16, set alpha to 32). This ensures the update is strong enough to influence the model.</li>
-                            <li><strong>target_modules:</strong> List the specific layers to attach LoRA to. For Style/Format: Target ["q_proj", "v_proj"] (Attention Query/Value). For Reasoning/Facts: Target ["gate_proj", "up_proj", "down_proj"] (MLP layers) in addition to attention.</li>
-                            <li>Matrix $A$ compresses the input down to the small rank (r). Matrix $B$ expands it back up to the original size.</li>
-                        </ul>
-                        
-                        <p><strong>3. Model Injection:</strong> Apply the configuration to create the parallel adapter structure. Result: This attaches small, trainable matrices ($A$ and $B$) to the frozen layers. Initially representing zero change, $A$ and $B$ are updated during backpropagation to learn the delta ($\Delta W$)—the precise mathematical offset required to steer the model's output. Because $A$ and $B$ are structurally small (low-rank), they capture this task-specific adjustment using only a fraction of the total parameters.</p>
-                        
-                        <p><strong>4. Training (Fine-Tuning):</strong> Run your standard training loop (e.g., using Hugging Face Trainer). During backpropagation, the optimizer ignores the frozen base weights and only updates the specific LoRA matrices you injected. This prevents "catastrophic forgetting" of the base model's knowledge.</p>
-                        
-                        <p><strong>5. Merging & Inference:</strong> Save only the Adapter (the LoRA weights), which is small (usually <100MB). To use the model, load the Base Model again and strictly "merge" the saved Adapter weights into it. The math is: $W_{final} = W_{base} + (B \times A \times \alpha/r)$. We add the results together because LoRA is an additive modification rather than a replacement. In the Transformer architecture, the original weights ($W$) represent the model's vast, general knowledge. When you fine-tune for a specific task, you don't want to discard that foundation; you want to nudge it.</p>
-                    </div>
+                    
+                    <details class="nested-accordion">
+                        <summary>LoRA - Low Rank Adaptation</summary>
+                        <div class="accordion-content">
+                            <div class="subsection">
+                                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen.</p>
+                                
+                                
+                                    
+                                <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. You must "freeze" the model, ensuring no original parameters will be updated during training. The PEFT library handles this freezing automatically.</p>
+                                
+                                <p><strong>2. Configuration (The Ontology):</strong> You must define a <code>LoraConfig</code> object to dictate how the adaptation works:</p>
+                                <ul>
+                                    <li><strong>r (Rank):</strong> Set the dimension of the low-rank matrices ($A$ and $B$). Start with 8 or 16. Higher ranks allow for more complex learning but increase VRAM usage.</li>
+                                    <li><strong>lora_alpha (Alpha):</strong> The scaling factor. A standard heuristic is $\alpha = 2 \times r$.</li>
+                                    <li><strong>target_modules:</strong> Specific layers to attach LoRA to. Target <code>["q_proj", "v_proj"]</code> for style/format; add <code>["gate_proj", "up_proj", "down_proj"]</code> for reasoning/facts.</li>
+                                </ul>
+                                
+                                <p><strong>3. Model Injection:</strong> This attaches small, trainable matrices ($A$ and $B$) to the frozen layers. Initially representing zero change, $A$ and $B$ learn the delta ($\Delta W$)—the precise mathematical offset required to steer the model's output.</p>
+                                
+                                <p><strong>4. Training:</strong> During backpropagation, the optimizer only updates the specific LoRA matrices. This prevents "catastrophic forgetting" of the base model's knowledge.</p>
+                                
+                                <p><strong>5. Merging & Inference:</strong> The math for the final output is: $W_{final} = W_{base} + (B \times A \times \alpha/r)$. Because LoRA is additive, you nudge the model's general knowledge rather than replacing it.</p>
+                            </div>
+                        </div>
+                    </details>
+    
+                    <details class="nested-accordion">
+                        <summary>QLoRA - Quantized LoRA</summary>
+                        <div class="accordion-content">
+                            <div class="subsection">
+                                <p>Think of QLoRA as LoRA with a world-class packing strategy. It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware.</p>
+                                
+                                
 
-                    <div class="subsection">
-                        <span class="subsection-title">QLoRA</span>
-                                                <p>Think of QLoRA as LoRA with a world-class packing strategy. It maintains the same low-rank logic but adds layers of compression to make massive models fit on modest hardware.</p>
-                        <p><strong>Quantization</strong> is the process of reducing the precision of a model’s numerical values to save memory and speed up processing. In computing, numbers are stored with a specific "bit-depth." High precision (32-bit) uses a massive range of decimals for extreme accuracy. Reducing precision means shortening those numbers—moving from long decimals to smaller ones or integers (like 8-bit or 4-bit). </p>
-                        
-                        <p><strong>1. Base Model Preparation (4-bit Quantization):</strong> Load the base model using 4-bit NormalFloat (NF4). Unlike standard LoRA, which often uses 16-bit or 8-bit, QLoRA compresses the frozen weights ($W$) into a specialized 4-bit format. This NF4 data type is mathematically optimized for normally distributed weights, ensuring minimal information loss while slashing VRAM requirements by up to 75% compared to full-precision tuning.</p>
-                        
-                        <p><strong>2. Configuration (The Ontology):</strong> The LoraConfig remains largely the same, but with two critical QLoRA-specific additions handled via BitsAndBytesConfig: Double Quantization (This quantizes the quantization constants themselves, saving ~0.37 bits per parameter). Paged Optimizers (This acts as a "safety valve." If you hit a memory spike, QLoRA offloads the optimizer states to the CPU RAM to prevent "Out of Memory" crashes).</p>
-                        
-                        <p><strong>3. Matrix Injection & The Adapter:</strong> Inject the trainable matrices $A$ and $B$ alongside the frozen model. The base model remains in its 4-bit "frozen" state. The adapters ($A$ and $B$) are created in high-resolution Bfloat. During the forward pass, the model performs a "temporary inflation": it dequantizes 4-bit weights into 16-bit just long enough to perform math with the adapters, then "deflates" them back to 4-bit storage.</p>
-                        
-                        <p><strong>4. Training (The Computational Trade-off):</strong> During backpropagation, only the high-precision adapters are updated. The base model acts like a static, low-resolution anchor. Because the system has to constantly inflate (dequantize) and deflate (re-quantize) the base weights for every calculation, it takes about 30% longer than standard LoRA. You are essentially sacrificing processing speed to ensure the model fits on a smaller GPU.</p>
-                        
-                        <p><strong>5. Merging & Inference:</strong> You still only save the tiny Adapter weights (<100MB). $W_{final} = Dequantize(W_{4bit}) + (B \times A \times \alpha/r)$. Because the base model is quantized, you typically do not “hard merge” the weights into a single 4-bit file for production if you want to maintain maximum precision. Instead, you load the base 4-bit model and the adapter separately at runtime.</p>
-                    </div>
+                                <p><strong>1. Base Model Preparation (4-bit Quantization):</strong> Loads weights using 4-bit NormalFloat (NF4). This specialized data type ensures minimal information loss while slashing VRAM requirements by up to 75% compared to full-precision tuning.</p>
+                                
+                                <p><strong>2. Configuration:</strong> Adds two critical features via <code>BitsAndBytesConfig</code>:</p>
+                                <ul>
+                                    <li><strong>Double Quantization:</strong> Quantizes the quantization constants, saving ~0.37 bits per parameter.</li>
+                                    <li><strong>Paged Optimizers:</strong> Acts as a "safety valve," offloading optimizer states to CPU RAM during VRAM spikes to prevent OOM errors.</li>
+                                </ul>
+                                
+                                <p><strong>3. Matrix Injection:</strong> The base model remains in 4-bit storage. During the forward pass, the model performs a "temporary inflation": it dequantizes weights into 16-bit just long enough to perform math with the high-resolution Bfloat adapters.</p>
+                                
+                                <p><strong>4. Training (The Computational Trade-off):</strong> Only high-precision adapters are updated. Because of the constant inflation/deflation of weights, QLoRA is roughly 30% slower than standard LoRA.</p>
+                                
+                                <p><strong>5. Merging & Inference:</strong> $W_{final} = Dequantize(W_{4bit}) + (B \times A \times \alpha/r)$. Typically, the base model and adapter are loaded separately at runtime to maintain maximum precision.</p>
+                            </div>
+                        </div>
+                    </details>
+    
                 </div>
             </details>
 
@@ -570,7 +588,7 @@
                 <summary>Reinforcement Learning from Human Feedback (RLHF)</summary>
                 <div class="accordion-content">
                     <p>RLHF is most effective when the "ground truth" is difficult to define mathematically but easy for a human to recognize. The Bradley-Terry model turns a simple "A is better than B" vote into a mathematical probability. If a human prefers response $A$ over $B$, the loss function penalizes the model if its predicted score for $A$ isn't higher than its score for $B$.</p>
-                    <ol>
+                                        <ol>
                         <li><strong>The Reward Model (Learning "Taste"):</strong> The Reward Model (RM) is typically a sibling of the candidate model (same architecture) but modified with a scalar regression head. Instead of predicting the next word, it outputs a single number. Using a Bradley-Terry loss, the RM learns to distinguish the features—logic, tone, safety—that humans prefer.</li>
                         <li><strong>Policy Selection (PPO):</strong> Updates $\pi_\theta$ (parameters) via on-policy optimization. Its $KL-penalty$ mechanism enforces a constraint, providing a stable framework for aligning weights with the optimal policy.</li>
                         <li><strong>How the RM Informs the Candidate:</strong> The candidate model generates a response. The RM "grades" it with a score. PPO then calculates the <strong>Advantage</strong>: how much better this response was compared to the model's average.
@@ -590,7 +608,9 @@
                     
                     <div class="subsection">
                         <span class="subsection-title">Direct Preference Optimization (DPO)</span>
-                                                <p>Maximize the accuracy, diversity, and complexity of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
+                        
+                        <p>Maximize the accuracy, diversity, and complexity of our samples. The algorithm calculates the probability of the model generating the "chosen" response versus the "rejected" response. The goal is to maximize the margin between the two. The model learns not just "what to say," but specifically "what not to say" in the context of what it should say. </p>
+                        
                         
                         <p><strong>Data Quantity:</strong> DPO is sample-efficient, meaning it requires significantly less data than SFT to fundamentally change a model’s behavior.</p>
                         <ul>
