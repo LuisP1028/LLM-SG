@@ -272,19 +272,42 @@
             <summary>Data Exploration & Generation</summary>
             <div class="accordion-content">
                 <h4>Data Exploration</h4>
-                <p><strong>Statistical Analysis:</strong> Uses NLP libraries like NLTK and spaCy to scan text for vocabulary diversity and bias via tokenization. Tools like Matplotlib and Seaborn visualize this data (e.g., histograms) to highlight language patterns.</p>
+                <p><strong>Statistical Analysis:</strong> Uses NLP libraries like NLTK and spaCy to scan text for vocabulary diversity and bias via tokenization. </p>
                 <p><strong>Topic Clustering:</strong> Automatically groups similar documents to uncover hidden themes and trends within large datasets. It converts text into numerical embeddings (vectors) using sentence transformers. Algorithms like DBSCAN then group these vectors based on their proximity in this mathematical space.</p>
                 
                 <hr />
                 
                 <h4>Data Generation</h4>
-                <p>When available instruction datasets are not sufficient, custom data creation is necessary. Synthetic data pipelines generate and validate training sets, tuning attributes to fill gaps while requiring oversight to prevent inherited errors.</p>
+                <p>When available instruction datasets are not sufficient, custom data creation is necessary. </p>
                 <p><strong>How It Works:</strong> Data generation builds custom datasets starting with a <strong>taxonomy</strong>.</p>
                 <ul>
                     <li><strong>Taxonomy (The "What"):</strong> The organized map of skills—breaking a broad domain into specific sub-capabilities to ensure full coverage (e.g., coding → debugging → loops).</li>
                     <li><strong>Seed (The "How"):</strong> The specific seed instructions (prompt templates) used to generate the data.</li>
                 </ul>
                 <p>These elements combined aid in the generation of massive instruction-response pairs.</p>
+        
+                <details class="nested-accordion">
+                    <summary>Practical Domain Examples</summary>
+                    <div class="accordion-content">
+                        <p><strong>1. Financial Risk Assessment</strong></p>
+                        <ul>
+                            <li><strong>Taxonomy:</strong> Corporate Finance → Credit Risk → Liquidity Analysis → Cash Flow Volatility.</li>
+                            <li><strong>Seed:</strong> "Analyze the statement for [COMPANY]. Given a [PERCENTAGE] drop in operating cash flow, calculate the new Debt Service Coverage Ratio (DSCR). Suggest two mitigation strategies."</li>
+                        </ul>
+        
+                        <p><strong>2. Cybersecurity Threat Hunting</strong></p>
+                        <ul>
+                            <li><strong>Taxonomy:</strong> Network Security → Attack Vectors → Phishing → Business Email Compromise (BEC).</li>
+                            <li><strong>Seed:</strong> "Identify the [SOCIAL_ENGINEERING_TACTIC] used in this email snippet: '[EMAIL_BODY]'. Rewrite the email to be more subtle by incorporating a [SPECIFIC_URGENCY] trigger."</li>
+                        </ul>
+        
+                        <p><strong>3. Pediatric Medical Triage</strong></p>
+                        <ul>
+                            <li><strong>Taxonomy:</strong> Emergency Medicine → Respiratory Distress → Asthma → Severity Scoring (PRAM).</li>
+                            <li><strong>Seed:</strong> "A [AGE]-year-old presents with [SYMPTOM_1] and [SYMPTOM_2]. Based on a PRAM score of [SCORE], determine if the patient requires immediate [INTERVENTION] or observation."</li>
+                        </ul>
+                    </div>
+                </details>
             </div>
         </details>
 
@@ -426,7 +449,7 @@
         <details class="nested-accordion">
             <summary>Data Quality Evaluation (LLM-as-a-judge)</summary>
             <div class="accordion-content">
-                <p>Measures attributes like accuracy, diversity, and complexity to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use <strong>LLM-as-a-judge</strong> workflows to automate this assessment.</p>
+                <p>Measures attributes like <stong>accuracy, diversity, and complexity</stong> to ensure datasets are fit for training models. To avoid the high cost of human annotation, developers increasingly use <strong>LLM-as-a-judge</strong> workflows to automate this assessment.</p>
                 
         
                 <details class="nested-accordion">
