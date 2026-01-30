@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Responsive Engine v2.1: Auto-Scaling</title>
+    <style>
+        :root {
+            --matrix-green: #00FF41;
+            --dark-green: #003B00;
+            --alert-white: #FFFFFF;
+            --dim-gray: #333333;
+            --black: #050505;
+            
+            /* Responsive sizing variables */
+            --dither-size: 4px;
+            --space-unit: clamp(0.5rem, 1.5vh, 1.5rem);
+            --font-xs: clamp(0.6rem, 1vh, 0.8rem);
+            --font-main: clamp(0.75rem, 1.5vw + 0.5vh, 1.2rem);
+            --font-large: clamp(1.2rem, 3vw + 1vh, 2.5rem);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--black);
+            color: var(--matrix-green);
+            font-family: 'Courier New', monospace;
+            height: 100dvh; /* Dynamic viewport height for mobile */
+            width: 100vw;
+            overflow: hidden;
+            text-transform: uppercase;
+        }
+
+        /* --- AESTHETICS --- */
+        .dither-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(45deg, var(--black) 25%, transparent 25%), 
+                linear-gradient(-45deg, var(--black) 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, var(--black) 75%), 
+                linear-gradient(-45deg, transparent 75%, var(--black) 75%);
+            background-size: var(--dither-size) var(--dither-size);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .crt-scanline {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            z-index: 101;
+            pointer-events: none;
+        }
+
+        /* --- FLEX LAYOUT (Fixes Overflow) --- */
+        .pipeline-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            padding: var(--space-unit);
+            gap: clamp(4px, 1vh, 10px);
+            position: relative;
+            z-index: 10;
+        }
+
+        .stage {
+            border: 1px solid var(--dark-green);
+            position: relative;
+            width: 100%;
+            background: rgba(0, 20, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Flex weighting to distribute vertical space smartly */
+        #stage-init     { flex: 1; min-height: 8%; }
+        #stage-inject   { flex: 1.5; min-height: 10%; }
+        #stage-split    { flex: 1.5; min-height: 12%; }
+        #stage-retrieve { flex: 4; min-height: 25%; } /* Needs most space */
+        #stage-encoder  { flex: 1.5; min-height: 12%; }
+        #stage-rank     { flex: 2.5; min-height: 20%; }
+
+        .stage-label {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: var(--matrix-green);
+            color: var(--black);
+            padding: 2px 6px;
+            font-size: var(--font-xs);
+            font-weight: bold;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* --- STAGE 1: INIT --- */
+        .counter-wrapper {
+            font-size: var(--font-large);
+            display: flex;
+            gap: 1em;
+            align-items: center;
+        }
+        .locked-slots {
+            display: flex;
+            gap: 0.5em;
+            margin-left: 1em;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .slot-outline {
+            width: clamp(15px, 2vw, 25px);
+            height: clamp(15px, 2vw, 25px);
+            border: 1px dashed var(--matrix-green);
+        }
+
+        /* --- STAGE 2: INJECT --- */
+        .template-box {
+            display: flex;
+            gap: 0.5em;
+            align-items: center;
+            font-size: var(--font-main);
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 0 1em;
+            width: 100%;
+            text-align: center;
+        }
+        .dynamic-field {
+            border-bottom: 2px solid var(--matrix-green);
+            min-width: 3em;
+            padding: 0 0.2em;
+            color: var(--alert-white);
+            font-weight: bold;
+        }
+
+        /* --- STAGE 3: SPLIT --- */
+        .stream-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .raw-stream {
+            font-size: var(--font-main);
+            white-space: nowrap;
+        }
+        .flash-cut {
+            position: absolute;
+            height: 100%;
+            width: 2px;
+            background: var(--alert-white);
+            box-shadow: 0 0 10px white;
+            opacity: 0;
+            z-index: 20;
+        }
+        .shards-wrapper {
+            display: none; 
+            gap: 4%;
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+        }
+        .shard {
+            border: 1px solid var(--matrix-green);
+            padding: 0.5em;
+            font-size: var(--font-main);
+            opacity: 0;
+            background: var(--black);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 30%;
+        }
+
+        /* --- STAGE 4: RETRIEVAL (FIXED) --- */
+        #stage-retrieve {
+            flex-direction: column;
+            justify-content: flex-start;
+            padding-top: var(--space-unit);
+        }
+        
+        .beam-header {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            padding: 0 5%;
+            margin-top: 1.5em; /* Space for stage label */
+            height: 20%;
+        }
+
+        /* New Label Container for Beams */
+        .beam-source {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 30%;
+        }
+
+        .beam-label {
+            font-size: var(--font-xs);
+            color: var(--matrix-green);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            text-align: center;
+            border-bottom: 1px solid var(--dark-green);
+            padding-bottom: 2px;
+        }
+
+        .beam-emitter {
+            width: 100%;
+            height: 4px;
+            background: var(--dark-green);
+            position: relative;
+        }
+
+        .laser-beam {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 0; /* Animated */
+            background: rgba(0, 255, 65, 0.6);
+            box-shadow: 0 0 8px var(--matrix-green);
+            transition: height 1s ease-out;
+            transform: translateX(-50%);
+        }
+
+        .doc-cloud {
+            position: relative;
+            width: 100%;
+            height: 80%; /* Takes remaining space */
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: clamp(3px, 0.8vw, 6px);
+            height: clamp(3px, 0.8vw, 6px);
+            background: var(--dark-green);
+            transition: all 1s ease-in-out;
+        }
+        .particle.captured {
+            background: var(--alert-white);
+            box-shadow: 0 0 5px white;
+        }
+
+        .docs-counter {
+            position: absolute;
+            bottom: var(--space-unit);
+            right: var(--space-unit);
+            font-size: var(--font-large);
+            background: var(--black);
+            border: 1px solid var(--matrix-green);
+            padding: 0.2em 0.5em;
+            z-index: 20;
+        }
+
+        /* --- STAGE 5: ENCODER (FIXED OVERFLOW) --- */
+        .pair-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between; /* Pushes score to right */
+            width: 90%;
+            height: 60%;
+            border: 1px solid var(--dark-green);
+            position: relative;
+            padding: 0 1em;
+            background: var(--black);
+        }
+
+        .text-track {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            font-size: var(--font-main);
+            overflow: hidden; /* Hides overflow */
+            white-space: nowrap;
+            flex-grow: 1; /* Takes available space */
+            mask-image: linear-gradient(to right, black 90%, transparent 100%);
+        }
+
+        .score-box {
+            font-size: var(--font-large);
+            color: var(--alert-white);
+            opacity: 0;
+            margin-left: 1em;
+            flex-shrink: 0; /* Prevents shrinking */
+            font-weight: bold;
+            text-shadow: 0 0 5px var(--matrix-green);
+        }
+
+        .scanner-bar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: var(--alert-white);
+            box-shadow: 0 0 15px var(--alert-white);
+            opacity: 0;
+            z-index: 10;
+        }
+
+        .token {
+            color: var(--dark-green);
+            transition: color 0.1s;
+        }
+        .token.lit {
+            color: var(--alert-white);
+            text-shadow: 0 0 5px var(--matrix-green);
+        }
+
+        /* --- STAGE 6: RANK --- */
+        .rank-list {
+            width: 90%;
+            height: 100%;
+            position: relative;
+            padding-top: 1.5em; /* Space for stage label */
+        }
+        .rank-item {
+            height: clamp(20px, 15%, 40px); /* Responsive height */
+            width: 100%;
+            background: var(--dark-green);
+            position: absolute;
+            left: 0;
+            transition: top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1em;
+            font-size: var(--font-main);
+            border: 1px solid transparent;
+        }
+        .rank-item.winner {
+            background: var(--matrix-green);
+            color: var(--black);
+            box-shadow: 0 0 15px var(--matrix-green);
+            z-index: 10;
+            font-weight: bold;
+        }
+        .cutoff-line {
+            position: absolute;
+            width: 100%;
+            left: 0;
+            border-top: 1px dashed var(--alert-white);
+            color: var(--alert-white);
+            font-size: var(--font-xs);
+            display: none;
+            text-align: right;
+            padding-top: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dither-overlay"></div>
+    <div class="crt-scanline"></div>
+
+    <div class="pipeline-container">
+        
+        <div class="stage" id="stage-init">
+            <div class="stage-label">1. INIT_SCOPE</div>
+            <div class="counter-wrapper">
+                <span>N_SCOPES:</span>
+                <span id="n-counter">0</span>
+            </div>
+            <div class="locked-slots" id="init-slots">
+                <div class="slot-outline"></div>
+                <div class="slot-outline"></div>
+                <div class="slot-outline"></div>
+            </div>
+        </div>
+
+        <div class="stage" id="stage-inject">
+            <div class="stage-label">2. CONTEXT_INJECTION</div>
+            <div class="template-box" id="template-container">
+                </div>
+        </div>
+
+        <div class="stage" id="stage-split">
+            <div class="stage-label">3. PARSING</div>
+            <div class="stream-container">
+                <div class="raw-stream" id="raw-stream"></div>
+                <div class="flash-cut" id="cutter"></div>
+                
+                <div class="shards-wrapper" id="shards-wrapper">
+                    </div>
+            </div>
+        </div>
+
+        <div class="stage" id="stage-retrieve">
+            <div class="stage-label">4. WIDE_NET_RETRIEVAL</div>
+            
+            <div class="beam-header" id="beam-header">
+                </div>
+
+            <div class="doc-cloud" id="doc-cloud"></div>
+            <div class="docs-counter" id="docs-counter">DOCS: 000</div>
+        </div>
+
+        <div class="stage" id="stage-encoder">
+            <div class="stage-label">5. CROSS_ENCODER_REASONING</div>
+            <div class="pair-container" id="encoder-pair">
+                <div class="scanner-bar" id="scanner"></div>
+                <div class="text-track" id="text-track">
+                    </div>
+                <div class="score-box" id="score-val">98.5%</div>
+            </div>
+        </div>
+
+        <div class="stage" id="stage-rank">
+            <div class="stage-label">6. RERANK_&_CUTOFF</div>
+            <div class="rank-list" id="rank-list">
+                <div class="cutoff-line">TOP_K_THRESHOLD</div>
+                </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const PERSONAS = ["USER", "ENGINEER", "ANALYST"];
+        const SHARD_TEXTS = ["FAIL?", "RUNAWAY", "DEGRADE"]; // Shortened for mobile safety
+        
+        // DOM ELEMENTS
+        const els = {
+            nCounter: document.getElementById('n-counter'),
+            initSlots: document.getElementById('init-slots'),
+            templCont: document.getElementById('template-container'),
+            rawStream: document.getElementById('raw-stream'),
+            cutter: document.getElementById('cutter'),
+            shardsWrap: document.getElementById('shards-wrapper'),
+            beamHeader: document.getElementById('beam-header'),
+            docCloud: document.getElementById('doc-cloud'),
+            docsCounter: document.getElementById('docs-counter'),
+            textTrack: document.getElementById('text-track'),
+            scanner: document.getElementById('scanner'),
+            scoreVal: document.getElementById('score-val'),
+            rankList: document.getElementById('rank-list'),
+            cutoffLine: document.querySelector('.cutoff-line')
+        };
+
+        const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+        function resetState() {
+            els.nCounter.innerText = "0";
+            els.nCounter.style.color = "var(--matrix-green)";
+            els.initSlots.style.opacity = "0";
+            els.templCont.innerHTML = "";
+            
+            els.rawStream.style.display = "block";
+            els.rawStream.innerHTML = "";
+            els.shardsWrap.style.display = "none";
+            els.shardsWrap.innerHTML = "";
+            
+            els.beamHeader.innerHTML = ""; 
+            els.docCloud.innerHTML = "";
+            els.docsCounter.innerText = "DOCS: 000";
+            
+            els.textTrack.innerHTML = "";
+            els.scanner.style.opacity = "0";
+            els.scoreVal.style.opacity = "0";
+            
+            els.rankList.innerHTML = ""; 
+            els.rankList.appendChild(els.cutoffLine); // Preserve line
+            els.cutoffLine.style.display = "none";
+        }
+
+        async function stage1_Init() {
+            // Spin Counter
+            for(let i=0; i<8; i++) {
+                els.nCounter.innerText = Math.floor(Math.random() * 9);
+                await wait(60);
+            }
+            els.nCounter.innerText = "3";
+            els.nCounter.style.color = "var(--alert-white)";
+            await wait(200);
+            els.initSlots.style.opacity = "1";
+        }
+
+        async function stage2_Inject() {
+            els.templCont.innerHTML = `[INSTRUCT] ACT AS <span class="dynamic-field" id="p-field"></span> >> ANALYZE <span class="dynamic-field" id="q-field"></span>`;
+            
+            const pField = document.getElementById('p-field');
+            const qField = document.getElementById('q-field');
+            
+            qField.innerText = "FAIL?";
+            
+            // Rapid cycle personas
+            for(let i=0; i<6; i++) {
+                pField.innerText = PERSONAS[i % 3];
+                await wait(120);
+            }
+            pField.style.color = "var(--matrix-green)";
+        }
+
+        async function stage3_Split() {
+            // Scroll stream
+            els.rawStream.innerText = "FAIL? <SEP> RUNAWAY <SEP> DEGRADE";
+            
+            await wait(800);
+            
+            // Cut animation
+            els.cutter.style.opacity = "1";
+            els.cutter.style.left = "33%";
+            await wait(100);
+            els.cutter.style.opacity = "0";
+            els.cutter.style.left = "66%";
+            await wait(50);
+            els.cutter.style.opacity = "1";
+            await wait(100);
+            els.cutter.style.opacity = "0";
+
+            // Swap to shards
+            els.rawStream.style.display = "none";
+            els.shardsWrap.style.display = "flex";
+            
+            // Create shards dynamically
+            SHARD_TEXTS.forEach((text, i) => {
+                const s = document.createElement('div');
+                s.className = 'shard';
+                s.innerText = text;
+                els.shardsWrap.appendChild(s);
+            });
+
+            // Fall animation
+            const shards = document.querySelectorAll('.shard');
+            shards.forEach(s => {
+                s.style.transform = "translateY(-20px)"; 
+                s.style.opacity = "0";
+            });
+            
+            // Reflow
+            void els.shardsWrap.offsetWidth;
+
+            for(const s of shards) {
+                s.style.transition = "all 0.3s ease";
+                s.style.transform = "translateY(0)";
+                s.style.opacity = "1";
+                await wait(150);
+            }
+        }
+
+        async function stage4_Retrieve() {
+            // 1. Create Sources with Labels (Fixes issue "what sections expanded")
+            SHARD_TEXTS.forEach(text => {
+                const src = document.createElement('div');
+                src.className = 'beam-source';
+                src.innerHTML = `
+                    <div class="beam-label">${text}</div>
+                    <div class="beam-emitter"><div class="laser-beam"></div></div>
+                `;
+                els.beamHeader.appendChild(src);
+            });
+
+            // 2. Fire Lasers
+            // Force reflow
+            void els.beamHeader.offsetWidth;
+            const beams = document.querySelectorAll('.laser-beam');
+            setTimeout(() => {
+                beams.forEach(b => b.style.height = "50vh"); // Extend far down
+            }, 50);
+
+            // 3. Particles
+            const particleCount = 40;
+            for(let i=0; i<particleCount; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                // Random start in cloud area
+                p.style.left = Math.random() * 100 + "%";
+                p.style.top = Math.random() * 100 + "%";
+                els.docCloud.appendChild(p);
+
+                // Magnetize to one of the 3 beam columns (roughly 16%, 50%, 83%)
+                setTimeout(() => {
+                    const targetX = [16, 50, 83][i % 3] + (Math.random() * 10 - 5);
+                    p.style.left = targetX + "%";
+                    p.style.top = (Math.random() * 80 + 10) + "%";
+                    p.classList.add('captured');
+                }, 200 + Math.random() * 800);
+            }
+
+            // 4. Counter
+            for(let i=0; i<=120; i+=4) {
+                els.docsCounter.innerText = `DOCS: ${i}`;
+                if(i%20===0) await wait(50);
+            }
+        }
+
+        async function stage5_Encoder() {
+            const sentence = "BATTERY IS FAILING DUE TO THERMAL RUNAWAY IN CELLS";
+            const tokens = sentence.split(" ");
+            
+            // Inject tokens
+            tokens.forEach(t => {
+                const span = document.createElement('span');
+                span.className = 'token';
+                span.innerText = t;
+                els.textTrack.appendChild(span);
+            });
+
+            // Scan Animation
+            els.scanner.style.opacity = "1";
+            els.scanner.style.transition = "left 1.2s linear";
+            
+            // Trigger
+            await wait(50);
+            els.scanner.style.left = "100%";
+
+            // Light up tokens
+            const domTokens = document.querySelectorAll('.token');
+            const step = 1200 / domTokens.length;
+            domTokens.forEach((dt, i) => {
+                setTimeout(() => dt.classList.add('lit'), i * step);
+            });
+
+            await wait(1200);
+            els.scoreVal.style.opacity = "1";
+        }
+
+        async function stage6_Rank() {
+            const data = [
+                { id: 'A', score: 98, name: 'DOC_A' },
+                { id: 'B', score: 42, name: 'DOC_B' },
+                { id: 'C', score: 92, name: 'DOC_C' },
+                { id: 'D', score: 88, name: 'DOC_D' },
+                { id: 'E', score: 15, name: 'DOC_E' }
+            ];
+
+            // Render Unsorted
+            const itemHeightPct = 15; // Percent of container
+            const spacing = 18; // Percent step
+            
+            data.forEach((d, i) => {
+                const el = document.createElement('div');
+                el.className = 'rank-item';
+                el.id = `rank-${d.id}`;
+                el.style.top = (i * spacing) + "%"; 
+                el.innerHTML = `<span>${d.name}</span><span>${d.score}%</span>`;
+                els.rankList.appendChild(el);
+            });
+
+            await wait(1000);
+
+            // Sort
+            const sorted = [...data].sort((a,b) => b.score - a.score);
+            
+            sorted.forEach((d, i) => {
+                const el = document.getElementById(`rank-${d.id}`);
+                el.style.top = (i * spacing) + "%";
+                
+                if(i < 3) {
+                    setTimeout(() => el.classList.add('winner'), 800);
+                }
+            });
+
+            await wait(1200);
+
+            // Cutoff Line
+            els.cutoffLine.style.display = "block";
+            els.cutoffLine.style.top = (2.8 * spacing) + "%"; // Between 3rd and 4th
+            
+            // Fade Losers
+            sorted.forEach((d, i) => {
+                if(i >= 3) {
+                    const el = document.getElementById(`rank-${d.id}`);
+                    el.style.opacity = "0.2";
+                    el.style.filter = "grayscale(1)";
+                }
+            });
+        }
+
+        async function runPipeline() {
+            resetState();
+            await wait(500);
+            
+            await stage1_Init();
+            await wait(400);
+            
+            await stage2_Inject();
+            await wait(400);
+            
+            await stage3_Split();
+            await wait(400);
+            
+            await stage4_Retrieve();
+            await wait(400);
+            
+            await stage5_Encoder();
+            await wait(400);
+            
+            await stage6_Rank();
+            await wait(5000);
+            
+            runPipeline();
+        }
+
+        // Start
+        runPipeline();
+
+    </script>
+</body>
+</html>
