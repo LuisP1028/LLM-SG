@@ -427,8 +427,8 @@
                             <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                         </svg>
                     </button>
-                    <p>Projects vectors onto random hyperplanes to generate binary signatures. Vectors on the same side land in the same "bucket". Querying becomes an $O(1)$ lookup.</p>
-                    <p><strong>When to use:</strong> Ideal for high-speed identification of duplicates or near-duplicates in massive datasets where finding "close enough" matches quickly is more important than absolute precision.</p>
+                    <p>Groups similar vectors into "buckets" by assigning them the same digital fingerprint. By dividing the vector space with random boundaries, items that are close together are mathematically likely to end up in the same group, turning a complex search into a simple, fast lookup.</p>
+                    <p><strong>When to use:</strong>Ideal for "approximate" matching in massive datasets. Use it when speed and finding "good enough" results (like detecting near-duplicate documents) are more important than 100% precision.</p>
                 </div>
         
                 <div class="subsection">
