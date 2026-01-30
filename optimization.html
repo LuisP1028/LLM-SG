@@ -383,66 +383,63 @@ Step 3: [3, 1, hidden_dim]
                 <p>If processing batch A, and 80% finishes, with 20% remaining; In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced.</p>
                 <p>Instead of waiting for that final 20% (the "straggler") to finish, the system inserts new requests into the available slots of the current batch. This ensures the GPU never sits idle while waiting for a single long-running task to complete.</p>
             </div>
+        </div>
+    </details>
 
-            <div class="subsection">
-                <span class="subsection-title">SELF-ATTENTION DEFINITIONS</span>
-                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/qvk.html'; vp.classList.add('active');">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                    </svg>
-                </button>
-                <p>In Transformers, Self-Attention is the mechanism that allows the model to understand context by relating words to one another. This process relies on three vectors generated for every token:</p>
-                <ul>
-                    <li><strong>Query (𝑄):</strong> This is used to assess context between the token and the surrounding tokens.</li>
-                    <li><strong>Key (𝐾):</strong> A feature vector describing the cluster each token’s position in a high dimensional vector space.</li>
-                    <li><strong>Value (𝑉):</strong> Contains the actual features of each token.</li>
-                </ul>
-            </div>
-        </div> </details> <details class="section">
+    <details class="section">
         <summary>2. Model Parallelism</summary>
         <div class="section-content">
-            <div class="subsection">
-                <span class="subsection-title">Data Parallelism (DP)</span>
-                <p>DP replicates the <strong>entire model</strong> onto every GPU, allowing each to process a different data subset simultaneously. DP is superior for throughput because it minimizes communication; GPUs only sync once per step (after gradients).</p>
-                <p><strong>When to choose:</strong> Use <strong>Data Parallelism</strong> when your bottleneck is <strong>data volume</strong>, not model size. It is the easiest to implement and scales linearly across nodes, provided your model isn't so large that it leaves no room for the data batch itself.</p>
-                <ul>
-                    <li><strong>Mechanism:</strong> In training, GPUs synchronize by averaging gradients to maintain identical weights. In inference, DP facilitates <strong>concurrent processing</strong>, where multiple requests are handled in parallel.</li>
-                    <li><strong>The Bottleneck:</strong> Because every GPU must store the full model, DP is limited by the memory of a <strong>single device</strong>.</li>
-                    <li><strong>Trade-off:</strong> It significantly boosts <strong>throughput</strong>, but involves high communication overhead and redundant memory usage, making it inefficient for models that exceed individual GPU capacity.</li>
-                </ul>
-            </div>
+            
+            <details class="nested-entry">
+                <summary><strong>Data Parallelism (DP)</strong></summary>
+                <div class="nested-content">
+                    <p>DP replicates the <strong>entire model</strong> onto every GPU, allowing each to process a different data subset simultaneously. DP is superior for throughput because it minimizes communication; GPUs only sync once per step (after gradients).</p>
+                    <p><strong>When to choose:</strong> Use <strong>Data Parallelism</strong> when your bottleneck is <strong>data volume</strong>, not model size. It is the easiest to implement and scales linearly across nodes, provided your model isn't so large that it leaves no room for the data batch itself.</p>
+                    <ul>
+                        <li><strong>Mechanism:</strong> In training, GPUs synchronize by averaging gradients to maintain identical weights. In inference, DP facilitates <strong>concurrent processing</strong>, where multiple requests are handled in parallel.</li>
+                        <li><strong>The Bottleneck:</strong> Because every GPU must store the full model, DP is limited by the memory of a <strong>single device</strong>.</li>
+                        <li><strong>Trade-off:</strong> It significantly boosts <strong>throughput</strong>, but involves high communication overhead and redundant memory usage, making it inefficient for models that exceed individual GPU capacity.</li>
+                    </ul>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">Pipeline Parallelism (PP)</span>
-                <p>Pipeline Parallelism partitions a model <strong>vertically</strong> by layers. Instead of every GPU holding the entire model, the layers are divided into segments and distributed across a sequence of GPUs (the "degree of parallelism").</p>
-                <p><strong>When to choose:</strong> Use PP when <strong>memory</strong> is the bottleneck. It allows you to "stack" GPUs to hold the model. It is ideal for scaling <strong>between different servers</strong> because it only transmits activations, which is less data-intensive than TP.</p>
-                <ul>
-                    <li><strong>The Assembly Line:</strong> Data moves through the system like a factory conveyor belt. GPU 1 processes the first segment and passes the <strong>activations</strong> (intermediate outputs) to GPU 2. In training, this process reverses during the backward pass, with <strong>gradients</strong> flowing back down the chain.</li>
-                    <li><strong>Memory Efficiency:</strong> This is the primary driver for PP. Because each device only stores a fraction of the model’s weights and the corresponding optimizer states, you can run models that are far too large for any single GPU's VRAM.</li>
-                    <li><strong>The "Pipeline Bubble":</strong> The main drawback is the <strong>sequential dependency</strong>. GPU 4 cannot start its work until GPUs 1, 2, and 3 have finished theirs. This creates "bubbles"—periods of idle time where hardware sits unproductive while waiting for data from the preceding stage.</li>
-                    <li><strong>MITIGATING PIPELINE BUBBLES:</strong> Instead of waiting for a massive batch to clear Stage 1, the first micro-batch is passed to Stage 2 immediately.</li>
-                </ul>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>Pipeline Parallelism (PP)</strong></summary>
+                <div class="nested-content">
+                    <p>Pipeline Parallelism partitions a model <strong>vertically</strong> by layers. Instead of every GPU holding the entire model, the layers are divided into segments and distributed across a sequence of GPUs (the "degree of parallelism").</p>
+                    <p><strong>When to choose:</strong> Use PP when <strong>memory</strong> is the bottleneck. It allows you to "stack" GPUs to hold the model. It is ideal for scaling <strong>between different servers</strong> because it only transmits activations, which is less data-intensive than TP.</p>
+                    <ul>
+                        <li><strong>The Assembly Line:</strong> Data moves through the system like a factory conveyor belt. GPU 1 processes the first segment and passes the <strong>activations</strong> (intermediate outputs) to GPU 2. In training, this process reverses during the backward pass, with <strong>gradients</strong> flowing back down the chain.</li>
+                        <li><strong>Memory Efficiency:</strong> This is the primary driver for PP. Because each device only stores a fraction of the model’s weights and the corresponding optimizer states, you can run models that are far too large for any single GPU's VRAM.</li>
+                        <li><strong>The "Pipeline Bubble":</strong> The main drawback is the <strong>sequential dependency</strong>. GPU 4 cannot start its work until GPUs 1, 2, and 3 have finished theirs. This creates "bubbles"—periods of idle time where hardware sits unproductive while waiting for data from the preceding stage.</li>
+                        <li><strong>MITIGATING PIPELINE BUBBLES:</strong> Instead of waiting for a massive batch to clear Stage 1, the first micro-batch is passed to Stage 2 immediately.</li>
+                    </ul>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">Tensor Parallelism (TP)</span>
-                <p>Tensor Parallelism splits a model <strong>horizontally</strong> by partitioning individual weight matrices (tensors) across multiple GPUs.</p>
-                <p><strong>When to choose:</strong> Use TP for <strong>latency-sensitive</strong> tasks and ultra-large models <strong>within a single server.</strong> It requires <strong>NVLink</strong> speeds to handle constant syncing. It is often combined with PP (forming 3D parallelism) to manage both layer depth and layer width.</p>
-                <ul>
-                    <li><strong>The Mechanism:</strong> Instead of layers being on different devices (PP), a single layer’s math is shared. Large operations, like MLP weights or <strong>Attention Heads</strong>, are sliced into shards. GPUs receive the same input, compute their specific shard's result, and use an <strong>All-Reduce</strong> operation to sync and combine partial results into a final output.</li>
-                    <li><strong>Granularity:</strong> It is highly efficient for Self-Attention since heads are naturally independent. However, layers like <strong>LayerNorm</strong> or <strong>Dropout</strong> are often replicated or split via <strong>Sequence Parallelism</strong> (by input length) because they require a global view of the data.</li>
-                    <li><strong>The Constraint:</strong> TP requires extremely high-speed interconnects (like NVLink) because GPUs must communicate multiple times <em>within</em> every single layer, making it best suited for GPUs within the same server.</li>
-                </ul>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>Tensor Parallelism (TP)</strong></summary>
+                <div class="nested-content">
+                    <p>Tensor Parallelism splits a model <strong>horizontally</strong> by partitioning individual weight matrices (tensors) across multiple GPUs.</p>
+                    <p><strong>When to choose:</strong> Use TP for <strong>latency-sensitive</strong> tasks and ultra-large models <strong>within a single server.</strong> It requires <strong>NVLink</strong> speeds to handle constant syncing. It is often combined with PP (forming 3D parallelism) to manage both layer depth and layer width.</p>
+                    <ul>
+                        <li><strong>The Mechanism:</strong> Instead of layers being on different devices (PP), a single layer’s math is shared. Large operations, like MLP weights or <strong>Attention Heads</strong>, are sliced into shards. GPUs receive the same input, compute their specific shard's result, and use an <strong>All-Reduce</strong> operation to sync and combine partial results into a final output.</li>
+                        <li><strong>Granularity:</strong> It is highly efficient for Self-Attention since heads are naturally independent. However, layers like <strong>LayerNorm</strong> or <strong>Dropout</strong> are often replicated or split via <strong>Sequence Parallelism</strong> (by input length) because they require a global view of the data.</li>
+                        <li><strong>The Constraint:</strong> TP requires extremely high-speed interconnects (like NVLink) because GPUs must communicate multiple times <em>within</em> every single layer, making it best suited for GPUs within the same server.</li>
+                    </ul>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">COMBINING MODEL PARALLELISM APPROACH</span>
-                <p>The three methods are <strong>orthogonal</strong>, meaning they can be stacked like building blocks to form <strong>3D Parallelism</strong>.</p>
-                <ul>
-                    <li><strong>The Strategy:</strong> You split a model into <strong>Pipeline</strong> stages to fit across servers, use <strong>Tensor</strong> parallelism within each server to accelerate wide layers, and then wrap the whole setup in <strong>Data</strong> parallelism to process multiple batches at once.</li>
-                    <li><strong>The Goal:</strong> This hybridization lets you balance <strong>memory</strong> (PP), <strong>latency</strong> (TP), and <strong>throughput</strong> (DP). It is the industry standard for training "frontier" models (like GPT-4 or Llama-3-70B+) that are too massive for any single technique to handle efficiently.</li>
-                </ul>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>Combining Model Parallelism (3D)</strong></summary>
+                <div class="nested-content">
+                    <p>The three methods are <strong>orthogonal</strong>, meaning they can be stacked like building blocks to form <strong>3D Parallelism</strong>.</p>
+                    <ul>
+                        <li><strong>The Strategy:</strong> You split a model into <strong>Pipeline</strong> stages to fit across servers, use <strong>Tensor</strong> parallelism within each server to accelerate wide layers, and then wrap the whole setup in <strong>Data</strong> parallelism to process multiple batches at once.</li>
+                        <li><strong>The Goal:</strong> This hybridization lets you balance <strong>memory</strong> (PP), <strong>latency</strong> (TP), and <strong>throughput</strong> (DP). It is the industry standard for training "frontier" models (like GPT-4 or Llama-3-70B+) that are too massive for any single technique to handle efficiently.</li>
+                    </ul>
+                </div>
+            </details>
         </div>
     </details>
 
@@ -502,7 +499,10 @@ Step 3: [3, 1, hidden_dim]
                 </ol>
                 <p>The COMPUTATIONAL SAVINGS isn’t in the final addition; it’s in the <strong>matrix multiplication</strong>, which is the heaviest part of the workload.</p>
             </div>
-        </div> </details> <details class="section">
+        </div>
+    </details>
+
+    <details class="section">
         <summary>4. Optimized Attention Mechanisms</summary>
         <div class="section-content">
             <div class="subsection">
@@ -510,6 +510,21 @@ Step 3: [3, 1, hidden_dim]
                 <p>Standard attention scales quadratically, causing the <strong>KV cache</strong>—the memory storing temporary token data—to overflow during long sequences.</p>
                 <p><strong>PagedAttention</strong> solves this by partitioning the KV cache into small, fixed-size blocks that can be scattered across physical memory rather than requiring one continuous slab.</p>
                 <p><strong>Key Advantages:</strong> Near-Zero Waste: Dynamic allocation allows for much higher batch sizes, increasing throughput.</p>
+            </div>
+            
+            <div class="subsection">
+                <span class="subsection-title">SELF-ATTENTION DEFINITIONS</span>
+                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/qvk.html'; vp.classList.add('active');">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                </button>
+                <p>In Transformers, Self-Attention is the mechanism that allows the model to understand context by relating words to one another. This process relies on three vectors generated for every token:</p>
+                <ul>
+                    <li><strong>Query (𝑄):</strong> This is used to assess context between the token and the surrounding tokens.</li>
+                    <li><strong>Key (𝐾):</strong> A feature vector describing the cluster each token’s position in a high dimensional vector space.</li>
+                    <li><strong>Value (𝑉):</strong> Contains the actual features of each token.</li>
+                </ul>
             </div>
 
             <div class="subsection">
