@@ -377,60 +377,107 @@
                     <li><strong>Relevancy:</strong> Helps the model generate accurate answers by providing only the most pertinent context.</li>
                 </ul>
                 <hr style="border: 0; border-top: 1px dashed var(--dim-color); margin: 20px 0;">
-                <ul>
-                    <li>
-                        <strong>Fixed-size Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/fixedsize_chunk'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Slices text into hard segments based on a strict token or character limit (e.g., 512 tokens). While computationally efficient, it ignores semantic structure, often breaking sentences mid-thought. To mitigate context loss at the edges, a "sliding window" overlap (10-20%) is applied.
-                        <ul>
-                            <li><em>Example:</em> Processing a raw server log file. You blindly cut the text every 500 characters, regardless of where the line ends.</li>
-                            <li><em>When to use:</em> Ideal for uniform data streams or simple tasks where computational speed is the priority and semantic context is less critical (e.g., n-gram analysis).</li>
-                        </ul>
-                    </li>
-                    <li>
-                        <strong>Recursive Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/recursive_chunk.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Iteratively breaks down text using a hierarchy of separators to fit specific size limits. It attempts to split by largest structural elements first (like paragraphs), then sentences, then words.
-                        <ul>
-                            <li><em>Example:</em> An article is split first by double newlines (paragraphs). If a paragraph is still too big, it splits by periods (sentences).</li>
-                            <li><em>When to use:</em> The "default" best choice for general prose, articles, and essays. It respects natural reading flow, keeping related ideas (paragraphs) intact.</li>
-                        </ul>
-                    </li>
-                    <li>
-                        <strong>Content-aware / Syntactic Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/Syntactic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Leverages the distinct formatting logic of the source file to define boundaries. For code, it splits by functions or classes; for Markdown or HTML, it splits by headers or tags.
-                        <ul>
-                            <li><em>Example:</em> Splitting a Python script by <code>def</code> blocks or an HTML file by <code>&lt;div&gt;</code> tags, ensuring no function is cut in half.</li>
-                            <li><em>When to use:</em> Essential for structured documents like Code, Markdown, or JSON. It prevents breaking syntax, ensuring the retrieved chunk is valid and executable.</li>
-                        </ul>
-                    </li>
-                    <li>
-                        <strong>Semantic Chunking:</strong><button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/semantic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button> Semantic chunking splits text into sentences and converts them to embeddings to assess similarity (usually via cosine). Chunks grow as long as sentences stay semantically close; once distance exceeds a threshold, a new chunk starts. This linear process preserves document order and context for accurate retrieval.
-                        <ul>
-                            <li><em>Example:</em> A transcript moves from discussing "Weather" to "Stocks." The system detects the topic shift via embeddings and cuts the chunk exactly there.</li>
-                            <li><em>When to use:</em> Best for RAG systems requiring high precision. It ensures a chunk contains only one distinct concept, reducing noise for the LLM.</li>
-                        </ul>
-                    </li>
-                </ul>
+                
+                <div class="tree-root">
+                    <details class="nested-accordion">
+                        <summary>Fixed-size Chunking</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/fixedsize_chunk'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                            <p>Slices text into hard segments based on a strict token or character limit (e.g., 512 tokens). While computationally efficient, it ignores semantic structure, often breaking sentences mid-thought. To mitigate context loss at the edges, a "sliding window" overlap (10-20%) is applied.</p>
+                            <ul>
+                                <li><em>Example:</em> Processing a raw server log file. You blindly cut the text every 500 characters, regardless of where the line ends.</li>
+                                <li><em>When to use:</em> Ideal for uniform data streams or simple tasks where computational speed is the priority and semantic context is less critical (e.g., n-gram analysis).</li>
+                            </ul>
+                        </div>
+                    </details>
+
+                    <details class="nested-accordion">
+                        <summary>Recursive Chunking</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/recursive_chunk.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                            <p>Iteratively breaks down text using a hierarchy of separators to fit specific size limits. It attempts to split by largest structural elements first (like paragraphs), then sentences, then words.</p>
+                            <ul>
+                                <li><em>Example:</em> An article is split first by double newlines (paragraphs). If a paragraph is still too big, it splits by periods (sentences).</li>
+                                <li><em>When to use:</em> The "default" best choice for general prose, articles, and essays. It respects natural reading flow, keeping related ideas (paragraphs) intact.</li>
+                            </ul>
+                        </div>
+                    </details>
+
+                    <details class="nested-accordion">
+                        <summary>Content-aware / Syntactic Chunking</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/Syntactic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                            <p>Leverages the distinct formatting logic of the source file to define boundaries. For code, it splits by functions or classes; for Markdown or HTML, it splits by headers or tags.</p>
+                            <ul>
+                                <li><em>Example:</em> Splitting a Python script by <code>def</code> blocks or an HTML file by <code>&lt;div&gt;</code> tags, ensuring no function is cut in half.</li>
+                                <li><em>When to use:</em> Essential for structured documents like Code, Markdown, or JSON. It prevents breaking syntax, ensuring the retrieved chunk is valid and executable.</li>
+                            </ul>
+                        </div>
+                    </details>
+
+                    <details class="nested-accordion">
+                        <summary>Semantic Chunking</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/semantic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                            <p>Semantic chunking splits text into sentences and converts them to embeddings to assess similarity (usually via cosine). Chunks grow as long as sentences stay semantically close; once distance exceeds a threshold, a new chunk starts. This linear process preserves document order and context for accurate retrieval.</p>
+                            <ul>
+                                <li><em>Example:</em> A transcript moves from discussing "Weather" to "Stocks." The system detects the topic shift via embeddings and cuts the chunk exactly there.</li>
+                                <li><em>When to use:</em> Best for RAG systems requiring high precision. It ensures a chunk contains only one distinct concept, reducing noise for the LLM.</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
             </div>
         </details>
 
         <details class="section">
             <summary>4. RAG: Embedding</summary>
             <div class="section-content">
-                <p><strong>Dense Embeddings (Bi-Encoders):</strong> Foundation for semantic search. Captures abstract meaning by collapsing an entire sequence into a single "summary" vector.<br>
-                <strong>When to use:</strong> Use this when the intent matters more than specific words. It bridges the gap between synonyms and related concepts by mapping them to the same mathematical space, making it the bedrock of modern semantic search, though it may lose granular word-level nuance.</p>
-        
-                <p><strong>Sparse Embeddings:</strong> Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.<br>
-                <strong>When to use:</strong> Use this for precision-heavy tasks where exact keyword matching is non-negotiable. While dense models might "hallucinate" a similar concept, sparse embeddings (like BM25) ensure you find the exact string of characters you typed.</p>
-        
-                <p><strong>Contextualized Token Embeddings (Late Interaction):</strong> Foundation for fine-grained matching (e.g., BERT, ColBERT). Unlike dense summaries, this generates separate, unique vectors for every token based on its neighbors.<br>
-                <strong>Example:</strong> Distinguishing between "bank" in "river bank" vs. "investment bank."<br>
-                <strong>When to use:</strong> Best for complex queries where word order and situational meaning change the intent. It allows for "late interaction" to find highly granular matches between specific parts of a query and a document.</p>
-        
-                <p><strong>Contrastive Learning Embeddings:</strong> Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.<br>
-                <strong>Example:</strong> Training a model by showing it pairs of "duplicate" customer reviews to pull them together while pushing "unrelated" reviews away.<br>
-                <strong>When to use:</strong> Use this during the training phase to refine a model's judgment. It’s the "coach" that teaches the embedding space how to distinguish between subtly different items.</p>
+                <div class="tree-root">
+                    <details class="nested-accordion">
+                        <summary>Dense Embeddings (Bi-Encoders)</summary>
+                        <div class="nested-content">
+                            <p>Foundation for semantic search. Captures abstract meaning by collapsing an entire sequence into a single "summary" vector.</p>
+                            <p><strong>When to use:</strong> Use this when the intent matters more than specific words. It bridges the gap between synonyms and related concepts by mapping them to the same mathematical space, making it the bedrock of modern semantic search, though it may lose granular word-level nuance.</p>
+                        </div>
+                    </details>
 
-                <p><strong>Cross-Encoders (Relevance Scoring):</strong> Foundation for deep relevance. Unlike bi-encoders that collapse text into independent "summary" vectors, this architecture processes a query and document pair simultaneously. By concatenating both into a single input sequence, it enables the <strong>Self-Attention</strong> mechanism to perform exhaustive, token-to-token comparisons.<br>
-                <strong>Example:</strong> For the query "Is caffeine good for sleep?", the model's attention heads identify specific relationships—detecting if the text claims caffeine helps or hinders rest, rather than just matching keywords.<br>
-                <strong>When to use:</strong> Use as a reranker in the final stage of retrieval. Because the O(N²) self-attention over the combined sequence is computationally heavy, it is reserved for the top 50–100 candidates to provide maximum precision.</p>
-                            </div>
+                    <details class="nested-accordion">
+                        <summary>Sparse Embeddings</summary>
+                        <div class="nested-content">
+                            <p>Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
+                            <p><strong>When to use:</strong> Use this for precision-heavy tasks where exact keyword matching is non-negotiable. While dense models might "hallucinate" a similar concept, sparse embeddings (like BM25) ensure you find the exact string of characters you typed.</p>
+                        </div>
+                    </details>
+
+                    <details class="nested-accordion">
+                        <summary>Contextualized Token Embeddings (Late Interaction)</summary>
+                        <div class="nested-content">
+                            <p>Foundation for fine-grained matching (e.g., BERT, ColBERT). Unlike dense summaries, this generates separate, unique vectors for every token based on its neighbors.</p>
+                            <p><strong>Example:</strong> Distinguishing between "bank" in "river bank" vs. "investment bank."</p>
+                            <p><strong>When to use:</strong> Best for complex queries where word order and situational meaning change the intent. It allows for "late interaction" to find highly granular matches between specific parts of a query and a document.</p>
+                        </div>
+                    </details>
+
+                    <details class="nested-accordion">
+                        <summary>Contrastive Learning Embeddings</summary>
+                        <div class="nested-content">
+                            <p>Foundation for similarity learning. Pulls similar examples together, pushes dissimilar apart.</p>
+                            <p><strong>Example:</strong> Training a model by showing it pairs of "duplicate" customer reviews to pull them together while pushing "unrelated" reviews away.</p>
+                            <p><strong>When to use:</strong> Use this during the training phase to refine a model's judgment. It’s the "coach" that teaches the embedding space how to distinguish between subtly different items.</p>
+                        </div>
+                    </details>
+
+                    <details class="nested-accordion">
+                        <summary>Cross-Encoders (Relevance Scoring)</summary>
+                        <div class="nested-content">
+                            <p>Foundation for deep relevance. Unlike bi-encoders that collapse text into independent "summary" vectors, this architecture processes a query and document pair simultaneously. By concatenating both into a single input sequence, it enables the <strong>Self-Attention</strong> mechanism to perform exhaustive, token-to-token comparisons.</p>
+                            <p><strong>Example:</strong> For the query "Is caffeine good for sleep?", the model's attention heads identify specific relationships—detecting if the text claims caffeine helps or hinders rest, rather than just matching keywords.</p>
+                            <p><strong>When to use:</strong> Use as a reranker in the final stage of retrieval. Because the O(N²) self-attention over the combined sequence is computationally heavy, it is reserved for the top 50–100 candidates to provide maximum precision.</p>
+                        </div>
+                    </details>
+                </div>
+            </div>
         </details>
 
         <details class="section">
@@ -438,51 +485,61 @@
             <div class="section-content">
                 <p><strong>What is a Vector DB:</strong> Traditional databases look for exact word matches, but vector DBs find data that is <em>similar</em> to your query. They organize information as numeric vectors using specialized indexes.</p>
                 
-                <div class="subsection">
-                    <span class="subsection-title">HNSW (Hierarchical Navigable Small World)</span>
-                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/HNSW.html'; vp.classList.add('active');">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </button>
-                    <p>Constructs a multi-layered graph structure. Upper layers contain sparse nodes for rapid "greedy" traversal. Lower layers are denser for fine-grained navigation. Ensures logarithmic search complexity trading high memory usage for speed.</p>
-                    <p><strong>When to use:</strong> Use for very large, diverse datasets when low-latency search is the priority and memory (RAM) is not a bottleneck.</p>
-                </div>
+                <div class="tree-root">
+                    <details class="nested-accordion">
+                        <summary>HNSW (Hierarchical Navigable Small World)</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/HNSW.html'; vp.classList.add('active');">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </button>
+                            <p>Constructs a multi-layered graph structure. Upper layers contain sparse nodes for rapid "greedy" traversal. Lower layers are denser for fine-grained navigation. Ensures logarithmic search complexity trading high memory usage for speed.</p>
+                            <p><strong>When to use:</strong> Use for very large, diverse datasets when low-latency search is the priority and memory (RAM) is not a bottleneck.</p>
+                        </div>
+                    </details>
         
-                <div class="subsection">
-                    <span class="subsection-title">LSH (Locality-Sensitive Hashing)</span>
-                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/LSH.html'; vp.classList.add('active');">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </button>
-                    <p>Groups similar vectors into "buckets" by assigning them the same digital fingerprint. By dividing the vector space with random boundaries, items that are close together are mathematically likely to end up in the same group, turning a complex search into a simple, fast lookup.</p>
-                    <p><strong>When to use:</strong>Ideal for "approximate" matching in massive datasets. Use it when speed and finding "good enough" results (like detecting near-duplicate documents) are more important than 100% precision.</p>
-                </div>
+                    <details class="nested-accordion">
+                        <summary>LSH (Locality-Sensitive Hashing)</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/LSH.html'; vp.classList.add('active');">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </button>
+                            <p>Groups similar vectors into "buckets" by assigning them the same digital fingerprint. By dividing the vector space with random boundaries, items that are close together are mathematically likely to end up in the same group, turning a complex search into a simple, fast lookup.</p>
+                            <p><strong>When to use:</strong>Ideal for "approximate" matching in massive datasets. Use it when speed and finding "good enough" results (like detecting near-duplicate documents) are more important than 100% precision.</p>
+                        </div>
+                    </details>
         
-                <div class="subsection">
-                    <span class="subsection-title">Product Quantization (PQ)</span>
-                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/PQ.html'; vp.classList.add('active');">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </button>
-                    <p>
-                        Compresses high-dimensional vectors by breaking them into smaller <strong>sub-parts</strong> and mapping each part to its nearest "representative" value, or <strong>centroid</strong>. Instead of storing massive raw numbers, a <strong>Signature Matrix</strong> stores compact IDs, drastically lowering the <strong>RAM footprint</strong>.
-                        <br><br>
-                        <strong>When to use:</strong> Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.
-                    </p>
-                </div>
+                    <details class="nested-accordion">
+                        <summary>Product Quantization (PQ)</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/PQ.html'; vp.classList.add('active');">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </button>
+                            <p>
+                                Compresses high-dimensional vectors by breaking them into smaller <strong>sub-parts</strong> and mapping each part to its nearest "representative" value, or <strong>centroid</strong>. Instead of storing massive raw numbers, a <strong>Signature Matrix</strong> stores compact IDs, drastically lowering the <strong>RAM footprint</strong>.
+                                <br><br>
+                                <strong>When to use:</strong> Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.
+                            </p>
+                        </div>
+                    </details>
         
-                <div class="subsection">
-                    <span class="subsection-title">Random Projection (RP)</span>
-                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/random_projection.html'; vp.classList.add('active');">
-                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </button>
-                    <p>Reduces dimensionality by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
-                    <p><strong>When to use:</strong> Focused on <strong>Dimensionality Reduction</strong>. Use this to manage computational complexity; it preserves the "topology" (relative distances) while making data mathematically simpler to handle before you begin the indexing process.</p>
+                    <details class="nested-accordion">
+                        <summary>Random Projection (RP)</summary>
+                        <div class="nested-content">
+                            <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='RAG/random_projection.html'; vp.classList.add('active');">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                                </svg>
+                            </button>
+                            <p>Reduces dimensionality by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
+                            <p><strong>When to use:</strong> Focused on <strong>Dimensionality Reduction</strong>. Use this to manage computational complexity; it preserves the "topology" (relative distances) while making data mathematically simpler to handle before you begin the indexing process.</p>
+                        </div>
+                    </details>
                 </div>
             </div>
         </details>
