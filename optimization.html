@@ -538,57 +538,70 @@ Step 3: [3, 1, hidden_dim]
     <details class="section">
         <summary>4. Optimized Attention Mechanisms</summary>
         <div class="section-content">
-            <div class="subsection">
-                <span class="subsection-title">OPTIMIZED ATTENTION</span>
-                <p>Standard attention scales quadratically, causing the <strong>KV cache</strong>—the memory storing temporary token data—to overflow during long sequences.</p>
-                <p><strong>PagedAttention</strong> solves this by partitioning the KV cache into small, fixed-size blocks that can be scattered across physical memory rather than requiring one continuous slab.</p>
-                <p><strong>Key Advantages:</strong> Near-Zero Waste: Dynamic allocation allows for much higher batch sizes, increasing throughput.</p>
-            </div>
             
-            <div class="subsection">
-                <span class="subsection-title">SELF-ATTENTION DEFINITIONS</span>
-                <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/qvk.html'; vp.classList.add('active');">
-                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                    </svg>
-                </button>
-                <p>In Transformers, Self-Attention is the mechanism that allows the model to understand context by relating words to one another. This process relies on three vectors generated for every token:</p>
-                <ul>
-                    <li><strong>Query (𝑄):</strong> This is used to assess context between the token and the surrounding tokens.</li>
-                    <li><strong>Key (𝐾):</strong> A feature vector describing the cluster each token’s position in a high dimensional vector space.</li>
-                    <li><strong>Value (𝑉):</strong> Contains the actual features of each token.</li>
-                </ul>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>Optimized Attention</strong></summary>
+                <div class="nested-content">
+                    <p>Standard attention scales quadratically, causing the <strong>KV cache</strong>—the memory storing temporary token data—to overflow during long sequences.</p>
+                    <p><strong>PagedAttention</strong> solves this by partitioning the KV cache into small, fixed-size blocks that can be scattered across physical memory rather than requiring one continuous slab.</p>
+                    <p><strong>Key Advantages:</strong> Near-Zero Waste: Dynamic allocation allows for much higher batch sizes, increasing throughput.</p>
+                </div>
+            </details>
+            
+            <details class="nested-entry">
+                <summary>
+                    <strong>Self-Attention Definitions</strong>
+                    <button class="eye-btn" onclick="let vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src='INF_O/qvk.html'; vp.classList.add('active');">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                        </svg>
+                    </button>
+                </summary>
+                <div class="nested-content">
+                    <p>In Transformers, Self-Attention is the mechanism that allows the model to understand context by relating words to one another. This process relies on three vectors generated for every token:</p>
+                    <ul>
+                        <li><strong>Query (𝑄):</strong> This is used to assess context between the token and the surrounding tokens.</li>
+                        <li><strong>Key (𝐾):</strong> A feature vector describing the cluster each token’s position in a high dimensional vector space.</li>
+                        <li><strong>Value (𝑉):</strong> Contains the actual features of each token.</li>
+                    </ul>
+                </div>
+            </details>
 
-            <div class="subsection">
-                <span class="subsection-title">FLASHATTENTION2: BASIC DEFINITIONS</span>
-                <ul>
-                    <li><strong>HBM (High Bandwidth Memory):</strong> Think of <strong>HBM</strong> as the GPU's "warehouse." It is massive (e.g., 80GB on an H100) and stores all your model weights and long-term data. However, moving data from HBM to the processor is slow.</li>
-                    <li><strong>SRAM (Static Random-Access Memory):</strong> <strong>SRAM</strong> is the "workbench" located right on the GPU chip. It is incredibly fast—orders of magnitude faster than HBM—but it is tiny (often only tens of megabytes).</li>
-                </ul>
-            </div>
+            <details class="nested-entry">
+                <summary><strong>FlashAttention2: Basic Definitions</strong></summary>
+                <div class="nested-content">
+                    <ul>
+                        <li><strong>HBM (High Bandwidth Memory):</strong> Think of <strong>HBM</strong> as the GPU's "warehouse." It is massive (e.g., 80GB on an H100) and stores all your model weights and long-term data. However, moving data from HBM to the processor is slow.</li>
+                        <li><strong>SRAM (Static Random-Access Memory):</strong> <strong>SRAM</strong> is the "workbench" located right on the GPU chip. It is incredibly fast—orders of magnitude faster than HBM—but it is tiny (often only tens of megabytes).</li>
+                    </ul>
 
-            <div class="subsection">
-                <span class="subsection-title">SOFTMAX</span>
-                <p>When the GPU compares a <strong>Query</strong> (Q) to all <strong>Keys</strong> (K), it gets a row of raw similarity scores. Some are high, some are low, and some are negative. These raw numbers are hard for a computer to use as "weights."</p>
-                <p><strong>The Role of Softmax:</strong></p>
-                <ul>
-                    <li><strong>Normalization:</strong> It turns those raw scores into <strong>probabilities</strong> that sum up to <strong>1.0 (or 100%)</strong>.</li>
-                    <li><strong>Highlighting:</strong> It uses an exponential function (e^x), which aggressively "widens the gap." A slightly higher raw score becomes a much higher probability, while low scores are crushed toward zero.</li>
-                </ul>
-                <p><strong>Online Softmax:</strong> If you find a new, larger maximum (max_new), your old results (e^(x - old_max)) are now wrong. To fix them without re-reading the raw data from the “warehouse” (HBM), you multiply the old results by e^(old_max - max_new). Mathematically, this "shifts" the old values to the new baseline, and allows it to compute mathematically perfect softmax values incrementally, without ever storing the full 𝑁 × 𝑁 matrix.</p>
-            </div>
+                    <details class="nested-entry">
+                        <summary><strong>Softmax</strong></summary>
+                        <div class="nested-content">
+                            <p>When the GPU compares a <strong>Query</strong> (Q) to all <strong>Keys</strong> (K), it gets a row of raw similarity scores. Some are high, some are low, and some are negative. These raw numbers are hard for a computer to use as "weights."</p>
+                            <p><strong>The Role of Softmax:</strong></p>
+                            <ul>
+                                <li><strong>Normalization:</strong> It turns those raw scores into <strong>probabilities</strong> that sum up to <strong>1.0 (or 100%)</strong>.</li>
+                                <li><strong>Highlighting:</strong> It uses an exponential function (e^x), which aggressively "widens the gap." A slightly higher raw score becomes a much higher probability, while low scores are crushed toward zero.</li>
+                            </ul>
+                            <p><strong>Online Softmax:</strong> If you find a new, larger maximum (max_new), your old results (e^(x - old_max)) are now wrong. To fix them without re-reading the raw data from the “warehouse” (HBM), you multiply the old results by e^(old_max - max_new). Mathematically, this "shifts" the old values to the new baseline, and allows it to compute mathematically perfect softmax values incrementally, without ever storing the full 𝑁 × 𝑁 matrix.</p>
+                        </div>
+                    </details>
 
-            <div class="subsection">
-                <span class="subsection-title">THE HOW (FLASHATTENTION)</span>
-                <ol>
-                    <li><strong>The Tiling Strategy:</strong> The process begins by partitioning the large Query (𝑄), Key (𝐾), and Value (𝑉) matrices into small, manageable blocks (tiles). These tiles are sized specifically to fit into the SRAM, the high-speed “workbench” right next to the GPU cores. You can visualize this like a kernel in a CNN.</li>
-                    <li><strong>Loading the Workbench:</strong> The GPU pulls one block of 𝑄 and one block of 𝐾 from the HBM into the SRAM. Because these blocks are small, this transfer is efficient. Once they are on the workbench, the GPU performs the matrix multiplication (𝑄 × 𝐾) at lightning speed.</li>
-                    <li><strong>The Online Softmax Trick:</strong> As it processes each block, it keeps track of two local variables: the running maximum and the running sum of exponentials. When a new block is processed, the GPU uses these variables to "rescale" the previous weights.</li>
-                    <li><strong>Computing the Weighted Sum:</strong> Once the partial softmax for the current block is ready, the GPU pulls the corresponding block of 𝑉 into SRAM. It multiplies the partial scores by these values to get a partial output. This preserves information with high scores and effectively mutes the rest, adding this "weighted" data to the final output.</li>
-                    <li><strong>The Final Write-Back:</strong> The final <em>output</em> is written to HBM chunk-by-chunk as each row finishes, not all at once.</li>
-                </ol>
-            </div>
+                    <details class="nested-entry">
+                        <summary><strong>The How (FlashAttention)</strong></summary>
+                        <div class="nested-content">
+                            <ol>
+                                <li><strong>The Tiling Strategy:</strong> The process begins by partitioning the large Query (𝑄), Key (𝐾), and Value (𝑉) matrices into small, manageable blocks (tiles). These tiles are sized specifically to fit into the SRAM, the high-speed “workbench” right next to the GPU cores. You can visualize this like a kernel in a CNN.</li>
+                                <li><strong>Loading the Workbench:</strong> The GPU pulls one block of 𝑄 and one block of 𝐾 from the HBM into the SRAM. Because these blocks are small, this transfer is efficient. Once they are on the workbench, the GPU performs the matrix multiplication (𝑄 × 𝐾) at lightning speed.</li>
+                                <li><strong>The Online Softmax Trick:</strong> As it processes each block, it keeps track of two local variables: the running maximum and the running sum of exponentials. When a new block is processed, the GPU uses these variables to "rescale" the previous weights.</li>
+                                <li><strong>Computing the Weighted Sum:</strong> Once the partial softmax for the current block is ready, the GPU pulls the corresponding block of 𝑉 into SRAM. It multiplies the partial scores by these values to get a partial output. This preserves information with high scores and effectively mutes the rest, adding this "weighted" data to the final output.</li>
+                                <li><strong>The Final Write-Back:</strong> The final <em>output</em> is written to HBM chunk-by-chunk as each row finishes, not all at once.</li>
+                            </ol>
+                        </div>
+                    </details>
+                </div>
+            </details>
         </div>
     </details>
 
