@@ -456,7 +456,7 @@
                                             <details class="nested-accordion">
                                                 <summary>3. Max Pooling</summary>
                                                 <div class="nested-content">
-                                                    <p>The model selects the maximum value across each dimension from all token vectors. This strategy ignores the "noise" of filler words to isolate the strongest signals or most prominent features. It is highly effective at identifying the presence of specific, high-impact keywords in a sequence.</p>
+                                                    <p>Condenses information into a fixed-size embedding, losing the individual identity of specific words to favor a global gist. The model selects the maximum value across each dimension from all token vectors. This strategy ignores the "noise" of filler words to isolate the strongest signals or most prominent features. It is highly effective at identifying the presence of specific, high-impact keywords in a sequence.</p>
                                                 </div>
                                             </details>
                                         </div>
@@ -565,7 +565,7 @@
                                             <details class="nested-accordion">
                                                 <summary>3. Late Interaction (MaxSim)</summary>
                                                 <div class="nested-content">
-                                                    <p>Instead of one summary vector, the engine aligns every query token embedding against every document token embedding, calculating the maximum similarity for fine-grained retrieval.</p>
+                                                    <p>Calculates the "best match" for every query term against the document’s full token set, enabling fine-grained, word-to-word relevance. Instead of one summary vector, the engine aligns every query token embedding against every document token embedding, calculating the maximum similarity for fine-grained retrieval.</p>
                                                     
                                                 </div>
                                             </details>
