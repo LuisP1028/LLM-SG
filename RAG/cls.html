@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>[CLS] Pooling - Responsive Ditherpunk</title>
+    <style>
+        :root {
+            --color-fg: #00FF00;
+            --color-bg: #000000;
+            --color-dim: #003300;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--color-bg);
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--color-fg);
+            user-select: none;
+            -webkit-font-smoothing: none;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Responsive Overlay */
+        #overlay {
+            position: absolute;
+            bottom: 5vh;
+            left: 5vw;
+            width: clamp(280px, 40vw, 500px);
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--color-fg);
+            padding: clamp(10px, 2vw, 20px);
+            box-shadow: 4px 4px 0px var(--color-dim);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: clamp(1rem, 2.5vw, 1.5rem); /* Fluid typography */
+            margin: 0 0 0.5rem 0;
+            text-transform: uppercase;
+            border-bottom: 1px dashed var(--color-fg);
+            padding-bottom: 0.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        p {
+            font-size: clamp(0.75rem, 1.5vw, 1rem);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .blink {
+            animation: blinker 1s steps(2, start) infinite;
+        }
+
+        @keyframes blinker {
+            to { visibility: hidden; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <canvas id="mainCanvas"></canvas>
+    <div id="overlay">
+        <h1>Process: <span id="phase-title">INITIALIZATION</span></h1>
+        <p id="phase-desc">Loading sequence...</p>
+        <p style="margin-top:10px; font-size: 0.8em; opacity: 0.7;">> SYSTEM_READY <span class="blink">_</span></p>
+    </div>
+</div>
+
+<script>
+/**
+ * RESPONSIVE DITHERPUNK ENGINE
+ * ----------------------------
+ * Adapts all coordinate systems and dimensions based on viewport size.
+ */
+
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+const phaseTitle = document.getElementById('phase-title');
+const phaseDesc = document.getElementById('phase-desc');
+
+// -- CONFIGURATION CONSTANTS --
+const COLOR_FG = '#00FF00';
+const COLOR_BG = '#000000';
+const COLOR_DIM = '#004400';
+const TOKENS = ["[CLS]", "the", "cat", "sat"];
+
+// -- DYNAMIC STATE (Calculated on Resize) --
+let width, height;
+let cx, cy; // Center X, Center Y
+let tokenW, tokenH, vectorH, spacing;
+let fontSizeS, fontSizeM;
+let lineThick;
+
+// -- ANIMATION STATE --
+let phase = 0;
+let time = 0;
+let transitionProgress = 0;
+
+// Bayer Matrix (4x4) for ordered dithering
+const bayer4x4 = [
+    [ 0,  8,  2, 10],
+    [12,  4, 14,  6],
+    [ 3, 11,  1,  9],
+    [15,  7, 13,  5]
+];
+
+// -- RESPONSIVE CALCULATIONS --
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    
+    cx = width / 2;
+    cy = height / 2;
+
+    // Responsive Dimensions Logic
+    // We want the tokens to occupy about 80% of width max, but not be huge on ultrawide
+    const maxContentWidth = Math.min(width * 0.9, 1200); 
+    
+    // Calculate Spacing and Width
+    const totalGapRatio = 0.2; // 20% of space is gaps
+    const totalTokenRatio = 0.8; // 80% of space is tokens
+    
+    // Base unit calculation
+    spacing = (maxContentWidth * totalGapRatio) / (TOKENS.length - 1);
+    tokenW = (maxContentWidth * totalTokenRatio) / TOKENS.length;
+    
+    // Clamp constraints
+    // Don't let tokens get too skinny on mobile or too wide on desktop
+    tokenW = Math.max(50, Math.min(tokenW, 160));
+    spacing = Math.max(10, Math.min(spacing, 60));
+
+    // Vertical Sizing
+    tokenH = Math.max(30, height * 0.05);
+    vectorH = Math.max(100, height * 0.25);
+    
+    // Font Sizing
+    fontSizeM = Math.max(12, tokenW * 0.25); // Responsive text inside box
+    fontSizeS = Math.max(10, fontSizeM * 0.8);
+    
+    lineThick = Math.max(1, width * 0.0015);
+    
+    ctx.imageSmoothingEnabled = false;
+}
+
+window.addEventListener('resize', resize);
+resize(); // Init
+
+// -- DRAWING PRIMITIVES --
+
+function drawDitheredRect(x, y, w, h, intensity) {
+    if (intensity <= 0.05) {
+        ctx.strokeStyle = COLOR_FG;
+        ctx.lineWidth = lineThick;
+        ctx.strokeRect(x, y, w, h);
+        return;
+    }
+    
+    // Draw outline
+    ctx.strokeStyle = COLOR_FG;
+    ctx.lineWidth = lineThick;
+    ctx.strokeRect(x, y, w, h);
+
+    // Dither Fill
+    // We adjust "pixel" size based on screen density for performance
+    const pixelSize = Math.max(2, Math.floor(width / 400)); 
+    
+    ctx.fillStyle = COLOR_FG;
+    
+    // Clip to rect
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+
+    // Loop through bounding box
+    for (let py = y; py < y + h; py += pixelSize) {
+        // Optimization: Skip rows based on simple probability if intensity is low
+        // (Optional optimization, removed for visual accuracy)
+        
+        for (let px = x; px < x + w; px += pixelSize) {
+            // Map screen coord to bayer matrix
+            // Use bitwise for modulo 4
+            let bx = (Math.floor(px / pixelSize)) & 3; 
+            let by = (Math.floor(py / pixelSize)) & 3;
+            
+            // Normalize bayer value (0-15) to 0-1
+            let threshold = bayer4x4[by][bx] / 16.0;
+            
+            if (intensity > threshold) {
+                ctx.fillRect(px, py, pixelSize, pixelSize); // -1 for grid effect? No, solid blocks better for retro.
+            }
+        }
+    }
+    ctx.restore();
+}
+
+function drawText(txt, x, y, size, align = 'center') {
+    ctx.font = `${size}px 'Courier New', monospace`;
+    ctx.fillStyle = COLOR_FG;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(txt, x, y);
+}
+
+// -- OBJECTS --
+class TokenObj {
+    constructor(text, index, total) {
+        this.text = text;
+        this.index = index;
+        this.total = total;
+        this.baseX = cx; 
+        this.baseY = cy;
+        this.currentIntensity = 0;
+        this.isCls = text === "[CLS]";
+    }
+
+    update(dt) {
+        // Calculate dynamic total width of the group
+        const totalGroupWidth = (this.total * tokenW) + ((this.total - 1) * spacing);
+        const startX = cx - (totalGroupWidth / 2);
+        
+        // Target Position
+        this.targetX = startX + this.index * (tokenW + spacing);
+        
+        // Phase Logic
+        if (phase === 0) {
+            // Init
+            this.targetY = cy;
+            this.currentIntensity = this.isCls ? 0 : 0.2; 
+        } else if (phase === 1 || phase === 2) {
+            // Attention / Synthesis
+            this.targetY = cy;
+            if (this.isCls) {
+                this.currentIntensity = Math.min(1, transitionProgress); 
+            } else {
+                this.currentIntensity = 0.4;
+            }
+        } else if (phase === 3) {
+            // Pooling
+            if (this.isCls) {
+                this.targetX = cx - (tokenW / 2); // Center screen
+                this.targetY = cy;
+                this.currentIntensity = 1.0;
+            } else {
+                this.targetY = height + vectorH; // Drop off screen
+                this.currentIntensity = 0.4;
+            }
+        }
+
+        // Smooth Interpolation
+        this.baseX += (this.targetX - this.baseX) * 0.1;
+        this.baseY += (this.targetY - this.baseY) * 0.1;
+    }
+
+    draw() {
+        let h = tokenH;
+        let yOffset = 0;
+        
+        // Vector Transformation Animation
+        if (phase > 0) {
+            // How far into the "stretch" are we?
+            // Simple ease-in based on phase time
+            const stretch = Math.min(1, Math.max(0, (time - 3000) / 1000));
+            h = tokenH + (vectorH - tokenH) * stretch;
+            yOffset = -h / 2 + tokenH / 2;
+        }
+        
+        // Jitter (reduced for cleaner look)
+        const jitterX = (Math.random() - 0.5) * 1;
+        
+        // Draw Box/Vector
+        drawDitheredRect(this.baseX + jitterX, this.baseY + yOffset, tokenW, h, this.currentIntensity);
+        
+        // Draw Label
+        let textY;
+        if (phase > 0) {
+             textY = this.baseY + yOffset + h + (fontSizeM * 1.5);
+        } else {
+             textY = this.baseY + yOffset + h/2;
+        }
+        
+        drawText(this.text, this.baseX + tokenW/2, textY, fontSizeM);
+    }
+}
+
+const tokens = TOKENS.map((t, i) => new TokenObj(t, i, TOKENS.length));
+
+// -- LOOP --
+
+function loop(timestamp) {
+    time = timestamp;
+    
+    // Clear
+    ctx.fillStyle = COLOR_BG;
+    ctx.fillRect(0, 0, width, height);
+
+    // Retro Grid (Responsive)
+    ctx.strokeStyle = COLOR_DIM;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // Dynamic grid spacing based on viewport
+    const gridSpace = Math.max(40, width / 20);
+    
+    for (let x = (width/2) % gridSpace; x < width; x += gridSpace) { 
+        ctx.moveTo(x, 0); ctx.lineTo(x, height); 
+    }
+    for (let y = (height/2) % gridSpace; y < height; y += gridSpace) { 
+        ctx.moveTo(0, y); ctx.lineTo(width, y); 
+    }
+    ctx.stroke();
+
+    // Timing Logic (16s cycle)
+    const cycle = 16000;
+    const t = time % cycle;
+
+    if (t < 3000) {
+        phase = 0;
+        phaseTitle.innerText = "I. INITIALIZATION";
+        phaseDesc.innerText = "[CLS] prepended. Neural Neutrality.";
+        transitionProgress = 0;
+    } else if (t < 8000) {
+        phase = 1;
+        phaseTitle.innerText = "II. SELF-ATTENTION";
+        phaseDesc.innerText = "Querying global context. Absorb vectors.";
+        transitionProgress = (t - 3000) / 5000;
+    } else if (t < 11000) {
+        phase = 2; 
+        phaseTitle.innerText = "III. SYNTHESIS";
+        phaseDesc.innerText = "Context Integrated. 768d Dense Vector.";
+        transitionProgress = 1;
+    } else {
+        phase = 3;
+        phaseTitle.innerText = "IV. POOLING";
+        phaseDesc.innerText = "Discard inputs. Extract Embedding.";
+        transitionProgress = 1;
+    }
+
+    // Connectors Logic (Attention Lines)
+    if (phase === 1 || phase === 2) {
+        const cls = tokens[0];
+        const others = tokens.slice(1);
+        
+        others.forEach((other, i) => {
+            // Dynamic coordinates
+            const x1 = cls.baseX + tokenW / 2;
+            const y1 = cls.baseY - vectorH/2; 
+            const x2 = other.baseX + tokenW / 2;
+            const y2 = other.baseY - vectorH/2;
+
+            // Responsive Control Point
+            const cpX = (x1 + x2) / 2;
+            const cpY = y1 - (height * 0.15); // Curve height relative to screen
+
+            // Draw Curve
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.quadraticCurveTo(cpX, cpY, x2, y2);
+            
+            // Strobing effect
+            const strobe = Math.sin(time * 0.01 + i) > 0;
+            ctx.strokeStyle = strobe ? COLOR_FG : COLOR_DIM;
+            ctx.lineWidth = lineThick; // Responsive thickness
+            
+            // Dash pattern
+            const dashSize = Math.max(3, width * 0.005);
+            ctx.setLineDash([dashSize, dashSize]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Data Packets
+            const pktT = (time * 0.002 + i * 0.2) % 1;
+            const invT = 1 - pktT;
+            const px = invT*invT*x1 + 2*invT*pktT*cpX + pktT*pktT*x2;
+            const py = invT*invT*y1 + 2*invT*pktT*cpY + pktT*pktT*y2;
+            
+            const packetSize = Math.max(4, width * 0.006);
+            ctx.fillStyle = COLOR_FG;
+            ctx.fillRect(px - packetSize/2, py - packetSize/2, packetSize, packetSize);
+        });
+    }
+
+    // Draw Tokens
+    tokens.forEach(token => {
+        token.update(time);
+        token.draw();
+    });
+
+    // Final Output Text (Responsive)
+    if (phase === 3) {
+        const cls = tokens[0];
+        // Only draw if CLS is roughly centered to avoid text jumping
+        if (Math.abs(cls.baseX - (cx - tokenW/2)) < 10) {
+            const labelY = cy + (vectorH/2) + (fontSizeM * 3);
+            drawText("FINAL DENSE EMBEDDING", cx, labelY, fontSizeM, 'center');
+            drawText("READY FOR CLASSIFICATION", cx, labelY + fontSizeM * 1.5, fontSizeS, 'center');
+        }
+    }
+
+    requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

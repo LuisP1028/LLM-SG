@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MAX_POOLING // RESPONSIVE</title>
+    <style>
+        :root {
+            --bg: #000000;
+            --fg: #00FF00;
+        }
+
+        /* Modern CSS Reset & Layout */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg);
+            overflow: hidden; /* Prevent scrollbars */
+            font-family: 'Courier New', Courier, monospace;
+            cursor: crosshair;
+            
+            /* Center content if needed, though Canvas fills screen */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* CRT Overlay - Responsive Gradient */
+        #crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%; /* Scanlines */
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="crt-overlay"></div>
+    <canvas id="canvas"></canvas>
+
+<script>
+/**
+ * DITHERPUNK MAX POOLING VISUALIZER // RESPONSIVE
+ * Window-agnostic scaling using relative units.
+ */
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+// --- CONFIGURATION ---
+const GRID_ROWS = 4;
+const GRID_COLS = 5;
+const WORDS = ["SYSTEM", "CACHE", "ERROR", "DATA"]; // Shorter words for better mobile fit
+const ANIMATION_SPEED = 0.025; // Slightly slower for readability
+
+// --- STATE ---
+let width, height;
+// Layout metrics
+let m = {
+    pad: 0,
+    cellW: 0,
+    cellH: 0,
+    startX: 0,
+    startY: 0,
+    outputY: 0,
+    outputH: 0,
+    fontSize: 0,
+    pixelSize: 4
+};
+
+let matrix = []; 
+let pooled = new Array(GRID_COLS).fill(0);
+let animState = {
+    col: 0,
+    phase: 'SCAN', // SCAN, HIGHLIGHT, TRAVEL, DEPOSIT
+    progress: 0,
+    maxRowIndex: -1,
+    maxValue: 0
+};
+
+// Bayer Matrix (4x4)
+const bayerMatrix = [
+    [0,  8,  2, 10],
+    [12, 4, 14, 6],
+    [3, 11, 1,  9],
+    [15, 7, 13, 5]
+];
+
+// --- INITIALIZATION ---
+
+function initData() {
+    matrix = [];
+    for(let r=0; r<GRID_ROWS; r++) {
+        let row = [];
+        for(let c=0; c<GRID_COLS; c++) {
+            row.push(Math.random());
+        }
+        matrix.push(row);
+    }
+}
+
+// Recalculate all layout metrics based on window size
+function resize() {
+    // Get viewport dimensions
+    width = window.innerWidth;
+    height = window.innerHeight;
+    
+    // Update Canvas resolution to match display size (High DPI support)
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    // --- RESPONSIVE CALCULATIONS ---
+    
+    // Scale "Pixel Size" based on screen width to maintain retro feel
+    // Minimum 2px, scales up on 4k screens
+    m.pixelSize = Math.max(2, Math.floor(width / 320)); 
+
+    // Define "Safe Area" (90% of smallest dimension, or clamp)
+    const safeW = width * 0.94;
+    const safeH = height * 0.94;
+    
+    m.pad = Math.min(width, height) * 0.02; // 2% padding
+    
+    // Vertical Allocation: 
+    // Title (5%) + Input Grid (55%) + Gap (15%) + Output Grid (15%) + Bottom Pad (10%)
+    const inputAreaH = safeH * 0.55;
+    const outputAreaH = safeH * 0.15;
+    const titleH = safeH * 0.05;
+    
+    m.startY = (height - safeH)/2 + titleH + m.pad; // Vertically center roughly
+    m.startX = (width - safeW)/2;
+    
+    // Grid Logic
+    // Total Cols = GRID_COLS + 1 (for labels)
+    m.cellW = safeW / (GRID_COLS + 1);
+    m.cellH = inputAreaH / GRID_ROWS;
+    
+    m.outputH = outputAreaH;
+    m.outputY = m.startY + inputAreaH + (safeH * 0.15); // Gap
+
+    // Dynamic Font Sizing: Fit text within the smallest cell dimension
+    // Heuristic: ~30% of cell width or 50% of cell height, whichever is smaller
+    m.fontSize = Math.floor(Math.min(m.cellW * 0.25, m.cellH * 0.4));
+    m.fontSize = Math.max(10, m.fontSize); // Minimum legible size
+}
+
+// --- RENDERING ENGINE ---
+
+function drawDitheredRect(x, y, w, h, intensity, isHighlight = false) {
+    x = Math.floor(x); y = Math.floor(y); w = Math.floor(w); h = Math.floor(h);
+
+    const fg = isHighlight ? '#00FF00' : '#00AA00'; 
+    const bg = '#000000';
+
+    ctx.fillStyle = bg;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = fg;
+
+    // Responsive Dithering Loop
+    const ps = m.pixelSize; // Use the scaled pixel size
+
+    for (let py = 0; py < h; py += ps) {
+        for (let px = 0; px < w; px += ps) {
+            const globalX = x + px;
+            const globalY = y + py;
+            
+            // Map to Bayer Matrix
+            const bayerX = Math.floor((globalX / ps) % 4);
+            const bayerY = Math.floor((globalY / ps) % 4);
+            
+            const threshold = (bayerMatrix[bayerY][bayerX] / 16);
+            
+            if (intensity > threshold) {
+                ctx.fillRect(x + px, y + py, ps - 1, ps - 1); // -1 for grid gap effect
+            }
+        }
+    }
+    
+    ctx.strokeStyle = isHighlight ? '#00FF00' : '#004400';
+    ctx.lineWidth = Math.max(1, m.pixelSize / 2); // Scale line width too
+    ctx.strokeRect(x, y, w, h);
+}
+
+function drawText(str, x, y, invert = false) {
+    ctx.font = `bold ${m.fontSize}px 'Courier New'`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    
+    const metrics = ctx.measureText(str);
+    const bgW = metrics.width + (m.fontSize * 0.5);
+    const bgH = m.fontSize * 1.2;
+
+    ctx.fillStyle = invert ? '#00FF00' : '#000000';
+    ctx.fillRect(x - bgW/2, y - bgH/2, bgW, bgH);
+
+    ctx.fillStyle = invert ? '#000000' : '#00FF00';
+    ctx.fillText(str, x, y);
+}
+
+// --- LOGIC LOOP ---
+
+function update() {
+    if (animState.phase === 'SCAN') {
+        animState.progress += ANIMATION_SPEED;
+        if (animState.progress >= 1) {
+            let maxVal = -1;
+            let maxIdx = -1;
+            for(let r=0; r<GRID_ROWS; r++) {
+                if(matrix[r][animState.col] > maxVal) {
+                    maxVal = matrix[r][animState.col];
+                    maxIdx = r;
+                }
+            }
+            animState.maxRowIndex = maxIdx;
+            animState.maxValue = maxVal;
+            animState.phase = 'HIGHLIGHT';
+            animState.progress = 0;
+        }
+    } else if (animState.phase === 'HIGHLIGHT') {
+        animState.progress += ANIMATION_SPEED * 2;
+        if (animState.progress >= 1) {
+            animState.phase = 'TRAVEL';
+            animState.progress = 0;
+        }
+    } else if (animState.phase === 'TRAVEL') {
+        animState.progress += ANIMATION_SPEED;
+        if (animState.progress >= 1) {
+            animState.phase = 'DEPOSIT';
+            animState.progress = 0;
+            pooled[animState.col] = animState.maxValue;
+        }
+    } else if (animState.phase === 'DEPOSIT') {
+        animState.progress += ANIMATION_SPEED;
+        if (animState.progress >= 1) {
+            animState.col++;
+            if (animState.col >= GRID_COLS) {
+                animState.col = 0;
+                pooled.fill(0);
+                initData();
+            }
+            animState.phase = 'SCAN';
+            animState.progress = 0;
+            animState.maxRowIndex = -1;
+        }
+    }
+}
+
+function draw() {
+    // Clear screen
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, width, height); // Logic coords
+    // Note: Canvas was scaled by DPR in resize(), but fillRect uses logical coords?
+    // Actually when using ctx.scale(dpr), we should draw to logical width/height.
+    // The previous fillRect(0,0, width, height) works because width/height are window.inner...
+
+    const cellInnerPad = Math.max(2, m.cellW * 0.05);
+
+    // --- TITLE ---
+    ctx.fillStyle = '#00FF00';
+    ctx.font = `bold ${m.fontSize}px 'Courier New'`;
+    ctx.textAlign = "left";
+    ctx.fillText(">> MAX_POOLING // AUTO_SCALE", m.startX, m.startY - m.fontSize * 1.5);
+
+    // --- INPUT MATRIX ---
+    for (let r = 0; r < GRID_ROWS; r++) {
+        // Label Column
+        drawText(WORDS[r], m.startX + (m.cellW/2), m.startY + (r * m.cellH) + (m.cellH/2));
+
+        for (let c = 0; c < GRID_COLS; c++) {
+            const cx = m.startX + m.cellW + (c * m.cellW);
+            const cy = m.startY + (r * m.cellH);
+            
+            let isCurrentCol = (c === animState.col);
+            let isMax = (r === animState.maxRowIndex && isCurrentCol && animState.phase !== 'SCAN');
+            let intensity = matrix[r][c];
+            
+            // Draw Cell
+            if (isMax && animState.phase === 'HIGHLIGHT') {
+                if (Math.floor(Date.now() / 100) % 2 === 0) {
+                     drawDitheredRect(cx + cellInnerPad, cy + cellInnerPad, m.cellW - (cellInnerPad*2), m.cellH - (cellInnerPad*2), 1.0, true);
+                } else {
+                     drawDitheredRect(cx + cellInnerPad, cy + cellInnerPad, m.cellW - (cellInnerPad*2), m.cellH - (cellInnerPad*2), intensity, true);
+                }
+            } else {
+                if (isCurrentCol && animState.phase === 'TRAVEL' && r !== animState.maxRowIndex) intensity *= 0.2;
+                drawDitheredRect(cx + cellInnerPad, cy + cellInnerPad, m.cellW - (cellInnerPad*2), m.cellH - (cellInnerPad*2), intensity, isCurrentCol);
+            }
+
+            drawText(intensity.toFixed(2), cx + m.cellW/2, cy + m.cellH/2, isMax);
+        }
+    }
+
+    // --- OUTPUT VECTOR ---
+    drawText("POOLED", m.startX + (m.cellW/2), m.outputY + (m.outputH/2));
+
+    for (let c = 0; c < GRID_COLS; c++) {
+        const cx = m.startX + m.cellW + (c * m.cellW);
+        const cy = m.outputY;
+        let val = pooled[c];
+        
+        if (val === 0 && c >= animState.col) {
+            ctx.strokeStyle = '#003300';
+            ctx.lineWidth = Math.max(1, m.pixelSize/2);
+            ctx.strokeRect(cx + cellInnerPad, cy + cellInnerPad, m.cellW - (cellInnerPad*2), m.outputH - (cellInnerPad*2));
+        } else {
+            drawDitheredRect(cx + cellInnerPad, cy + cellInnerPad, m.cellW - (cellInnerPad*2), m.outputH - (cellInnerPad*2), val, true);
+            drawText(val.toFixed(2), cx + m.cellW/2, cy + m.outputH/2, true);
+        }
+    }
+
+    // --- TRAVELING PARTICLE ---
+    if (animState.phase === 'TRAVEL') {
+        const startCX = m.startX + m.cellW + (animState.col * m.cellW) + cellInnerPad;
+        const startCY = m.startY + (animState.maxRowIndex * m.cellH) + cellInnerPad;
+        
+        const targetCX = m.startX + m.cellW + (animState.col * m.cellW) + cellInnerPad;
+        const targetCY = m.outputY + cellInnerPad;
+
+        const currX = startCX;
+        const currY = startCY + (targetCY - startCY) * animState.progress;
+        
+        const boxW = m.cellW - (cellInnerPad*2);
+        const boxH = m.cellH - (cellInnerPad*2);
+
+        // Solid Block
+        ctx.fillStyle = '#00FF00';
+        ctx.fillRect(currX, currY, boxW, boxH);
+        
+        // Label
+        ctx.fillStyle = '#000000';
+        drawText(animState.maxValue.toFixed(2), currX + boxW/2 + cellInnerPad, currY + boxH/2 + cellInnerPad, false);
+        
+        // Trail
+        ctx.beginPath();
+        ctx.moveTo(startCX + boxW/2, startCY + boxH/2);
+        ctx.lineTo(currX + boxW/2, currY + boxH/2);
+        ctx.strokeStyle = '#00FF00';
+        ctx.lineWidth = Math.max(1, m.pixelSize/2);
+        ctx.setLineDash([m.pixelSize * 2, m.pixelSize * 2]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    
+    // --- CONNECTING LINE (Visual Guide) ---
+    if (animState.phase !== 'TRAVEL') {
+        const x = m.startX + m.cellW + (animState.col * m.cellW) + (m.cellW/2);
+        ctx.beginPath();
+        ctx.moveTo(x, m.startY);
+        ctx.lineTo(x, m.startY + (GRID_ROWS * m.cellH));
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', resize);
+initData();
+resize(); // Trigger initial calc
+loop();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MEAN POOLING // CENTROID_LOGIC</title>
+    <style>
+        :root { --green: #00ff00; --black: #000000; }
+        body, html { margin: 0; padding: 0; background: var(--black); color: var(--green); overflow: hidden; font-family: 'Courier New', monospace; }
+        canvas { display: block; image-rendering: pixelated; }
+        #hud {
+            position: absolute; top: 20px; left: 20px; 
+            border: 1px solid var(--green); padding: 15px;
+            background: rgba(0,0,0,0.8); pointer-events: none;
+            box-shadow: 5px 5px 0px var(--green);
+        }
+        .label { font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        .math { font-size: 14px; opacity: 0.9; }
+        #controls { position: absolute; bottom: 20px; left: 20px; }
+        button {
+            background: var(--black); color: var(--green);
+            border: 1px solid var(--green); padding: 10px 20px;
+            cursor: pointer; text-transform: uppercase;
+            font-family: inherit; font-weight: bold;
+        }
+        button:hover { background: var(--green); color: var(--black); }
+    </style>
+</head>
+<body>
+
+<div id="hud">
+    <div class="label" id="stage-name">INITIALIZING...</div>
+    <div class="math" id="stage-math">h_i = word_vector</div>
+    <div id="stats" style="margin-top:10px; font-size:12px;"></div>
+</div>
+
+<div id="controls">
+    <button onclick="nextStage()">[ ADVANCE SEQUENCE ]</button>
+    <button onclick="scramble()">[ SCRAMBLE TOKENS ]</button>
+</div>
+
+<canvas id="view"></canvas>
+
+<script>
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d');
+const stageName = document.getElementById('stage-name');
+const stageMath = document.getElementById('stage-math');
+const stats = document.getElementById('stats');
+
+let width, height, centerX, centerY, scale;
+let stage = 0; // 0: Cloud, 1: Masking, 2: Centroid Calculation, 3: Final Mean
+let animT = 0;
+
+// Data Structure
+let tokens = [
+    { text: "THE", x: -0.4, y: -0.5, active: true },
+    { text: "QUICK", x: 0.6, y: -0.2, active: true },
+    { text: "BROWN", x: 0.1, y: 0.7, active: true },
+    { text: "FOX", x: -0.7, y: 0.3, active: true },
+    { text: "[PAD]", x: 0.8, y: 0.8, active: false },
+    { text: "[PAD]", x: -0.9, y: -0.1, active: false }
+];
+
+function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    centerX = width / 2;
+    centerY = height / 2;
+    scale = Math.min(width, height) * 0.35;
+}
+
+// --- DITHERING TOOLS ---
+function drawDitheredLine(x1, y1, x2, y2, density = 0.5) {
+    const dist = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+    const steps = dist * 2;
+    ctx.fillStyle = "#00ff00";
+    for(let i=0; i<steps; i++) {
+        const t = i/steps;
+        const px = x1 + (x2-x1)*t;
+        const py = y1 + (y2-y1)*t;
+        // Atkinson-like stipple pattern
+        if ((Math.floor(px) + Math.floor(py)) % 4 === 0 && Math.random() < density) {
+            ctx.fillRect(Math.floor(px), Math.floor(py), 1, 1);
+        }
+    }
+}
+
+function drawDitheredCircle(x, y, r) {
+    for(let i = -r; i < r; i++) {
+        for(let j = -r; j < r; j++) {
+            if(i*i + j*j <= r*r) {
+                if((x+i + y+j) % 4 === 0) {
+                    ctx.fillRect(x+i, y+j, 1, 1);
+                }
+            }
+        }
+    }
+}
+
+// --- CORE LOGIC ---
+function getMean() {
+    let active = tokens.filter(t => t.active);
+    let mx = active.reduce((s, t) => s + t.x, 0) / active.length;
+    let my = active.reduce((s, t) => s + t.y, 0) / active.length;
+    return { x: mx, y: my };
+}
+
+function scramble() {
+    tokens.forEach(t => {
+        t.x = (Math.random() * 2 - 1) * 0.8;
+        t.y = (Math.random() * 2 - 1) * 0.8;
+    });
+    animT = 0;
+}
+
+function nextStage() {
+    stage = (stage + 1) % 4;
+    animT = 0;
+    const info = [
+        { name: "1. Token Cloud", math: "H = {h_1, h_2, ... h_n}" },
+        { name: "2. Attention Mask", math: "h_i = h_i * mask_i" },
+        { name: "3. Finding Centroid", math: "Attaching semantic weights..." },
+        { name: "4. Sentence Embedding", math: "V_mean = (1/N) * Σ h_i" }
+    ];
+    stageName.innerText = info[stage].name;
+    stageMath.innerText = info[stage].math;
+}
+
+// --- RENDER ---
+function draw() {
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, width, height);
+    
+    // Grid
+    ctx.strokeStyle = "#002200";
+    ctx.lineWidth = 1;
+    for(let i=-2; i<=2; i+=0.5) {
+        ctx.beginPath();
+        ctx.moveTo(centerX + i*scale, 0); ctx.lineTo(centerX + i*scale, height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, centerY + i*scale); ctx.lineTo(width, centerY + i*scale);
+        ctx.stroke();
+    }
+
+    const mean = getMean();
+    const screenMean = { x: centerX + mean.x * scale, y: centerY - mean.y * scale };
+
+    tokens.forEach(t => {
+        const tx = centerX + t.x * scale;
+        const ty = centerY - t.y * scale;
+        
+        // Logic based on Stage
+        let isVisible = true;
+        let isDithered = false;
+
+        if (stage >= 1 && !t.active) {
+            isVisible = animT < 0.5; // Dissolve [PAD]
+            isDithered = true;
+        }
+
+        if (isVisible) {
+            if (isDithered) {
+                drawDitheredCircle(tx, ty, 5);
+                ctx.fillStyle = "#004400";
+                ctx.fillText(t.text, tx + 10, ty);
+            } else {
+                ctx.fillStyle = "#00ff00";
+                ctx.fillRect(tx-3, ty-3, 6, 6);
+                ctx.fillText(t.text, tx + 10, ty);
+                
+                // Stage 2: Tendrils
+                if (stage === 2) {
+                    drawDitheredLine(screenMean.x, screenMean.y, tx, ty, animT);
+                }
+            }
+        }
+    });
+
+    // Final Mean Vector
+    if (stage === 3) {
+        ctx.strokeStyle = "#00ff00";
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(screenMean.x, screenMean.y);
+        ctx.stroke();
+        
+        ctx.fillStyle = "#00ff00";
+        ctx.beginPath();
+        ctx.arc(screenMean.x, screenMean.y, 8, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.fillStyle = "#000000";
+        ctx.fillText("SENTENCE VECTOR", screenMean.x - 45, screenMean.y + 25);
+    }
+
+    animT = Math.min(animT + 0.01, 1);
+    
+    stats.innerHTML = `Active Tokens: ${tokens.filter(t => t.active).length}<br>
+                       Centroid X: ${mean.x.toFixed(3)}<br>
+                       Centroid Y: ${mean.y.toFixed(3)}`;
+    
+    requestAnimationFrame(draw);
+}
+
+window.addEventListener('resize', resize);
+resize();
+draw();
+stageName.innerText = "1. Token Cloud";
+</script>
+</body>
+</html>

@@ -75,7 +75,6 @@
     em { font-style: normal; color: #50c878; border-bottom: 1px dotted var(--dim-color); }
 
     /* --- ACCORDION STYLES --- */
-    /* Outer Parts */
     details.part {
         margin-bottom: 30px;
         border: 2px solid var(--border-color);
@@ -100,7 +99,6 @@
     details.part[open] > summary::after { content: '-'; }
     .part-content { padding: 20px; border-top: 2px solid var(--border-color); }
 
-    /* Inner Sections */
     details.section {
         margin-bottom: 15px;
         border: 1px solid var(--dim-color);
@@ -127,7 +125,6 @@
     }
     .section-content { padding: 20px; }
 
-    /* Directory Tree Styling */
     .tree-root {
         border-left: 1px dashed var(--accent-color);
         margin-left: 1rem;
@@ -135,7 +132,6 @@
         position: relative;
     }
 
-    /* The Branch Line for nested-accordion */
     details.nested-accordion {
         margin-bottom: 10px;
     }
@@ -154,7 +150,7 @@
     details.nested-accordion > summary::before {
         content: '';
         position: absolute;
-        left: -1.5rem; /* Reaches back to the trunk */
+        left: -1.5rem; 
         top: 50%;
         width: 1.5rem;
         border-bottom: 1px dashed var(--accent-color);
@@ -167,21 +163,16 @@
     }
 
     details.nested-accordion > summary::-webkit-details-marker { display: none; }
+    details.nested-accordion > summary:focus { outline: none; }
 
-    details.nested-accordion > summary:focus {
-        outline: none;
-    }
-
-    /* Content spacing inside the tree */
     .nested-content {
         padding-left: 1rem;
         padding-top: 0.5rem;
         padding-bottom: 1rem;
-        border-left: 1px dashed rgba(0, 255, 65, 0.3); /* Faint continuation line */
-        margin-left: -0.8rem; /* Align with parent */
+        border-left: 1px dashed rgba(0, 255, 65, 0.3);
+        margin-left: -0.8rem;
     }
 
-    /* Tags */
     .tag {
         display: inline-block;
         border: 1px solid var(--accent-color);
@@ -194,7 +185,6 @@
         text-transform: uppercase;
     }
 
-    /* Subsections Generic */
     .subsection {
         margin-bottom: 25px;
         border-left: 4px solid var(--dim-color);
@@ -234,19 +224,6 @@
         font-size: 0.9em;
     }
 
-    /* Image Placeholder */
-    .img-placeholder {
-        border: 1px dashed var(--dim-color);
-        background: rgba(0, 59, 0, 0.2);
-        color: var(--accent-color);
-        padding: 15px;
-        text-align: center;
-        margin: 15px 0;
-        font-size: 0.8rem;
-        letter-spacing: 1px;
-    }
-
-    /* --- INTERACTIVE: EYE BUTTON & VIEWPORT --- */
     .eye-btn {
         position: relative;
         width: 28px; height: 28px;
@@ -307,7 +284,6 @@
     .vp-body { flex-grow: 1; position: relative; background: #000; }
     .vp-body iframe { width: 100%; height: 100%; border: none; }
 
-    /* --- RESPONSIVE --- */
     @media (max-width: 600px) {
         h1 { font-size: 1.8rem; border-bottom-width: 3px; }
         details.part > summary { font-size: 1.1rem; padding: 12px; }
@@ -318,6 +294,7 @@
         .retro-viewport { width: 95vw; height: 60vh; }
     }
 </style>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class="dither-layer"></div>
@@ -331,13 +308,12 @@
             <summary>1. RAG Overview & Modules</summary>
             <div class="section-content">
                 <p><strong>RAG:</strong> Pulling new, updated, tailored information from a vector store to concatenate as context to a user prompt, before feeding a foundational model.</p>
-                                <p><strong>A RAG system is composed of three main modules:</strong></p>
+                <p><strong>A RAG system is composed of three main modules:</strong></p>
                 <ul>
                     <li>Ingestion pipeline: A batch or streaming pipeline used to populate the vector DB</li>
                     <li>Retrieval pipeline: A module that queries the vector DB and retrieves relevant entries to the user’s input</li>
                     <li>Generation pipeline: The layer that uses the retrieved data to augment the prompt and an LLM to generate answers</li>
                 </ul>
-                
                 <div class="subsection">
                     <span class="subsection-title">HOW ARE MODULES CONNECTED OVERVIEW</span>
                     <ol>
@@ -437,8 +413,56 @@
                     <details class="nested-accordion">
                         <summary>Dense Embeddings (Bi-Encoders)</summary>
                         <div class="nested-content">
-                            <p>Foundation for semantic search. Captures abstract meaning by collapsing an entire sequence into a single "summary" vector.</p>
+                            <p>Foundation for semantic search. Captures abstract meaning by collapsing an entire sequence [inputs, e.g document, sentence, paragraph] into a single "summary" vector.</p>
                             <p><strong>When to use:</strong> Use this when the intent matters more than specific words. It bridges the gap between synonyms and related concepts by mapping them to the same mathematical space, making it the bedrock of modern semantic search, though it may lose granular word-level nuance.</p>
+                            
+                            <div class="tree-root">
+                                <details class="nested-accordion">
+                                    <summary>How: Pooling Mechanisms</summary>
+                                    <div class="nested-content">
+                                        <div class="tree-root">
+                                            <details class="nested-accordion">
+                                                <summary>The Practical Workflow</summary>
+                                                <div class="nested-content">
+                                                    <p><strong>Contextual Encoding:</strong> Each token in your sequence (e.g., "The," "cat," "sat") starts as a raw vector. The Transformer uses Self-Attention to update these vectors based on their neighbors. By the final layer, the vector for "cat" isn't just "cat"—it contains numerical "traces" of "The" and "sat."</p>
+                                                    <p><strong>The Accumulation (Pooling):</strong> Since you can’t compare a 5-word sentence to a 500-word document directly, you must reduce them to the same dimensions. This is done via:</p>
+                                                    <ul>
+                                                        <li><strong>CLS Pooling:</strong> Taking the vector of the special [CLS] (classification) token, which was designed to attend to every other token in the sequence.</li>
+                                                        <li><strong>Mean/Max Pooling:</strong> Mathematically averaging all individual token vectors into one "centroid" vector.</li>
+                                                    </ul>
+                                                    <p><strong>The Resulting Vector:</strong> This single array of numbers (e.g., 768 dimensions) represents the "average" semantic direction of the sequence.</p>
+                                                    <p><strong>Why Meaning is Lost:</strong> Because you are averaging (Mean Pooling) or selecting a representative (CLS), you lose positional granularity. You know the "flavor" of the sequence is about felines and posture, but the specific syntax—who did what to whom—gets blurred into a single mathematical coordinate.</p>
+                                                </div>
+                                            </details>
+
+                                            <details class="nested-accordion">
+                                                <summary>1. [CLS] Pooling</summary>
+                                                <div class="nested-content">
+                                                    <p>A "dummy" token prepended to the sequence. Through self-attention, it acts as a designated note-taker, aggregating global context from every other token. By the final layer, this single vector serves as the complete embedding, forced by training to represent the entire sequence's semantics.</p>
+                                                    
+                                                </div>
+                                            </details>
+
+                                            <details class="nested-accordion">
+                                                <summary>2. Mean Pooling</summary>
+                                                <div class="nested-content">
+                                                    <p>The model calculates the element-wise average of all token vectors in the final layer. 
+                                                    $$\vec{v}_{mean} = \frac{1}{n} \sum_{i=1}^{n} \vec{h}_i$$
+                                                    This creates a "centroid" of the sequence. While excellent for capturing the overall topic, the averaging process can blur specific syntax and "who did what" details.</p>
+                                                    
+                                                </div>
+                                            </details>
+
+                                            <details class="nested-accordion">
+                                                <summary>3. Max Pooling</summary>
+                                                <div class="nested-content">
+                                                    <p>The model selects the maximum value across each dimension from all token vectors. This strategy ignores the "noise" of filler words to isolate the strongest signals or most prominent features. It is highly effective at identifying the presence of specific, high-impact keywords in a sequence.</p>
+                                                </div>
+                                            </details>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
                         </div>
                     </details>
 
@@ -447,6 +471,57 @@
                         <div class="nested-content">
                             <p>Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
                             <p><strong>When to use:</strong> Use this for precision-heavy tasks where exact keyword matching is non-negotiable. While dense models might "hallucinate" a similar concept, sparse embeddings (like BM25) ensure you find the exact string of characters you typed.</p>
+
+                            <div class="tree-root">
+                                <details class="nested-accordion">
+                                    <summary>How: TF-IDF & Scoring</summary>
+                                    <div class="nested-content">
+                                        <div class="tree-root">
+                                            <details class="nested-accordion">
+                                                <summary>The Practical Workflow</summary>
+                                                <div class="nested-content">
+                                                    <p><strong>Vocab Mapping:</strong> The model has a fixed dictionary of, say, 30,000 words. Each word is assigned a specific "index" (a coordinate).</p>
+                                                    <p><strong>Token Counting:</strong> It looks at your sequence and marks which words appear. If your sequence is "the cat sat," it flips the switch for the indices of "the," "cat," and "sat" from \(0\) to a positive number.</p>
+                                                    <p><strong>Weighting (BM25/SPLADE):</strong> It doesn't just count; it weights.</p>
+                                                    <ul>
+                                                        <li><strong>Term Frequency:</strong> More mentions = higher weight.</li>
+                                                        <li><strong>Inverted Document Frequency:</strong> Common words like "the" get penalized, while rare, "information-heavy" words like "photosynthesis" get boosted.</li>
+                                                    </ul>
+                                                    <p><strong>Result:</strong> You get a vector the size of the whole dictionary (30,000+). It is sparse because 29,997 of those numbers are zero; only the dimensions for your specific words hold values.</p>
+                                                    <p><strong>Why it works:</strong> Instead of an "average meaning," this is a precise fingerprint. It excels at matching exact terms (like product SKUs or legal jargon) that dense embeddings might blur away.</p>
+                                                </div>
+                                            </details>
+
+                                            <details class="nested-accordion">
+                                                <summary>1. Term Frequency (TF)</summary>
+                                                <div class="nested-content">
+                                                    <p>TF measures how "loud" a word is within a specific sequence. If you are analyzing a 100-word paragraph about "Transformers," and the word "attention" appears 10 times, its TF is higher than a word that appears once.</p>
+                                                    <p>In practice, we don't just use raw counts; we often use Log-normalization (\(\log(1 + \text{count})\)) to prevent a word that appears 100 times from being 100 times more "important" than a word appearing once. It essentially answers: "How much is this document specifically about this term?"</p>
+                                                </div>
+                                            </details>
+
+                                            <details class="nested-accordion">
+                                                <summary>2. Inverted Document Frequency (IDF)</summary>
+                                                <div class="nested-content">
+                                                    <p>IDF measures how "rare" or "informative" a word is across your entire knowledge base. It is the "filter" that silences background noise.</p>
+                                                    <ul>
+                                                        <li><strong>Common Words:</strong> Words like "the," "is," or "of" appear in almost every document. Their IDF is near zero because they don't help distinguish one document from another.</li>
+                                                        <li><strong>Rare Words:</strong> A technical term like "Backpropagation" might only appear in 5 out of 10,000 documents. Because it is rare, its IDF weight is very high.</li>
+                                                    </ul>
+                                                    <p><strong>The Math:</strong> It’s the log of (Total Documents / Documents containing the term). If a word is in every document, the fraction is 1, and \(\log(1) = 0\).</p>
+                                                </div>
+                                            </details>
+
+                                            <details class="nested-accordion">
+                                                <summary>3. The Combination (TF-IDF)</summary>
+                                                <div class="nested-content">
+                                                    <p>By multiplying \(TF \times IDF\), you get a score that is high only if a word is frequent in the current document but rare in the rest of the collection. This creates the "peaks" in your 30,000-dimensional sparse vector.</p>
+                                                </div>
+                                            </details>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
                         </div>
                     </details>
 
@@ -456,6 +531,48 @@
                             <p>Foundation for fine-grained matching (e.g., BERT, ColBERT). Unlike dense summaries, this generates separate, unique vectors for every token based on its neighbors.</p>
                             <p><strong>Example:</strong> Distinguishing between "bank" in "river bank" vs. "investment bank."</p>
                             <p><strong>When to use:</strong> Best for complex queries where word order and situational meaning change the intent. It allows for "late interaction" to find highly granular matches between specific parts of a query and a document.</p>
+                            
+                            <div class="tree-root">
+                                <details class="nested-accordion">
+                                    <summary>How: Contextualized Encoding</summary>
+                                    <div class="nested-content">
+                                        <div class="tree-root">
+                                            <details class="nested-accordion">
+                                                <summary>The Practical Workflow</summary>
+                                                <div class="nested-content">
+                                                    <p><strong>Setup:</strong> involves feeding a sequence into a Transformer-based encoder (e.g., BERT).</p>
+                                                    <p><strong>Execution:</strong> self-attention mechanisms compute the relationship between each token and its neighbors, weighting influence based on relevance.</p>
+                                                    <p><strong>Output:</strong> a multi-dimensional vector for every token that reflects its precise semantic role within that specific sentence, rather than a generic dictionary definition.</p>
+                                                </div>
+                                            </details>
+                                            
+                                            <details class="nested-accordion">
+                                                <summary>1. Self-Attention Layers</summary>
+                                                <div class="nested-content">
+                                                    <p>Dynamically adjusts a token's representation by scanning the entire input, ensuring "bank" shifts based on terms like "river" or "money."</p>
+                                                    
+                                                </div>
+                                            </details>
+                                            
+                                            <details class="nested-accordion">
+                                                <summary>2. Positional Encoding</summary>
+                                                <div class="nested-content">
+                                                    <p>Infuses word order data into the vectors, allowing the model to distinguish meaning based on structural placement.</p>
+                                                    
+                                                </div>
+                                            </details>
+                                            
+                                            <details class="nested-accordion">
+                                                <summary>3. Late Interaction (MaxSim)</summary>
+                                                <div class="nested-content">
+                                                    <p>Instead of one summary vector, the engine aligns every query token embedding against every document token embedding, calculating the maximum similarity for fine-grained retrieval.</p>
+                                                    
+                                                </div>
+                                            </details>
+                                        </div>
+                                    </div>
+                                </details>
+                            </div>
                         </div>
                     </details>
 
@@ -484,7 +601,6 @@
             <summary>5. RAG: Indexing Methods in a Vector Database</summary>
             <div class="section-content">
                 <p><strong>What is a Vector DB:</strong> Traditional databases look for exact word matches, but vector DBs find data that is <em>similar</em> to your query. They organize information as numeric vectors using specialized indexes.</p>
-                
                 <div class="tree-root">
                     <details class="nested-accordion">
                         <summary>HNSW (Hierarchical Navigable Small World)</summary>
@@ -498,7 +614,6 @@
                             <p><strong>When to use:</strong> Use for very large, diverse datasets when low-latency search is the priority and memory (RAM) is not a bottleneck.</p>
                         </div>
                     </details>
-        
                     <details class="nested-accordion">
                         <summary>LSH (Locality-Sensitive Hashing)</summary>
                         <div class="nested-content">
@@ -511,7 +626,6 @@
                             <p><strong>When to use:</strong>Ideal for "approximate" matching in massive datasets. Use it when speed and finding "good enough" results (like detecting near-duplicate documents) are more important than 100% precision.</p>
                         </div>
                     </details>
-        
                     <details class="nested-accordion">
                         <summary>Product Quantization (PQ)</summary>
                         <div class="nested-content">
@@ -527,7 +641,6 @@
                             </p>
                         </div>
                     </details>
-        
                     <details class="nested-accordion">
                         <summary>Random Projection (RP)</summary>
                         <div class="nested-content">
@@ -548,7 +661,6 @@
             <summary>6. Advanced Retrieval Strategies</summary>
             <div class="section-content">
                 <p>This module covers advanced techniques to optimize vector search for either precision (Metadata Filtering) or recall (Expansion & Reranking).</p>
-        
                 <details class="nested-accordion">
                     <summary>A. Self-Querying / Filtered Vector Search</summary>
                     <div class="nested-content">
@@ -557,152 +669,58 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </button>
                         <p><em>Best for finding "x" with strict constraints "y".</em></p>
-                                
                         <div class="tree-root">
-                            
                             <details class="nested-accordion">
                                 <summary>PROCESS</summary>
                                 <div class="nested-content">
                                     <ol>
-                                        <li>
-                                            <strong>Scope and Schema Declaration:</strong> This step defines the boundaries. It loads the metadata schema (the "rulebook") to tell the AI which specific fields exist—like Price, Date, or Author. It sets the stage so the AI knows exactly what categories are valid before processing begins.
-                                        </li>
-                                        <li>
-                                            <strong>Schema-Based Extraction:</strong> This step applies the rules. The AI parses a messy natural language query and "filters" it into the fields defined in Step 1. It transforms "stuff from last week" into Date: >2026-01-22, turning "vibes" into actionable, structured filters.
-                                        </li>
-                                        <li>
-                                            <strong>Entity Resolution:</strong> Entity resolution maps fuzzy text to unique IDs using a relational database or Knowledge Graph. The model identifies an entity and queries an ontology for its specific UUID. This ID acts as a hard metadata filter, forcing the vector search to isolate the verified record and ignore distractors.
-                                            
-                                        </li>
-                                        <li>
-                                            <strong>Query Enrichment:</strong> This step builds the dual-input command. Instead of merging them, it generates a Semantic Vector (a high-dimensional mathematical representation of the core intent and meaning of the query, stripped of the filter logic) and bundles it alongside the Metadata Filters (the "boundaries"). The database receives two distinct instructions: Search using this vector, but ONLY inside this specific fence.
-                                        </li>
-                                        <li>
-                                            <strong>Filtered Retrieval:</strong> The execution phase. The database applies the Metadata Filters first, masking all non-compliant documents (the "Gate"). The Semantic Vector then calculates similarity only against the remaining "open" candidates, ensuring the search never even "sees" restricted data.
-                                        </li>
-                                        <li>
-                                            <strong>Schema & Metadata:</strong> <strong>The Schema</strong> defines the structure and fields. <strong>Metadata</strong> is the actual data in those fields. Definitions guide the LLM on what to extract.    
-                                        </li>
+                                        <li><strong>Scope and Schema Declaration:</strong> Defines the boundaries. Loads the metadata schema to tell the AI which specific fields exist (Price, Date, Author).</li>
+                                        <li><strong>Schema-Based Extraction:</strong> The AI parses a messy query and "filters" it into structured fields (e.g., Date: >2026-01-22).</li>
+                                        <li><strong>Entity Resolution:</strong> Maps fuzzy text to unique IDs using a Knowledge Graph, isolating verified records.</li>
+                                        <li><strong>Query Enrichment:</strong> Generates a Semantic Vector alongside Metadata Filters.</li>
+                                        <li><strong>Filtered Retrieval:</strong> DB applies filters first, then calculates similarity only against compliant documents.</li>
                                     </ol>
                                 </div>
                             </details>
-        
                             <details class="nested-accordion">
                                 <summary>TECHNICAL BREAKDOWN</summary>
                                 <div class="nested-content">
                                     <ol>
-                                        <li>
-                                            <strong>Metadata Schema Definition:</strong> First, you must enrich your raw data. During ingestion, assign structured Metadata Tags (e.g., timestamp, file_type, user_id) to each vector embedding. This creates the "hooks" for future filters.
-                                        </li>
-                                        <li>
-                                            <strong>The Self-Query Phase (Intent Parsing):</strong> When a query arrives, an LLM parses it to extract parameters.
-                                            <ul>
-                                                <li><em>Prompt:</em> "Show me 2024 reports on solar energy."</li>
-                                                <li><em>Extraction:</em> Semantic Vector: "solar energy" | Filter: <code>{"year": 2024}</code>.</li>
-                                            </ul>
-                                        </li>
-                                        <li>
-                                            <strong>Pre-Filtering Execution:</strong> The vector database applies the filter <em>before</em> calculating similarity. It masks all vectors that don't match year: 2024, drastically reducing the search space and preventing "semantic hallucinations" from other years.
-                                        </li>
-                                        <li>
-                                            <strong>Vector Similarity Search:</strong> The engine calculates the distance (e.g., Cosine Similarity) between the query vector and only the "surviving" candidates.
-                                        </li>
+                                        <li><strong>Metadata Schema Definition:</strong> Assign structured Metadata Tags during ingestion.</li>
+                                        <li><strong>The Self-Query Phase (Intent Parsing):</strong> LLM extracts Semantic Vector: "solar energy" | Filter: <code>{"year": 2024}</code>.</li>
+                                        <li><strong>Pre-Filtering Execution:</strong> DB applies filter before calculating similarity to prevent hallsucinations.</li>
                                     </ol>
                                 </div>
                             </details>
                         </div>
                     </div>
                 </details>
-        
                 <details class="nested-accordion">
                     <summary>B. Query Expansion & Reranking</summary>
                     <div class="nested-content">
                         <span class="tag">Focus: Recall</span>
                         <p><em>Best for finding "x" and synonyms.</em></p>
-                        
-                        <p><strong>Overview:</strong> Increasing retrieval recall by capturing semantically related context that a single vector might overlook. </p>                        
-                        <p><em>Warning: Although query expansion is useful, it can introduce latency as a consequence of searching for multiple vectors instead of one; to mitigate this, you can introduce parallelization methods.</em></p>
-                        
+                        <p><strong>Overview:</strong> Increasing retrieval recall by capturing semantically related context that a single vector might overlook.</p>
                         <div class="tree-root">
-        
                             <details class="nested-accordion">
                                 <summary>QUERY EXPANSION WORKFLOW (THE HOW)</summary>
                                 <div class="nested-content">
                                     <ol>
-                                        <li>
-                                            <strong>Initiation and Configuration:</strong> The process begins by defining the scope of expansion. You configure how many alternate perspectives N are required for your specific task. 
-                                        </li>
-                                        <li>
-                                            <strong>Persona and Context Injection:</strong> Placeholders modularize expansion. The {persona} forces the AI to pivot its worldview, generating diverse sub-queries by viewing the {query} through specialized filters. The {separator} provides a hard boundary, ensuring the system can programmatically slice and ingest these distinct "shards" of reasoning without data bleed or cross-contamination. The selection of personas for query expansion is managed through a Pre-flight Orchestrator or a Query Classifier. When a user submits a query, the AI first performs a meta-analysis to determine the query’s domain and complexity.
-                                        </li>
-                                        <li>
-                                            <strong>Semantic Diversification:</strong> The LLM performs the expansion, reframing the original query into diverse linguistic representations. This step is the "engine" of flexibility; the model adjusts for jargon, synonyms, or conceptual overlaps.
-                                        </li>
-                                        <li>
-                                            <strong>Structured Parsing:</strong> Structured Parsing uses {persona} and {query} to generate expansion variety, while the {separator} acts as a reliable "cutting point." This converts a "wall of text" into a clean, programmatic checklist of N individual search terms.
-                                        </li>
-                                        <li>
-                                            <strong>High-Recall Retrieval:</strong> Casts a "wide net" across the database. The system executes all N queries at once through parallel search. This maximizes recall by covering more embedding space, retrieving context that a single vector might overlook.
-                                        </li>
+                                        <li><strong>Initiation:</strong> Define scope and required alternate perspectives.</li>
+                                        <li><strong>Persona Injection:</strong> Force the AI to pivot worldview to generate diverse sub-queries.</li>
+                                        <li><strong>Semantic Diversification:</strong> LLM reframes query into diverse linguistic representations.</li>
+                                        <li><strong>High-Recall Retrieval:</strong> Parallel search executes all N queries at once.</li>
                                     </ol>
                                 </div>
                             </details>
-        
                             <details class="nested-accordion">
                                 <summary>RERANKING WORKFLOW</summary>
                                 <div class="nested-content">
-                                    <p>Reranking transforms a broad list of "potential" matches into a prioritized list of "guaranteed" context.</p>
+                                    <p>Transforms a broad list of potential matches into a prioritized list of guaranteed context.</p>
                                     <ul>
-                                        <li>
-                                            <strong>Over-Retrieval (The Wide Net):</strong> Initial vector search is fast but "shallow." To ensure we don't miss the best answer, we retrieve more documents than we actually need (e.g., fetching 100 results when we only want to show 5). This compensates for the "semantic noise" where the database might rank a popular but irrelevant document higher than a niche, perfect match.
-                                        </li>
-                                        <li>
-                                            <strong>Cross-Encoder Scoring (Deep Reasoning):</strong> The system feeds [Query][SEPATOR][DOCUMENT] as a single pair. This enables joint attention, allowing the model to weigh [QUERY]] tokens against [DOCUMENT] tokens simultaneously. It outputs a precision score that reflects true semantic relevance.
-                                        </li>
-                                        <li>
-                                            <strong>Re-Ordering and Selection:</strong> Based on the Cross-Encoder’s high-precision scores, results are re-sorted, ignoring initial vector ranks. This "promotes" niche, highly relevant documents buried in the wide net. A final top-K cutoff discards the noise, leaving only the most potent context.
-                                        </li>
-                                    </ul>
-                                </div>
-                            </details>
-                        </div>
-                    </div>
-                </details>
-        
-                <details class="nested-accordion">
-                    <summary>C. Strategic Application Matrix</summary>
-                    <div class="nested-content">                                                
-                        <div class="tree-root">
-                            <details class="nested-accordion">
-                                <summary>SELF-QUERYING</summary>
-                                <div class="nested-content">
-                                    <ul>
-                                        <li><strong>Use Case:</strong> Find "x" while strictly adhering to constraints "y".</li>
-                                        <li><strong>Goal:</strong> <strong>Precision & Security</strong>.</li>
-                                        <li><strong>Context:</strong> Appropriate when precision is the priority. By converting natural language into hard filters, it guarantees the AI only searches within a legally or operationally defined "safe zone," preventing the retrieval of irrelevant or unauthorized data.</li>
-                                    </ul>
-                                </div>
-                            </details>
-                                    
-                            <details class="nested-accordion">
-                                <summary>QUERY EXPANSION</summary>
-                                <div class="nested-content">
-                                    <ul>
-                                        <li><strong>Use Case:</strong> Identify "x" and everything synonymous with "x" without regard for rigid constraints.</li>
-                                        <li><strong>Goal:</strong> <strong>Recall</strong>.</li>
-                                        <li><strong>Context:</strong> Appropriate when ensuring that no relevant document is missed simply because the author used different terminology. It prioritizes a broad semantic net over strict boundaries.</li>
-                                    </ul>
-                                </div>
-                            </details>
-        
-        
-                            <details class="nested-accordion">
-                                <summary>HYBRID APPROACH</summary>
-                                <div class="nested-content">
-                                    <ul>
-                                        <li><strong>Use Case:</strong> Identify "x" and its synonyms while adhering to constraints "y".</li>
-                                        <li><strong>Goal:</strong> <strong>High-stakes retrieval</strong>.</li>
-                                        <li><strong>Context:</strong> Appropriate when you cannot afford to miss information due to phrasing but must also respect strict logical or security boundaries. It combines the broad reach of expansion with the surgical precision of filtering.</li>
+                                        <li><strong>Over-Retrieval:</strong> Fetch more docs than needed (e.g., top 100) to compensate for noise.</li>
+                                        <li><strong>Cross-Encoder Scoring:</strong> Feed [Query][SEP][DOC] for joint attention and precision scoring.</li>
+                                        <li><strong>Re-Ordering:</strong> Promotes niche relevant documents based on high-precision scores.</li>
                                     </ul>
                                 </div>
                             </details>
@@ -715,106 +733,34 @@
         <details class="section">
             <summary>7. RAG Evaluation</summary>
             <div class="section-content">
-                <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: <strong>Retrieval</strong> (finding facts) and <strong>Generation</strong> (LLM). It measures Faithfulness, Answer Relevance, and Context Precision to ensure the output is grounded in the source.</p>
-                
+                <p>Standard LLM tests check internal knowledge. <strong>RAG evaluation</strong> assesses the whole system: <strong>Retrieval</strong> and <strong>Generation</strong>.</p>
                 <div class="tree-root">
                     <details class="nested-accordion">
                         <summary>The RAGAS Framework</summary>
                         <div class="nested-content">
-                            <p><strong>RAGAS (Retrieval-Augmented Generation Assessment)</strong> is a framework used to quantify the performance of your RAG pipeline. Ragas uses <strong>LLM-as-a-judge</strong> to evaluate the relationship between the <strong>Question</strong>, the <strong>Context</strong> (retrieved facts), and the <strong>Answer</strong>.</p>
-                                                        
+                            <p><strong>RAGAS</strong> uses LLM-as-a-judge to evaluate the relationship between Question, Context, and Answer.</p>
                             <details class="nested-accordion">
-                                <summary>1. Faithfulness [EVALUATE LLM -> HALLUCINATION METRIC]</summary>
+                                <summary>1. Faithfulness [EVALUATE LLM]</summary>
                                 <div class="nested-content">
-                                    <p><strong>Core Concept:</strong> It strictly measures <strong>grounding</strong>: the extent to which the generated answer is derived <em>only</em> from the retrieved context, ignoring the model's pre-trained world knowledge.</p>
-                                    
-                                    <div class="process-step">
-                                        <p><strong>1. Statement Extraction:</strong> The judge takes a multi-sentence response and strips it to atomic claims [single verifiable facts]. By isolating these individual atomic claims, the model prevents a single correct statement from "masking" a hallucination hidden within the same sentence. </p>
-                                        <blockquote>
-                                            <strong>Example:</strong><br>
-                                            <em>Generated Answer:</em> "The sky is blue because of Rayleigh scattering and it's 70°F."<br>
-                                            <em>Atomic Claims:</em>
-                                            <ul>
-                                                <li>(A) "The sky is blue."</li>
-                                                <li>(B) "The reason is Rayleigh scattering."</li>
-                                                <li>(C) "The temperature is 70°F."</li>
-                                            </ul>
-                                        </blockquote>
-                                    </div>
-                            
-                                    <div class="process-step">
-                                        <p><strong>2. Ground Truth Verification:</strong> It takes each atomic claim and holds it up against the provided context (<strong>only</strong> the context). It asks: "Is this specific fact supported by the text?" If the context explicitly confirms the claim, it receives a 1 (True); if the context is silent or contradicts it, it receives a 0 (False).</p>
-                                        <blockquote>
-                                            <strong>Example:</strong><br>
-                                            <em>Retrieved Context:</em> "Atmospheric scattering causes a blue hue."<br>
-                                            <em>Audit Results:</em>
-                                            <ul>
-                                                <li>(A) Verified (Atmospheric scattering/blue hue).</li>
-                                                <li>(B) Verified (Rayleigh is the specific scattering type implied).</li>
-                                                <li>(C) Hallucination (The context does not mention temperature).</li>
-                                            </ul>
-                                        </blockquote>
-                                    </div>
-                            
-                                    <p><strong>The Calculation:</strong> <code>Faithfulness = # of verified statements / total number of statements</code></p>
-                                    <p><em>Calculation for example: 2 verified / 3 total = 0.66 Faithfulness.</em></p>
-                                    
-                                    <p><strong>Why It Matters:</strong> Critical for enterprise applications (like legal or medical bots). If the context doesn't say it, the model shouldn't say it, even if it is true in the real world.</p>
+                                    <p>Measures <strong>grounding</strong>: Is the answer derived only from the retrieved context?</p>
+                                    <p><strong>Step 1:</strong> Extraction of atomic claims.</p>
+                                    <p><strong>Step 2:</strong> Verification of each claim against the context.</p>
+                                    <p><code>Faithfulness = # verified / total statements</code></p>
                                 </div>
                             </details>
-            
                             <details class="nested-accordion">
                                 <summary>2. Answer Relevancy [EVALUATE LLM]</summary>
                                 <div class="nested-content">
-                                    <p><strong>Core Concept:</strong> To measure Answer Relevancy, the "Judge" uses a Reverse Engineering strategy to see if the answer actually addresses the user's intent:</p>
-                                    <p><strong>The "Judge" Process (Reverse Engineering):</strong></p>
-                                    <ul>
-                                        <li><strong>Question Generation:</strong> The LLM acts as an inverted strategist. It ignores the original user query and examines only the generated answer, attempting to reverse-engineer the intent. It generates several potential questions that would logically lead to that specific answer, revealing what the model actually addressed.</li>
-                                        <li><strong>Embedding Similarity:</strong> RAGAS converts the Original Query and the Generated Questions into high-dimensional vector embeddings. It then calculates the Cosine Similarity (the angle) between them.</li>
-                                    </ul>
-                                    <p><strong>The Calculation:</strong> The final score is the mean cosine similarity of all generated questions. A score near 1.0 indicates the answer is a direct hit, while a low score suggests the model is "hedging" or providing a generic summary that doesn't target the prompt.</p>                                
+                                    <p>Does the answer address the user intent?</p>
+                                    <p>The judge reverse-engineers the question from the answer and calculates cosine similarity with the original query.</p>
                                 </div>
                             </details>
-            
                             <details class="nested-accordion">
                                 <summary>3. Context Precision [EVALUATE RETRIEVER]</summary>
                                 <div class="nested-content">
-                                    <p><strong>Core Concept:</strong> In Context Precision, the "chunks" being measured are the specific text segments returned by your retriever for a given query.</p>
-                                    <p><strong>The "Judge" Process:</strong></p>
-                                    <ul>
-                                        <li><strong>Verification:</strong> The LLM compares retrieved chunks against Ground Truth to classify them as Relevant or Irrelevant.</li>
-                                        <li><strong>Ranking Check:</strong> It analyzes the list order, checking if "Relevant" chunks appear before "Irrelevant" ones.</li>
-                                    </ul>
-                                    <p><strong>The Calculation:</strong> Uses <strong>Average Precision</strong>, calculating the mean precision score at every rank position where a relevant chunk is found.</p>
+                                    <p>Analyzes if relevant chunks appear at the top of the retrieval list.</p>
                                 </div>
                             </details>
-                        </div>
-                    </details>
-            
-                    <details class="nested-accordion">
-                        <summary>HOW: The Evaluation Workflow</summary>
-                        <div class="nested-content">
-                            <p>To quantify your pipeline's performance, organize your RAG outputs into a structured dataset. RAGAS utilizes four primary data points to calculate its metrics:</p>
-                            <ul>
-                                <li><strong>Question:</strong> The user's input query.</li>
-                                <li><strong>Contexts:</strong> The specific chunks of information retrieved from your vector database. These are the "facts" the model is supposed to use.</li>
-                                <li><strong>Answer:</strong> The response actually generated by your LLM.</li>
-                                <li><strong>Ground Truth:</strong> The "ideal" or human-verified answer (optional, but required for measuring Context Recall and Answer Correctness).</li>
-                            </ul>
-                                                        
-                            <p><strong>The Evaluation Loop</strong></p>
-                            <p>Once the data is prepared, the process follows three main steps:</p>
-                            <ol>
-                                <li><strong>Initialization:</strong> Select and initialize an Evaluator LLM (the "Judge"), such as GPT-4o or a fine-tuned open-source model like Prometheus.</li>
-                                <li><strong>Execution:</strong> Call the <code>evaluate()</code> function. Under the hood, the judge performs specific linguistic tasks:
-                                    <ul>
-                                        <li><em>Extraction:</em> Breaking the Answer into atomic claims.</li>
-                                        <li><em>Verification:</em> Comparing those claims against the Contexts (Faithfulness).</li>
-                                        <li><em>Back-Projection:</em> Generating questions from the Answer to see if they align with the original Question (Relevancy).</li>
-                                    </ul>
-                                </li>
-                                <li><strong>Output:</strong> A dataframe or dictionary with scores (0 to 1). This allows you to pinpoint whether failures occur in the Retriever (low context scores) or the Generator (low faithfulness/relevancy).</li>
-                            </ol>
                         </div>
                     </details>
                 </div>
@@ -828,25 +774,21 @@
                     <span class="subsection-title">1. The Core RAG Synthesis</span>
                     <ul>
                         <li><strong>Retrieval & Context Mapping:</strong> ContextRetriever fetches and maps chunks.</li>
-                        <li><strong>The Prompt Factory:</strong> Constructs "Augmented Prompt" with template.</li>
+                        <li><strong>The Prompt Factory:</strong> Constructs Augmented Prompt.</li>
                         <li><strong>Inference Execution:</strong> Sends to LLM for grounded answer.</li>
                     </ul>
                 </div>
                 <div class="subsection">
                     <span class="subsection-title">2. Optimization: Conversation Memory</span>
-                    <p>Uses Sliding Window or Summarization Strategy to handle stateless LLMs.</p>
+                    <p>Uses Sliding Window or Summarization Strategy.</p>
                 </div>
                 <div class="subsection">
                     <span class="subsection-title">3. Optimization: Intelligent Routing</span>
-                    <p>Semantic Router directs searches to specific repositories (e.g., Code vs Articles) to save cost.</p>
+                    <p>Semantic Router directs searches to specific repositories to save cost.</p>
                 </div>
                 <div class="subsection">
                     <span class="subsection-title">4. Optimization: Hybrid Search</span>
-                    <p>Combines Vector Search and BM25 using score normalization and weighted merging.</p>
-                </div>
-                <div class="subsection">
-                    <span class="subsection-title">5. Optimization: Multi-Index Vectors</span>
-                    <p>Embeds metadata (Platform, Date) into the vector index to weigh authority/recency.</p>
+                    <p>Combines Vector Search and BM25 using weighted merging.</p>
                 </div>
             </div>
         </details>
