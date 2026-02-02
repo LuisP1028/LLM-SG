@@ -403,7 +403,7 @@
         <details class="nested-accordion">
             <summary>Data Deduplication & Decontamination</summary>
             <div class="accordion-content">
-                <p>In practice, these steps are the "safeguards" of a pipeline, ensuring the model doesn't just memorize patterns or "leak" answers. Engineers use <strong>MinHash LSH</strong> to scale this across millions of rows efficiently. <strong>Fuzzy Deduplication</strong> identifies "near-misses"—like the same recipe with different line breaks—and deletes them to prevent the model from overfitting on repetitive content. <strong>Decontamination</strong> acts as a "cheat check," where the training set is compared against benchmark test sets (like MMLU); any training sample too similar to a test question is purged to ensure the final evaluation measures true reasoning, not memorization.</p>
+                <p>In practice, these steps are the "safeguards" of a pipeline, ensuring the model doesn't just memorize patterns or "leak" answers.<strong>Decontamination</strong> acts as a "cheat check," where the training set is compared against benchmark test sets (like MMLU); any training sample too similar to a test question is purged to ensure the final evaluation measures true reasoning, not memorization.</p>
                 
 
                 <details class="nested-accordion">
