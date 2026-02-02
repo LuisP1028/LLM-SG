@@ -454,7 +454,7 @@
                 
         
                 <details class="nested-accordion">
-                    <summary>LLM-as-a-Judge: Scoring vs. Ranking</summary>
+                    <summary>Response Selection Methods</summary>
                     <div class="accordion-content">
                         <p>When using an LLM to evaluate data, there are two primary methods:</p>
                         <ul>
@@ -465,7 +465,7 @@
                 </details>
         
                 <details class="nested-accordion">
-                    <summary>Boosting Evaluation Accuracy</summary>
+                    <summary>Evaluation Methods</summary>
                     <div class="accordion-content">
                         <ul>
                             <li><strong>CoT + Pairwise Ranking:</strong> Use when the task is highly subjective or creative (e.g., poetry, persona-mimicry).
@@ -586,9 +586,9 @@
 
             <div class="subsection">
                 <span class="subsection-title">Chat Templates</span>
-                <p>Chat templates are formatting schemas that use special tokens to structure dialogue so the model understands who is speaking (e.g., User vs. Assistant). Their usage depends on the model type:</p>
+                <p>Chat templates are formatting schemas so that the model understands who is speaking (e.g., User vs. Assistant).</p>
                 <ul>
-                    <li><strong>Base Model:</strong> A raw model trained only to predict the next word in a sequence. It has no inherent conversation structure, so you can choose any template (like ChatML) when preparing it for training.</li>
+                    <li><strong>Foundational Model:</strong> A raw model trained only to predict the next word in a sequence.</li>
                     <li><strong>Instruct Model:</strong> A base model that has been "fine-tuned" to follow instructions. This training process bakes in a specific template. You must reuse that exact template, or the model will lose the context of the conversation.</li>
                 </ul>
                 <p>Chat templates rigorously structure text into three roles: system, user, and assistant.</p>
