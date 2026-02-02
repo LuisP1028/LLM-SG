@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HNSW Ditherpunk Visualizer (Responsive)</title>
+    <title>HNSW Ditherpunk Visualizer (Fully Responsive)</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -19,17 +19,21 @@
             color: var(--fg-color);
             overflow: hidden;
             font-family: var(--font-main);
-            height: 100vh;
+            height: 100vh; /* Fallback */
+            height: 100dvh; /* Mobile browser friendly */
             width: 100vw;
             user-select: none;
             -webkit-font-smoothing: none;
+            display: flex;
+            flex-direction: column;
         }
 
         canvas {
             display: block;
+            flex-grow: 1;
             width: 100%;
             height: 100%;
-            /* Ensures the low-res buffer scales up with hard edges */
+            /* Retro aesthetic scaling */
             image-rendering: pixelated; 
             image-rendering: crisp-edges;
         }
@@ -50,7 +54,7 @@
             z-index: 10;
         }
 
-        /* HUD Layout - Flexbox & Relative Units */
+        /* HUD Layout */
         #hud {
             position: absolute;
             inset: 0;
@@ -67,59 +71,63 @@
         .hud-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             flex-wrap: wrap;
             gap: 10px;
+        }
+
+        .hud-row.bottom {
+            align-items: flex-end;
         }
 
         /* Component Styling */
         .hud-box {
             background: rgba(0, 0, 0, 0.85);
-            padding: clamp(4px, 1vw, 8px) clamp(8px, 1.5vw, 12px);
+            padding: clamp(0.5rem, 1vw, 1rem);
             border: 1px solid var(--fg-color);
             text-transform: uppercase;
-            font-size: clamp(10px, 2.5vw, 14px);
+            font-size: clamp(0.7rem, 2vw, 1rem);
             font-weight: bold;
             white-space: nowrap;
+            box-shadow: 0 0 2px var(--dim-color);
         }
 
         /* Speed Control Styling */
         .controls-container {
-            pointer-events: auto; /* Re-enable clicking for slider */
+            pointer-events: auto;
             display: flex;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         input[type=range] {
             -webkit-appearance: none; 
-            width: clamp(80px, 20vw, 150px); 
+            width: clamp(100px, 30vw, 200px); 
             background: transparent;
+            margin: 0;
         }
 
         input[type=range]:focus { outline: none; }
 
-        /* Slider Track */
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
-            height: 8px;
+            height: clamp(6px, 1vh, 10px);
             cursor: pointer;
             background: var(--dim-color);
             border: 1px solid var(--fg-color);
         }
         
-        /* Slider Thumb */
         input[type=range]::-webkit-slider-thumb {
-            height: 16px;
-            width: 8px;
+            height: clamp(12px, 2vh, 20px);
+            width: clamp(6px, 1vw, 10px);
             background: var(--fg-color);
             cursor: pointer;
             -webkit-appearance: none;
-            margin-top: -5px; /* offset for alignment */
+            margin-top: -4px; /* Alignment tweak */
             box-shadow: 0 0 5px var(--fg-color);
         }
 
-        /* Firefox specific slider styles */
         input[type=range]::-moz-range-track {
             width: 100%;
             height: 8px;
@@ -138,11 +146,25 @@
         .blink { animation: blinker 1s steps(1) infinite; }
         @keyframes blinker { 50% { opacity: 0; } }
         
-        /* Mobile adjustment for bottom row overlap */
-        @media (max-width: 480px) {
+        /* Layout Adjustments for narrow/tall screens */
+        @media (max-width: 600px) {
             .hud-row.bottom {
                 flex-direction: column-reverse;
-                align-items: flex-start;
+                align-items: stretch;
+            }
+            .controls-container {
+                justify-content: space-between;
+                width: 100%;
+            }
+            input[type=range] {
+                width: 100%;
+                flex-grow: 1;
+            }
+            #status-text {
+                text-align: right;
+                max-width: 50%;
+                white-space: normal;
+                word-wrap: break-word;
             }
         }
     </style>
@@ -152,20 +174,18 @@
     <div class="scanlines"></div>
     
     <div id="hud">
-        <!-- Top Row -->
         <div class="hud-row">
             <div class="hud-box">HNSW VISUALIZER <span class="blink">_</span></div>
             <div class="hud-box" id="status-text">SYSTEM READY</div>
         </div>
 
-        <!-- Bottom Row -->
         <div class="hud-row bottom">
             <div class="controls-container hud-box">
                 <label for="speedRange">SPEED:</label>
                 <input type="range" id="speedRange" min="1" max="100" value="30">
             </div>
             
-            <div style="display:flex; gap:10px;">
+            <div style="display:flex; gap:10px; flex-shrink: 0;">
                 <div class="hud-box" id="layer-text">LYR: --</div>
                 <div class="hud-box" id="dist-text">DST: --</div>
             </div>
@@ -203,8 +223,10 @@ class HNSW {
         this.layers = [0, 1, 2];
         this.nodes = [];
         this.entryPoint = null;
-        this.layerY = [250, 0, -250];
-        this.bounds = { w: 600, h: 600 };
+        // Layer Vertical Positions (World Space)
+        this.layerY = [250, 0, -250]; 
+        // World Bounds for node generation
+        this.bounds = { w: 600, h: 600 }; 
     }
 
     init(count = 70) {
@@ -251,53 +273,91 @@ class HNSW {
 }
 
 /**
- * 3. RENDERER (Responsive & Dithered)
+ * 3. RENDERER (Fully Responsive & Window Agnostic)
  */
 class Renderer {
-    constructor(canvasId) {
+    constructor(canvasId, hnsw) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
         this.bufferCanvas = document.createElement('canvas');
         this.bCtx = this.bufferCanvas.getContext('2d');
+        this.hnsw = hnsw;
         
-        this.camPos = new Vec3(0, -200, -200);
-        this.targetCamPos = new Vec3(0, -200, -200);
-        this.zoom = 1.0;
+        // Camera is static to show "Full Maps"
+        this.camPos = new Vec3(0, 0, 0); 
         
         // This factor controls the "chunkiness" of the pixels
-        // 3 = 1 canvas pixel represents 3 screen pixels
         this.pixelScale = 3; 
         
+        this.computedScale = 1.0; // Dynamic zoom factor
+        
+        // Initial setup
         this.handleResize();
         window.addEventListener('resize', () => this.handleResize());
     }
 
     handleResize() {
+        // 1. Get real window dimensions
         const w = window.innerWidth;
         const h = window.innerHeight;
 
-        // Set internal resolution based on scale
+        // 2. Set internal resolution based on pixel style
         this.width = Math.ceil(w / this.pixelScale);
         this.height = Math.ceil(h / this.pixelScale);
 
-        // Update actual canvas size
         this.canvas.width = this.width;
         this.canvas.height = this.height;
-        
-        // Update buffer size
         this.bufferCanvas.width = this.width;
         this.bufferCanvas.height = this.height;
 
-        // Mobile adjustment: Zoom out if screen is narrow
-        if (w < 600) {
-            this.zoom = 0.6;
-        } else {
-            this.zoom = 1.0;
-        }
+        // 3. Auto-Fit Logic
+        // Calculate the bounding box of the entire graph in World Space
+        // We know the graph bounds are roughly:
+        // X: [-300, 300]
+        // Z: [-300, 300]
+        // Y: [-250, 250] (based on LayerY)
+        
+        // We project corner points to see how big they are at scale 1.0
+        const corners = [
+            new Vec3(-320, 270, -320), // Top-Left-Back (padded)
+            new Vec3(320, 270, -320),
+            new Vec3(320, -270, 320),  // Bottom-Right-Front (padded)
+            new Vec3(-320, -270, 320)
+        ];
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+        // Temporary project to find extent
+        corners.forEach(p => {
+            // Isometric projection logic (copied from project method below)
+            let x = p.x; 
+            let y = p.y;
+            let z = p.z;
+            
+            let px = (x - z) * Math.cos(0.523); // scale 1.0
+            let py = (x + z) * Math.sin(0.523) - y;
+
+            if (px < minX) minX = px;
+            if (px > maxX) maxX = px;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+        });
+
+        const contentW = maxX - minX;
+        const contentH = maxY - minY;
+
+        // Calculate Scale to fit in canvas
+        const scaleX = (this.width * 0.9) / contentW; // 90% width usage
+        const scaleY = (this.height * 0.85) / contentH; // 85% height usage (HUD room)
+
+        this.computedScale = Math.min(scaleX, scaleY);
     }
 
     project(v, layerY) {
-        let scale = 0.4 * this.zoom;
+        // World -> Screen transformation
+        // Centers the graph (0,0,0) to the center of the canvas
+        
+        let scale = this.computedScale;
         
         let x = v.x - this.camPos.x;
         let y = (v.y + layerY) - this.camPos.y;
@@ -359,10 +419,12 @@ class Renderer {
         let data = imageData.data;
         let w = this.width;
 
+        // Dithering loop
         for (let y = 0; y < this.height; y++) {
             for (let x = 0; x < w; x++) {
                 let i = (y * w + x) * 4;
-                let oldPixel = data[i];
+                let oldPixel = data[i]; // Red channel is enough for grayscale
+                
                 // Thresholding
                 let newPixel = oldPixel > 110 ? 255 : 0; 
                 let err = (oldPixel - newPixel) >> 3; 
@@ -390,7 +452,7 @@ class Renderer {
 }
 
 /**
- * 4. SEARCH AGENT (State Machine + Speed Control)
+ * 4. SEARCH AGENT (State Machine)
  */
 class SearchAgent {
     constructor(hnsw, renderer) {
@@ -408,15 +470,12 @@ class SearchAgent {
         
         // Speed Control
         this.speedInput = document.getElementById('speedRange');
-        this.baseThreshold = 60; // Base frames per action (slowest)
+        this.baseThreshold = 60; 
     }
 
     getThreshold() {
-        // Invert: Slider High = Low Threshold (Fast), Slider Low = High Threshold (Slow)
-        // Slider value 1-100
+        // Map slider 1-100 to speed factor
         const val = parseInt(this.speedInput.value);
-        // If val is 100, factor is 0.1. If val is 1, factor is 3.0.
-        // Let's map 1->100 to a divider
         const speedFactor = 0.2 + (val / 15); 
         return Math.max(1, this.baseThreshold / speedFactor);
     }
@@ -443,22 +502,9 @@ class SearchAgent {
     }
 
     update() {
-        // Camera smooth follow
-        if (this.currentBest) {
-            let targetY = this.hnsw.layerY[this.currentLayer];
-            this.rend.targetCamPos = new Vec3(
-                this.currentBest.pos.x * 0.5, 
-                targetY - 100, 
-                this.currentBest.pos.z * 0.5 + 200
-            );
-        }
+        // Removed camera panning logic to keep the Full Map static.
+        // The Renderer handles fitting the map to screen in handleResize()
         
-        let lerp = 0.05;
-        this.rend.camPos = this.rend.camPos.add(
-            this.rend.targetCamPos.sub(this.rend.camPos).mult(lerp)
-        );
-
-        // State Machine
         this.timer++;
         const threshold = this.getThreshold();
 
@@ -475,9 +521,6 @@ class SearchAgent {
                 let bestDist = this.currentBest.pos.dist(this.queryPos);
                 let bestNeighbor = null;
 
-                // Determine which neighbor to look at based on time
-                // We want to visualize checking them one by one
-                // checkDuration controls how long we look at one neighbor
                 let checkDuration = Math.ceil(threshold / 3); 
                 let checkIndex = Math.floor(this.timer / checkDuration);
                 
@@ -485,7 +528,7 @@ class SearchAgent {
                     this.comparedNode = neighbors[checkIndex];
                     this.updateStatus(`EVAL NEIGHBOR ${checkIndex+1}/${neighbors.length}`);
                 } else {
-                    // Finished checking all neighbors
+                    // Check all neighbors logic
                     for (let n of neighbors) {
                         let d = n.pos.dist(this.queryPos);
                         if (d < bestDist) {
@@ -494,7 +537,7 @@ class SearchAgent {
                         }
                     }
 
-                    this.comparedNode = null; // Reset visual comparison
+                    this.comparedNode = null; 
 
                     if (bestNeighbor) {
                         this.history.push({
@@ -558,10 +601,11 @@ class SearchAgent {
             let isCurrentLayer = (l === this.currentLayer);
             let baseBrightness = isCurrentLayer ? 0.7 : 0.2;
 
-            // Frame
+            // Frame (Scaled to match logic bounds)
+            let b = 300; 
             let corners = [
-                new Vec3(-300, 0, -300), new Vec3(300, 0, -300),
-                new Vec3(300, 0, 300), new Vec3(-300, 0, 300)
+                new Vec3(-b, 0, -b), new Vec3(b, 0, -b),
+                new Vec3(b, 0, b), new Vec3(-b, 0, b)
             ];
             let pCorners = corners.map(v => this.rend.project(v, ly));
             
@@ -594,7 +638,7 @@ class SearchAgent {
                 
                 this.rend.drawPoint(p, size, bright);
 
-                // Hierarchy Links
+                // Hierarchy Links (Inter-layer)
                 if (l < 2 && n.layers.includes(l+1)) {
                     let pAbove = this.rend.project(n.pos, this.hnsw.layerY[l+1]);
                     this.rend.drawLine(p, pAbove, 0.15, true);
@@ -656,7 +700,7 @@ class SearchAgent {
 const hnsw = new HNSW();
 hnsw.init(80);
 
-const renderer = new Renderer('mainCanvas');
+const renderer = new Renderer('mainCanvas', hnsw);
 const agent = new SearchAgent(hnsw, renderer);
 
 agent.startQuery();
