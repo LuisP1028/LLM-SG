@@ -244,9 +244,13 @@
         wireCube.position.y = 6;
         groupHigh.add(wireCube);
 
-        // Floor Grid
-        const grid = new THREE.GridHelper(20, 20, 0x333333, 0x111111);
+        // Floor Grid - UPDATED FOR GLOW
+        // Using Theme colors: 0x33FF00 (Main) and 0x1a8000 (Dim)
+        const grid = new THREE.GridHelper(20, 20, 0x33FF00, 0x1a8000);
         grid.position.y = -6;
+        // Setting transparency makes it blend better with the black background, creating a "glow" feel
+        grid.material.opacity = 0.9;
+        grid.material.transparent = true;
         groupLow.add(grid);
 
         // Points

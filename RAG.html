@@ -660,8 +660,8 @@
                                     <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                                 </svg>
                             </button>
-                            <p>Groups similar vectors into "buckets" by assigning them the same digital fingerprint. By dividing the vector space with random boundaries, items that are close together are mathematically likely to end up in the same group, turning a complex search into a simple, fast lookup.</p>
-                            <p><strong>When to use:</strong>Ideal for "approximate" matching in massive datasets. Use it when speed and finding "good enough" results (like detecting near-duplicate documents) are more important than 100% precision.</p>
+                            <p>By dividing the vector space with random boundaries, items that are close together are mathematically likely to end up in the same group, turning a complex search into a simple, fast lookup.</p>
+                            <p><strong>When to use:</strong> Ideal for "approximate" matching in massive datasets. Use it when speed and finding "good enough" results (like detecting near-duplicate documents) are more important than 100% precision.</p>
                         </div>
                     </details>
                     <details class="nested-accordion">
@@ -673,7 +673,7 @@
                                 </svg>
                             </button>
                             <p>
-                                Compresses high-dimensional vectors by breaking them into smaller <strong>sub-parts</strong> and mapping each part to its nearest "representative" value, or <strong>centroid</strong>. Instead of storing massive raw numbers, a <strong>Signature Matrix</strong> stores compact IDs, drastically lowering the <strong>RAM footprint</strong>.
+                                <strong>Compresses</strong> high-dimensional vectors by breaking them into smaller <strong>sub-parts</strong> and mapping each part to its nearest "representative" value, or <strong>centroid</strong>. Instead of storing massive raw numbers, a <strong>Signature Matrix</strong> stores compact IDs, drastically lowering the <strong>RAM footprint</strong>.
                                 <br><br>
                                 <strong>When to use:</strong> Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.
                             </p>
@@ -687,7 +687,7 @@
                                     <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                                 </svg>
                             </button>
-                            <p>Reduces dimensionality by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
+                            <p><strong>Reduces dimensionality</strong> by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
                             <p><strong>When to use:</strong> Focused on <strong>Dimensionality Reduction</strong>. Use this to manage computational complexity; it preserves the "topology" (relative distances) while making data mathematically simpler to handle before you begin the indexing process.</p>
                         </div>
                     </details>
