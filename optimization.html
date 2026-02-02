@@ -304,8 +304,8 @@
                                     <p>When the model predicts the 101st token, the Keys (𝐾) and Values (𝑉) for tokens 1–100 are identical to what they were during the previous step. KV Caching exploits this by saving those vectors in GPU memory.</p>
                                     <ol>
                                         <li><strong>The Retrieval:</strong> For each new step, the model generates 𝑄, 𝐾, and 𝑉 for the <strong>current token only</strong>. Because past 𝐾 and 𝑉 vectors are deterministic and static, they are pulled from the GPU cache rather than being re-computed.</li>
-                                        <li><strong>The Lookup:</strong> The new 𝑄 performs a dot-product "scan" against the cached 𝐾s (the "addresses"). This computes the <strong>attention weights</strong>, effectively scoring how much the new token should focus on each previous part of the sequence. The "result" isn't a single multiplier for the new token. Instead, the dot products create a <strong>distribution</strong> (e.g., 0.1 for token A, 0.8 for token B).</li>
-                                        <li><strong>The Extraction:</strong> What this accomplishes is context-aware filtering. The 𝑉 vectors contain the raw semantic "data" of each token. You multiply each cached 𝑉 by its specific score and sum them up. This "extracts" a context vector that is 80% "B" and 10% "A," which the model then uses to predict what comes next.</li>
+                                        <li><strong>The Lookup:</strong> The new 𝑄 performs a dot-product "scan" against the cached 𝐾s (the "addresses"). This computes the <strong>attention weights</strong>[these live transiently in VRAM/SRAM] effectively scoring how much the new token should focus on each previous part of the sequence. The dot products create a <strong>distribution</strong> (e.g., 0.1 for token A, 0.8 for token B).</li>
+                                        <li><strong>The Extraction:</strong> Attention weights provide context-aware filtering. The 𝑉  for each token contain the raw semantic "data" of each token. You multiply each cached 𝑉 vector for each token by its specific score and sum them up. This "extracts" a context vector that is 80% "B" and 10% "A," which the model then uses to predict what comes next.</li>
                                     </ol>
                                     <p>By only calculating one new 𝐾/𝑉 pair per step and reading the rest from the cache, the model avoids redundant math, transforming an 𝑂(𝑛²) computational burden into a much faster linear process.</p>
                                 </div>
@@ -333,7 +333,19 @@ Step 3: [3, 1, hidden_dim]
                         </details>
                     </li>
 
-                    <li><strong>Continuous Batching <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='INF_O/continuous_batch.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></strong>: Best for high-throughput APIs; use when serving multiple concurrent users to prevent "stragglers" from stalling the GPU.</li>
+                    <li>
+                        <details class="nested-entry">
+                            <summary><strong>Continuous Batching <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='INF_O/continuous_batch.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button></strong>: Best for high-throughput APIs; use when serving multiple concurrent users to prevent "stragglers" from stalling the GPU.</summary>
+                            <div class="nested-content">
+                                <div class="subsection">
+                                    <span class="subsection-title">CONTINUOUS BATCHING</span>
+                                    <p>If processing batch A, and 80% finishes, with 20% remaining; In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced.</p>
+                                    <p>Instead of waiting for that final 20% (the "straggler") to finish, the system inserts new requests into the available slots of the current batch. This ensures the GPU never sits idle while waiting for a single long-running task to complete.</p>
+                                </div>
+                            </div>
+                        </details>
+                    </li>
+
                     <li><strong>Tensor Parallelism</strong>: Best for large models (e.g., 70B+) where memory bandwidth is the bottleneck; use if you have a compatible, smaller draft model.</li>
                     
                     <li>
@@ -374,11 +386,6 @@ Step 3: [3, 1, hidden_dim]
                     <li><strong>Quantization</strong>: Best for memory-constrained hardware; use when the model won't fit in VRAM or to increase batch sizes.</li>
                 </ul>
             </div>
-            <div class="subsection">
-                <span class="subsection-title">CONTINUOUS BATCHING</span>
-                <p>If processing batch A, and 80% finishes, with 20% remaining; In continuous batching, the 80% that finishes isn't "removed" in a traditional sense—it is evicted and immediately replaced.</p>
-                <p>Instead of waiting for that final 20% (the "straggler") to finish, the system inserts new requests into the available slots of the current batch. This ensures the GPU never sits idle while waiting for a single long-running task to complete.</p>
-            </div>
         </div>
     </details>
 
@@ -398,7 +405,7 @@ Step 3: [3, 1, hidden_dim]
                 </summary>
                 <div class="nested-content">
                     <p>DP replicates the <strong>entire model</strong> onto every GPU, allowing each to process a different data subset simultaneously. DP is superior for throughput because it minimizes communication; GPUs only sync once per step (after gradients).</p>
-                    <p><strong>When to choose:</strong> Use <strong>Data Parallelism</strong> when your bottleneck is <strong>data volume</strong>, not model size. It is the easiest to implement and scales linearly across nodes, provided your model isn't so large that it leaves no room for the data batch itself.</p>
+                    <p><strong>When to choose:</strong> Use <strong>Data Parallelism</strong> when your bottleneck is <strong>data volume</strong>, not model size.</p>
                     <ul>
                         <li><strong>Mechanism:</strong> In training, GPUs synchronize by averaging gradients to maintain identical weights. In inference, DP facilitates <strong>concurrent processing</strong>, where multiple requests are handled in parallel.</li>
                         <li><strong>The Bottleneck:</strong> Because every GPU must store the full model, DP is limited by the memory of a <strong>single device</strong>.</li>
@@ -421,7 +428,7 @@ Step 3: [3, 1, hidden_dim]
                     <p>Pipeline Parallelism partitions a model <strong>vertically</strong> by layers. Instead of every GPU holding the entire model, the layers are divided into segments and distributed across a sequence of GPUs (the "degree of parallelism").</p>
                     <p><strong>When to choose:</strong> Use PP when <strong>memory</strong> is the bottleneck. It allows you to "stack" GPUs to hold the model. It is ideal for scaling <strong>between different servers</strong> because it only transmits activations, which is less data-intensive than TP.</p>
                     <ul>
-                        <li><strong>The Assembly Line:</strong> Data moves through the system like a factory conveyor belt. GPU 1 processes the first segment and passes the <strong>activations</strong> (intermediate outputs) to GPU 2. In training, this process reverses during the backward pass, with <strong>gradients</strong> flowing back down the chain.</li>
+                        <li><strong>The Assembly Line:</strong> GPU 1 processes the first segment and passes the <strong>activations</strong> (intermediate outputs) to GPU 2. In training, this process reverses during the backward pass, with <strong>gradients</strong> flowing back down the chain.</li>
                         <li><strong>Memory Efficiency:</strong> This is the primary driver for PP. Because each device only stores a fraction of the model’s weights and the corresponding optimizer states, you can run models that are far too large for any single GPU's VRAM.</li>
                         <li><strong>The "Pipeline Bubble":</strong> The main drawback is the <strong>sequential dependency</strong>. GPU 4 cannot start its work until GPUs 1, 2, and 3 have finished theirs. This creates "bubbles"—periods of idle time where hardware sits unproductive while waiting for data from the preceding stage.</li>
                         <li><strong>MITIGATING PIPELINE BUBBLES:</strong> Instead of waiting for a massive batch to clear Stage 1, the first micro-batch is passed to Stage 2 immediately.</li>

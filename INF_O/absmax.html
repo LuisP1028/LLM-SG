@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AbsMax Quantization // Responsive Ditherpunk</title>
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --black: #050505;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--neon-green);
+        }
+
+        /* Canvas fills the screen, rendered crisp */
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            image-rendering: pixelated; 
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            flex-wrap: wrap; /* Allows buttons to wrap on small mobile screens */
+            gap: 10px;
+            pointer-events: none;
+            justify-content: center; /* Center buttons on mobile */
+        }
+        
+        @media (min-width: 600px) {
+            #ui-layer {
+                justify-content: flex-start; /* Align left on desktop */
+                right: auto;
+            }
+        }
+
+        button {
+            pointer-events: auto;
+            background: rgba(0,0,0,0.8); /* Semi-transparent background for readability */
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px var(--neon-green);
+            transition: transform 0.1s;
+            font-size: 0.8rem;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        button:hover {
+            background: var(--neon-green);
+            color: black;
+        }
+
+        #status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            text-align: center;
+            font-size: 1rem;
+            text-transform: uppercase;
+            background: black;
+            padding: 5px;
+            border: 1px solid var(--neon-green);
+            pointer-events: none;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <button onclick="viz.reset(false)">1. Normal Distribution</button>
+        <button onclick="viz.reset(true)">2. Skewed (ReLU) Data</button>
+        <button onclick="viz.nextStep()">>> NEXT STEP</button>
+    </div>
+
+    <div id="status">WAITING FOR INPUT...</div>
+    <div class="scanline"></div>
+    <canvas id="screen"></canvas>
+
+<script>
+/**
+ * RESPONSIVE DITHER ENGINE
+ * Adjusts internal buffer size to match window aspect ratio
+ */
+
+class DitherEngine {
+    constructor() {
+        this.canvas = document.getElementById('screen');
+        this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Base vertical resolution (fixed for consistency)
+        this.baseHeight = 180; 
+        
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    resize() {
+        // Calculate aspect ratio of the window
+        const aspect = window.innerWidth / window.innerHeight;
+        
+        // Set internal resolution based on aspect ratio
+        // This ensures pixels remain square regardless of window shape
+        this.height = this.baseHeight;
+        this.width = Math.floor(this.baseHeight * aspect);
+        
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        
+        // Re-initialize buffer
+        this.buffer = new Float32Array(this.width * this.height);
+    }
+
+    render(drawCallback) {
+        // 1. Clear background
+        this.ctx.fillStyle = "#000000";
+        this.ctx.fillRect(0, 0, this.width, this.height);
+
+        // 2. Draw scene (Callback gets current dynamic width/height)
+        drawCallback(this.ctx, this.width, this.height);
+
+        // 3. Process pixels (Atkinson Dithering)
+        const imageData = this.ctx.getImageData(0, 0, this.width, this.height);
+        const data = imageData.data;
+        const w = this.width;
+        const h = this.height;
+
+        // Populate grayscale buffer
+        for (let i = 0; i < data.length; i += 4) {
+            this.buffer[i / 4] = data[i]; 
+        }
+
+        // Apply Dither
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const i = y * w + x;
+                const oldPixel = this.buffer[i];
+                const newPixel = oldPixel > 100 ? 255 : 0;
+                const error = (oldPixel - newPixel) >> 3;
+
+                this.buffer[i] = newPixel;
+
+                if (error !== 0) {
+                    if (x + 1 < w) this.buffer[i + 1] += error;
+                    if (x + 2 < w) this.buffer[i + 2] += error;
+                    if (y + 1 < h) {
+                        if (x > 0) this.buffer[i + w - 1] += error;
+                        this.buffer[i + w] += error;
+                        if (x + 1 < w) this.buffer[i + w + 1] += error;
+                    }
+                    if (y + 2 < h) {
+                        this.buffer[i + w * 2] += error;
+                    }
+                }
+            }
+        }
+
+        // Write Green/Black Output
+        for (let i = 0; i < this.buffer.length; i++) {
+            const val = this.buffer[i];
+            const offset = i * 4;
+            if (val > 100) {
+                // Neon Green
+                data[offset] = 57;   // R
+                data[offset+1] = 255; // G
+                data[offset+2] = 20;  // B
+                data[offset+3] = 255; // A
+            } else {
+                // Black
+                data[offset] = 0;
+                data[offset+1] = 0;
+                data[offset+2] = 0;
+                data[offset+3] = 255;
+            }
+        }
+
+        this.ctx.putImageData(imageData, 0, 0);
+    }
+}
+
+class Visualizer {
+    constructor() {
+        this.engine = new DitherEngine();
+        this.particles = [];
+        this.skewed = false;
+        this.absMax = 0;
+        
+        // Animation States
+        this.step = 0; 
+        this.animTime = 0;
+        this.scanY = 0;
+        
+        this.reset(false);
+        this.loop();
+    }
+
+    reset(skewed) {
+        this.skewed = skewed;
+        this.step = 0;
+        this.animTime = 0;
+        this.particles = [];
+        this.absMax = 0;
+        
+        const count = 30;
+
+        // Generate Data
+        for(let i=0; i<count; i++) {
+            let val;
+            if (skewed) {
+                // ReLU distribution (0 to 8)
+                val = Math.random() * 5 + (Math.random() > 0.9 ? 4 : 0);
+            } else {
+                // Normal distribution centered on 0
+                val = (Math.random() - 0.5) * 8;
+            }
+            this.particles.push({ 
+                val: val, 
+                visualVal: val, 
+            });
+            this.absMax = Math.max(this.absMax, Math.abs(val));
+        }
+
+        if (!skewed) {
+            this.particles.push({ val: 6.5, visualVal: 6.5 });
+            this.absMax = Math.max(this.absMax, 6.5);
+        }
+
+        this.updateUI();
+    }
+
+    nextStep() {
+        if (this.step < 3) {
+            this.step++;
+            this.animTime = 0;
+            this.updateUI();
+        }
+    }
+
+    updateUI() {
+        const msgs = [
+            this.skewed ? "MODE: SKEWED (ReLU) // STEP 1: INPUT" : "MODE: NORMAL // STEP 1: INPUT",
+            `ABSMAX DETECTED: ${this.absMax.toFixed(2)}`,
+            `SCALING: S = 127 / ${this.absMax.toFixed(2)}`,
+            "QUANTIZED to INT8 [-127, 127]"
+        ];
+        
+        // Fallback for restart
+        const txt = msgs[this.step] || "COMPLETE";
+        document.getElementById('status').innerText = txt;
+    }
+
+    update(dt) {
+        this.animTime += dt;
+
+        // Scan Animation
+        if (this.step === 1) {
+            // oscillate between -1 and 1
+            this.scanY = Math.sin(this.animTime * 5); 
+        }
+
+        // Scaling Animation
+        if (this.step >= 2) {
+            // Visual Target: We want the max value to equal our grid top
+            // Grid top is roughly 0.35 of screen height.
+            // But logic needs to be unit-agnostic.
+            // Let's normalize: 1.0 = Max Grid Height.
+            
+            const normalizedTargetScale = 1.0 / this.absMax; 
+            
+            this.particles.forEach(p => {
+                const target = p.val * normalizedTargetScale;
+                p.visualVal += (target - p.visualVal) * 0.1;
+            });
+        }
+
+        // Quantize Animation
+        if (this.step === 3) {
+            // In normalized space, range is -1.0 to 1.0
+            // INT8 has 127 steps per side.
+            const steps = 127; 
+            
+            this.particles.forEach(p => {
+                // Normalized space -> Int space
+                let intSpace = p.visualVal * steps;
+                let snapped = Math.round(intSpace);
+                
+                // Int space -> Normalized space
+                let target = snapped / steps;
+                
+                // Snap visual
+                p.visualVal += (target - p.visualVal) * 0.5;
+            });
+        }
+    }
+
+    draw(ctx, w, h) {
+        const cx = w / 2;
+        const cy = h / 2;
+        
+        // DYNAMIC SIZING CONSTANTS
+        // Everything is relative to w or h
+        const colLeft = w * 0.25;
+        const colRight = w * 0.75;
+        const maxGridHeight = h * 0.35; // The distance from center to top of grid
+        const padding = w * 0.02;
+        const tickWidth = w * 0.015;
+
+        // 1. Draw Columns
+        ctx.strokeStyle = "#555";
+        ctx.lineWidth = 1;
+        
+        // Left Axis
+        ctx.beginPath();
+        ctx.moveTo(colLeft, h * 0.1);
+        ctx.lineTo(colLeft, h * 0.9);
+        ctx.stroke();
+
+        // Right Axis
+        ctx.beginPath();
+        ctx.moveTo(colRight, h * 0.1);
+        ctx.lineTo(colRight, h * 0.9);
+        ctx.stroke();
+
+        // 2. Draw INT8 Grid (Right Side)
+        const totalGridHeight = maxGridHeight * 2; // Top to bottom
+        
+        // Wasted Space Hatching
+        if (this.skewed && this.step >= 2) {
+            ctx.beginPath();
+            // Hatch the bottom half (cy to cy + maxGridHeight)
+            for(let y = cy; y < cy + maxGridHeight; y+=4) {
+                ctx.moveTo(colRight - padding, y);
+                ctx.lineTo(colRight + padding, y);
+            }
+            ctx.strokeStyle = "#444";
+            ctx.stroke();
+            
+            ctx.fillStyle = "#FFF";
+            // Dynamic font size
+            ctx.font = `${Math.max(8, h * 0.04)}px monospace`;
+            ctx.fillText("WASTED", colRight + padding + 5, cy + maxGridHeight * 0.5);
+        }
+
+        // Grid Ticks
+        ctx.fillStyle = "#999";
+        // Draw ~9 major ticks for visual clarity instead of 256
+        for (let i = -1; i <= 1; i += 0.25) {
+            let y = cy - (i * maxGridHeight);
+            ctx.fillRect(colRight - (tickWidth/2), y, tickWidth, 1);
+        }
+
+        // 3. Draw AbsMax Bounds (The Ghost Bars)
+        if (this.step >= 1) {
+            // Determine Y position of the "Max" bar
+            let yOffset;
+            
+            if (this.step === 1) {
+                // In scan mode, use unscaled pixel mapping (1 unit = 5% of height)
+                const inputScale = h * 0.05;
+                yOffset = this.absMax * inputScale;
+            } else {
+                // In locked/scaled mode, it matches the grid top
+                yOffset = maxGridHeight;
+            }
+
+            let yMax = cy - yOffset;
+            let yMin = cy + yOffset;
+
+            ctx.fillStyle = "#FFF";
+            // Top Bar
+            const barWidth = w * 0.1;
+            ctx.fillRect(colLeft - (barWidth/2), yMax, barWidth, 2);
+            
+            // Bottom Ghost Bar
+            ctx.globalAlpha = 0.5;
+            ctx.fillRect(colLeft - (barWidth/2), yMin, barWidth, 2);
+            ctx.globalAlpha = 1.0;
+
+            // Connector lines
+            if (this.step === 2) {
+                ctx.beginPath();
+                ctx.moveTo(colLeft, yMax);
+                ctx.lineTo(colRight, cy - maxGridHeight);
+                ctx.moveTo(colLeft, yMin);
+                ctx.lineTo(colRight, cy + maxGridHeight);
+                ctx.strokeStyle = "#FFF";
+                ctx.setLineDash([2, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // 4. Draw Particles
+        this.particles.forEach(p => {
+            // Calculate X Position
+            let x = colLeft;
+            
+            if (this.step >= 2) {
+                // Slide to right column
+                // lerp from colLeft to colRight
+                // simple timing lerp
+                let progress = Math.min(1, this.animTime * 2); 
+                x = colLeft + (colRight - colLeft) * progress;
+            }
+
+            // Calculate Y Position
+            let yOffset;
+            if (this.step < 2) {
+                 // Unscaled input mapping
+                 const inputScale = h * 0.05;
+                 yOffset = p.val * inputScale;
+            } else {
+                // Scaled mapping (visualVal is normalized 0-1 relative to grid height)
+                yOffset = p.visualVal * maxGridHeight;
+            }
+            
+            let drawY = cy - yOffset;
+
+            // Render
+            ctx.beginPath();
+            let size = w * 0.008; // Dynamic particle size
+            if (size < 2) size = 2; // Min size
+            
+            ctx.arc(x, drawY, size, 0, Math.PI * 2);
+            ctx.fillStyle = "#FFF";
+            ctx.fill();
+        });
+
+        // 5. Scanline (Step 1)
+        if (this.step === 1) {
+            // this.scanY is -1 to 1
+            const inputScale = h * 0.05;
+            // Scan covers a bit more than the max range to look cool
+            const scanPixelY = cy - (this.scanY * this.absMax * inputScale);
+            
+            ctx.fillStyle = "#FFF";
+            ctx.fillRect(colLeft - (w*0.05), scanPixelY, w*0.1, 1);
+        }
+    }
+
+    loop() {
+        requestAnimationFrame(() => this.loop());
+        this.update(0.016);
+        this.engine.render((ctx, w, h) => this.draw(ctx, w, h));
+    }
+}
+
+const viz = new Visualizer();
+
+</script>
+</body>
+</html>

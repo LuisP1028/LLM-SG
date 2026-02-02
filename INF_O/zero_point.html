@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-Point Quantization // Ditherpunk</title>
+    <style>
+        :root {
+            --neon-green: #39ff14;
+            --black: #050505;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--neon-green);
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            image-rendering: pixelated; 
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 10;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            pointer-events: none;
+            justify-content: center;
+        }
+        
+        @media (min-width: 600px) {
+            #ui-layer {
+                justify-content: flex-start;
+                right: auto;
+            }
+        }
+
+        button {
+            pointer-events: auto;
+            background: rgba(0,0,0,0.8);
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px var(--neon-green);
+            transition: transform 0.1s;
+            font-size: 0.8rem;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
+
+        button:hover {
+            background: var(--neon-green);
+            color: black;
+        }
+
+        #status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            text-align: center;
+            font-size: 1rem;
+            text-transform: uppercase;
+            background: black;
+            padding: 5px;
+            border: 1px solid var(--neon-green);
+            pointer-events: none;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <button onclick="viz.reset('positive')">1. Positive (2.0 to 9.0)</button>
+        <button onclick="viz.reset('negative')">2. Negative (-5.0 to -2.0)</button>
+        <button onclick="viz.nextStep()">>> NEXT STEP</button>
+    </div>
+
+    <div id="status">WAITING FOR INPUT...</div>
+    <div class="scanline"></div>
+    <canvas id="screen"></canvas>
+
+<script>
+/**
+ * ZERO-POINT QUANTIZATION VISUALIZER
+ * Logic: Asymmetric Affine Transform (Shift & Scale)
+ * Engine: Responsive Atkinson Dithering
+ */
+
+class DitherEngine {
+    constructor() {
+        this.canvas = document.getElementById('screen');
+        this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+        this.baseHeight = 180; 
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    resize() {
+        const aspect = window.innerWidth / window.innerHeight;
+        this.height = this.baseHeight;
+        this.width = Math.floor(this.baseHeight * aspect);
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+        this.buffer = new Float32Array(this.width * this.height);
+    }
+
+    render(drawCallback) {
+        this.ctx.fillStyle = "#000000";
+        this.ctx.fillRect(0, 0, this.width, this.height);
+        drawCallback(this.ctx, this.width, this.height);
+
+        const imageData = this.ctx.getImageData(0, 0, this.width, this.height);
+        const data = imageData.data;
+        const w = this.width;
+        const h = this.height;
+
+        for (let i = 0; i < data.length; i += 4) {
+            this.buffer[i / 4] = data[i]; 
+        }
+
+        // Atkinson Dither
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const i = y * w + x;
+                const oldPixel = this.buffer[i];
+                const newPixel = oldPixel > 100 ? 255 : 0;
+                const error = (oldPixel - newPixel) >> 3;
+
+                this.buffer[i] = newPixel;
+
+                if (error !== 0) {
+                    if (x + 1 < w) this.buffer[i + 1] += error;
+                    if (x + 2 < w) this.buffer[i + 2] += error;
+                    if (y + 1 < h) {
+                        if (x > 0) this.buffer[i + w - 1] += error;
+                        this.buffer[i + w] += error;
+                        if (x + 1 < w) this.buffer[i + w + 1] += error;
+                    }
+                    if (y + 2 < h) {
+                        this.buffer[i + w * 2] += error;
+                    }
+                }
+            }
+        }
+
+        // Green/Black Output
+        for (let i = 0; i < this.buffer.length; i++) {
+            const val = this.buffer[i];
+            const offset = i * 4;
+            if (val > 100) {
+                data[offset] = 57;    // R
+                data[offset+1] = 255; // G
+                data[offset+2] = 20;  // B
+                data[offset+3] = 255; 
+            } else {
+                data[offset] = 0;
+                data[offset+1] = 0;
+                data[offset+2] = 0;
+                data[offset+3] = 255;
+            }
+        }
+        this.ctx.putImageData(imageData, 0, 0);
+    }
+}
+
+class Visualizer {
+    constructor() {
+        this.engine = new DitherEngine();
+        this.particles = [];
+        this.mode = 'positive';
+        this.minVal = 0;
+        this.maxVal = 0;
+        this.zeroPoint = 0; // The calculated Z value
+        
+        // Animation
+        this.step = 0; 
+        // 0: Init
+        // 1: Scan (Find Bounds)
+        // 2: Shift (Align Min)
+        // 3: Scale (Stretch to Fill)
+        // 4: Zero Point & Quantize
+        
+        this.animTime = 0;
+        this.reset('positive');
+        this.loop();
+    }
+
+    reset(mode) {
+        this.mode = mode;
+        this.step = 0;
+        this.animTime = 0;
+        this.particles = [];
+        this.minVal = 999;
+        this.maxVal = -999;
+        
+        const count = 40;
+        
+        // Generate Asymmetric Data
+        for(let i=0; i<count; i++) {
+            let val;
+            if (mode === 'positive') {
+                // Range approx 2.0 to 9.0
+                val = 2.0 + Math.random() * 7.0; 
+            } else {
+                // Range approx -5.0 to -2.0
+                val = -5.0 + Math.random() * 3.0;
+            }
+            
+            this.particles.push({ 
+                val: val, 
+                // VisualY is normalized 0-1 for the screen
+                // In step 0 we'll map this arbitrarily to look "floating"
+                visualY: 0, 
+                visualX: 0
+            });
+            this.minVal = Math.min(this.minVal, val);
+            this.maxVal = Math.max(this.maxVal, val);
+        }
+
+        // Add 0.0 purely for visualization tracking (make it invisible initially if outside range)
+        this.particles.push({ val: 0.0, isZeroMarker: true, visualY: 0, visualX: 0 });
+
+        this.updateUI();
+    }
+
+    nextStep() {
+        if (this.step < 4) {
+            this.step++;
+            this.animTime = 0;
+            this.updateUI();
+        }
+    }
+
+    updateUI() {
+        let msg = "";
+        const span = (this.maxVal - this.minVal).toFixed(2);
+        
+        switch(this.step) {
+            case 0: msg = `INPUT: ${this.mode.toUpperCase()} BIAS`; break;
+            case 1: msg = `SCANNING... RANGE: [${this.minVal.toFixed(1)}, ${this.maxVal.toFixed(1)}] // SPAN: ${span}`; break;
+            case 2: msg = `SHIFTING: ALIGN MIN (${this.minVal.toFixed(1)}) TO INT8 BASE (-128)`; break;
+            case 3: msg = `SCALING: STRETCHING ${span} UNITS TO FILL 256 BUCKETS`; break;
+            case 4: 
+                // Calc Zero Point
+                // S = 255 / (max - min)
+                const s = 255 / (this.maxVal - this.minVal);
+                // Z = round(-min * s) - 128
+                const z = Math.round(-this.minVal * s) - 128;
+                msg = `ZERO-POINT FOUND AT INDEX [${z}] // QUANTIZED`; 
+                break;
+        }
+        document.getElementById('status').innerText = msg;
+    }
+
+    update(dt) {
+        this.animTime += dt;
+        
+        // We define the "Target Grid" area on screen
+        // Let's say Grid goes from 10% height to 90% height
+        const gridTop = 0.1;
+        const gridBottom = 0.9;
+        const gridHeight = gridBottom - gridTop;
+        
+        // Initial "Floating" View Params (Step 0 & 1)
+        // We map the data range arbitrarily to the middle of screen
+        const inputScale = 0.05; // 1 data unit = 5% screen height
+        const inputCenterOffset = 0.5; // Center of screen
+
+        this.particles.forEach(p => {
+            let targetY = 0;
+            let targetX = 0.25; // Start on Left Column
+            
+            // --- Y POSITION LOGIC ---
+            
+            if (this.step < 2) {
+                // Raw Data View (Floating in space)
+                // Center the cluster roughly
+                const mid = (this.maxVal + this.minVal) / 2;
+                targetY = inputCenterOffset + (p.val - mid) * inputScale; // Inverted Y later
+            } 
+            else if (this.step === 2) {
+                // SHIFT: Align Min to Bottom of Grid
+                // p.val - minVal gives us 0 for the bottom particle
+                // We want 0 to be at gridBottom
+                // We keep the inputScale for now, just shift position
+                targetY = gridBottom - (p.val - this.minVal) * inputScale;
+            }
+            else if (this.step >= 3) {
+                // STRETCH: Affine Map to Full Grid
+                // Normalized position within range (0.0 to 1.0)
+                const norm = (p.val - this.minVal) / (this.maxVal - this.minVal);
+                // Map to Grid
+                targetY = gridBottom - (norm * gridHeight);
+            }
+
+            // --- X POSITION LOGIC ---
+            
+            if (this.step >= 3) {
+                // Move to Right Column during stretch
+                // Simple lerp based on animTime
+                let progress = Math.min(1, this.animTime * 1.5);
+                targetX = 0.25 + (0.5 * progress); // Move to 0.75
+            }
+
+            // --- QUANTIZATION SNAP (Step 4) ---
+            
+            if (this.step === 4) {
+                // Snap visualY to nearest grid notch
+                // 256 steps in gridHeight
+                const steps = 255;
+                // current relative height in grid
+                let gridRel = (gridBottom - p.visualY) / gridHeight;
+                let snappedRel = Math.round(gridRel * steps) / steps;
+                targetY = gridBottom - (snappedRel * gridHeight);
+            }
+
+            // Smooth Lerp
+            // Initialize if first frame
+            if (p.visualY === 0 && this.step === 0) p.visualY = targetY;
+            
+            // Variable lerp speed based on step
+            let speed = 0.1;
+            if (this.step === 4) speed = 0.2; // Fast snap
+            
+            p.visualY += (targetY - p.visualY) * speed;
+            p.visualX += (targetX - p.visualX) * speed;
+        });
+    }
+
+    draw(ctx, w, h) {
+        const colLeft = w * 0.25;
+        const colRight = w * 0.75;
+        const gridTopY = h * 0.1;
+        const gridBotY = h * 0.9;
+        const gridH = gridBotY - gridTopY;
+        
+        // 1. Draw Columns
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 1;
+        
+        // Left Axis (Float Space)
+        ctx.beginPath();
+        ctx.moveTo(colLeft, h * 0.05);
+        ctx.lineTo(colLeft, h * 0.95);
+        ctx.stroke();
+
+        // Right Axis (Int8 Grid)
+        ctx.beginPath();
+        ctx.moveTo(colRight, h * 0.05);
+        ctx.lineTo(colRight, h * 0.95);
+        ctx.stroke();
+        
+        // Draw Grid Steps on Right
+        ctx.fillStyle = "#333";
+        // Draw simplified ticks
+        const steps = 16;
+        for(let i=0; i<=steps; i++) {
+            let y = gridBotY - (i/steps) * gridH;
+            let width = (i===0 || i===steps || i===steps/2) ? w*0.02 : w*0.01;
+            ctx.fillRect(colRight - width/2, y, width, 1);
+        }
+        
+        // 2. Region of Interest (ROI) Box
+        // We calculate bounding box of current particle positions
+        let roiMinY = h;
+        let roiMaxY = 0;
+        let roiX = 0;
+        
+        this.particles.forEach(p => {
+            if (p.isZeroMarker) return;
+            const py = p.visualY * h;
+            if (py < roiMinY) roiMinY = py;
+            if (py > roiMaxY) roiMaxY = py;
+            roiX = p.visualX * w;
+        });
+        
+        // Add padding
+        roiMinY -= 5;
+        roiMaxY += 5;
+        
+        if (this.step >= 1) {
+            ctx.strokeStyle = "#FFF";
+            const boxW = w * 0.08;
+            ctx.strokeRect(roiX - boxW/2, roiMinY, boxW, roiMaxY - roiMinY);
+            
+            // Draw Tethers in Step 3 (Stretch)
+            if (this.step === 3 && this.animTime > 0.5) {
+                ctx.beginPath();
+                ctx.moveTo(roiX + boxW/2, roiMinY); // Top of box
+                ctx.lineTo(colRight, gridTopY);     // Top of grid
+                ctx.moveTo(roiX + boxW/2, roiMaxY); // Bottom of box
+                ctx.lineTo(colRight, gridBotY);     // Bottom of grid
+                
+                ctx.setLineDash([2, 4]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // 3. Scan Calipers (Step 1)
+        if (this.step === 1) {
+            // Animate calipers closing in
+            let progress = Math.min(1, this.animTime * 2);
+            let topY = (h*0) + (roiMinY - (h*0)) * progress;
+            let botY = (h*1) + (roiMaxY - (h*1)) * progress;
+            
+            ctx.fillStyle = "#FFF";
+            ctx.fillRect(colLeft - w*0.1, topY, w*0.2, 1);
+            ctx.fillRect(colLeft - w*0.1, botY, w*0.2, 1);
+        }
+
+        // 4. Zero Point Marker (The Crosshair)
+        // Find the zero marker particle
+        const zPart = this.particles.find(p => p.isZeroMarker);
+        if (zPart && this.step >= 1) {
+            // Only draw if we are in Step 4 OR if 0 is actually inside the data range
+            // But usually we draw it to show where 0 is relative to data
+            const zy = zPart.visualY * h;
+            const zx = zPart.visualX * w;
+            
+            ctx.strokeStyle = "#FFF";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(zx - 5, zy);
+            ctx.lineTo(zx + 5, zy);
+            ctx.moveTo(zx, zy - 5);
+            ctx.lineTo(zx, zy + 5);
+            ctx.stroke();
+            
+            if (this.step >= 4) {
+                ctx.fillStyle = "#FFF";
+                ctx.font = "10px monospace";
+                ctx.fillText("Z", zx + 8, zy + 3);
+            }
+        }
+
+        // 5. Particles
+        this.particles.forEach(p => {
+            if (p.isZeroMarker) return;
+            
+            ctx.beginPath();
+            let size = w * 0.006;
+            if (size < 2) size = 2;
+            
+            ctx.arc(p.visualX * w, p.visualY * h, size, 0, Math.PI * 2);
+            ctx.fillStyle = "#FFF";
+            ctx.fill();
+        });
+        
+        // 6. Full Utilization Glow (Step 5/End)
+        if (this.step === 4) {
+             // Draw random noise on the grid bar to simulate "Activity/Heat"
+             for(let i=0; i<20; i++) {
+                 let rx = colRight + (Math.random() - 0.5) * (w*0.02);
+                 let ry = gridTopY + Math.random() * gridH;
+                 ctx.fillStyle = Math.random() > 0.5 ? "#FFF" : "#000";
+                 ctx.fillRect(rx, ry, 1, 1);
+             }
+        }
+    }
+
+    loop() {
+        requestAnimationFrame(() => this.loop());
+        this.update(0.016);
+        this.engine.render((ctx, w, h) => this.draw(ctx, w, h));
+    }
+}
+
+const viz = new Visualizer();
+
+</script>
+</body>
+</html>
