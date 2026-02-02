@@ -448,6 +448,7 @@
                                                 </summary>
                                                 <div class="nested-content">
                                                     <p>A "dummy" token prepended to the sequence. Through self-attention, it acts as a designated note-taker, aggregating global context from every other token. By the final layer, this single vector serves as the complete embedding, forced by training to represent the entire sequence's semantics.</p>
+                                                    <p>Choose this for classification if your model was specifically pre-trained to use it.</p>
                                                     
                                                 </div>
                                             </details>
@@ -464,10 +465,11 @@
                                                     </button>
                                                 </summary>
                                                 <div class="nested-content">
-                                                    <p>The model calculates the element-wise average of all token vectors in the final layer. 
+                                                    <p>The model calculates the element-wise [individual numerical values across the vector dimensions] average of all token vectors in the final layer. 
                                                     $$\vec{v}_{mean} = \frac{1}{n} \sum_{i=1}^{n} \vec{h}_i$$
                                                     This creates a "centroid" of the sequence. While excellent for capturing the overall topic, the averaging process can blur specific syntax and "who did what" details.</p>
-                                                    
+                                                    <p>The Result: A single vector where each index is the arithmetic mean of that specific position across all tokens in the sequence.</p>
+                                                    <p>Choose this for Semantic Search (RAG) or clustering; it’s more robust at capturing the overall "flavor" of the text.</p>
                                                 </div>
                                             </details>
 
@@ -483,7 +485,8 @@
                                                     </button>
                                                 </summary>
                                                 <div class="nested-content">
-                                                    <p>Condenses information into a fixed-size embedding, losing the individual identity of specific words to favor a global gist. The model selects the maximum value across each dimension from all token vectors. This strategy ignores the "noise" of filler words to isolate the strongest signals or most prominent features. It is highly effective at identifying the presence of specific, high-impact keywords in a sequence.</p>
+                                                    <p>Condenses information into a fixed-size embedding, losing the individual identity of specific words to favor a global gist. The model selects the maximum value across each dimension from all token vectors. It is highly effective at identifying the presence of specific, high-impact keywords in a sequence.</p>
+                                                    <p>Choose this for identifying specific, strong features or keywords.</p>
                                                 </div>
                                             </details>
                                         </div>
@@ -497,7 +500,7 @@
                         <summary>Sparse Embeddings</summary>
                         <div class="nested-content">
                             <p>Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
-                            <p><strong>When to use:</strong> Use this for precision-heavy tasks where exact keyword matching is non-negotiable. While dense models might "hallucinate" a similar concept, sparse embeddings (like BM25) ensure you find the exact string of characters you typed.</p>
+                            <p><strong>When to use:</strong> Use this for precision-heavy tasks where exact keyword matching is non-negotiable.</p>
 
                             <div class="tree-root">
                                 <details class="nested-accordion">
@@ -523,7 +526,8 @@
                                                 <summary>1. Term Frequency (TF)</summary>
                                                 <div class="nested-content">
                                                     <p>TF measures how "loud" a word is within a specific sequence. If you are analyzing a 100-word paragraph about "Transformers," and the word "attention" appears 10 times, its TF is higher than a word that appears once.</p>
-                                                    <p>In practice, we don't just use raw counts; we often use Log-normalization (\(\log(1 + \text{count})\)) to prevent a word that appears 100 times from being 100 times more "important" than a word appearing once. It essentially answers: "How much is this document specifically about this term?"</p>
+                                                    <p>In practice, we don't just use raw counts; we often use Log-normalization (\(\log(1 + \text{count})\)) to prevent a word that appears 100 times from being 100 times more "important" than a word appearing once. 
+                                                    <p>It essentially answers: "How much is this document specifically about this term?"</p>
                                                 </div>
                                             </details>
 
@@ -590,10 +594,16 @@
                                             </details>
                                             
                                             <details class="nested-accordion">
-                                                <summary>3. Late Interaction (MaxSim)</summary>
+                                                <summary>3. Late Interaction (MaxSim) 
+                                                    <button class="eye-btn" onclick="const viewport = document.querySelector('.retro-viewport'); viewport.querySelector('iframe').src = 'RAG/max_sim.html'; viewport.classList.add('active');">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye">
+                                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                            <circle cx="12" cy="12" r="3"></circle>
+                                                        </svg>
+                                                    </button>
+                                                </summary>
                                                 <div class="nested-content">
                                                     <p>Calculates the "best match" for every query term against the document’s full token set, enabling fine-grained, word-to-word relevance. Instead of one summary vector, the engine aligns every query token embedding against every document token embedding, calculating the maximum similarity for fine-grained retrieval.</p>
-                                                    
                                                 </div>
                                             </details>
                                         </div>
