@@ -603,7 +603,7 @@
                                                     </button>
                                                 </summary>
                                                 <div class="nested-content">
-                                                    <p>Calculates the "best match" for every query term against the document’s full token set, enabling fine-grained, word-to-word relevance. Instead of one summary vector, the engine aligns every query token embedding against every document token embedding, calculating the maximum similarity for fine-grained retrieval.</p>
+                                                    <p> Instead of one summary vector, the engine aligns every query token embedding against every document token embedding, calculating the maximum similarity for fine-grained retrieval.</p>
                                                 </div>
                                             </details>
                                         </div>
@@ -628,6 +628,7 @@
                             <p>Foundation for deep relevance. Unlike bi-encoders that collapse text into independent "summary" vectors, this architecture processes a query and document pair simultaneously. By concatenating both into a single input sequence, it enables the <strong>Self-Attention</strong> mechanism to perform exhaustive, token-to-token comparisons.</p>
                             <p><strong>Example:</strong> For the query "Is caffeine good for sleep?", the model's attention heads identify specific relationships—detecting if the text claims caffeine helps or hinders rest, rather than just matching keywords.</p>
                             <p><strong>When to use:</strong> Use as a reranker in the final stage of retrieval. Because the O(N²) self-attention over the combined sequence is computationally heavy, it is reserved for the top 50–100 candidates to provide maximum precision.</p>
+                            <p><strong>Difference from Contextualized Token Embeddings:</strong>Cross-encoders process the query and document together, allowing for deep, token-level interactions. Bi-encoders map items to separate vectors in a latent space for fast retrieval</p>
                         </div>
                     </details>
                 </div>
