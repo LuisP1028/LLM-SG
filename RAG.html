@@ -702,7 +702,7 @@
                 <details class="nested-accordion">
                     <summary>A. Self-Querying / Filtered Vector Search</summary>
                     <div class="nested-content">
-                        <span class="tag">Focus: Precision & Security</span>
+                        <span class="tag">Focus: Precision</span>
                         <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/self_query.html'; v.classList.add('active');">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         </button>
@@ -734,7 +734,7 @@
                     </div>
                 </details>
                 <details class="nested-accordion">
-                    <summary>B. Query Expansion & Reranking</summary>
+                    <summary>B. Query Expansion / Reranking</summary>
                     <div class="nested-content">
                         <span class="tag">Focus: Recall</span>
                         <p><em>Best for finding "x" and synonyms.</em></p>
@@ -744,21 +744,73 @@
                                 <summary>QUERY EXPANSION WORKFLOW (THE HOW)</summary>
                                 <div class="nested-content">
                                     <ol>
-                                        <li><strong>Initiation:</strong> Define scope and required alternate perspectives.</li>
-                                        <li><strong>Persona Injection:</strong> Force the AI to pivot worldview to generate diverse sub-queries.</li>
-                                        <li><strong>Semantic Diversification:</strong> LLM reframes query into diverse linguistic representations.</li>
-                                        <li><strong>High-Recall Retrieval:</strong> Parallel search executes all N queries at once.</li>
+                                        <li>
+                                            <strong>Initiation and Configuration:</strong> 
+                                            The process begins by defining the scope of expansion. You configure how many alternate perspectives are required for your specific task. The system validates these parameters and, if in a testing phase, uses "mocking" to simulate the flow.
+                                        </li>
+                                        <li>
+                                            <strong>Persona and Context Injection:</strong> 
+                                            A <em>Prompt Template</em> is crafted to define the AI's objective. This is highly flexible: you can instruct the AI to act as a subject matter expert, a technical skeptic, etc. By using placeholders for the persona, original question, and separators, the system adapts the expansion strategy to suit different domains.
+                                        </li>
+                                        <li>
+                                            <strong>Semantic Diversification:</strong> 
+                                            The LLM performs the expansion, reframing the original query into diverse linguistic representations. The goal is to traverse different regions of the <strong>embedding space</strong>, ensuring the search isn't trapped by the specific wording or narrow constraints of the initial question.
+                                        </li>
+                                        <li>
+                                            <strong>Structured Parsing:</strong> 
+                                            Turns a “wall of text” into a checklist. The LLM outputs all <em>N</em> queries as one long string. The system uses a delimiter (like <code>#next-question#</code>) as a “cutting point” to split that string into a clean list of individual, searchable questions.
+                                        </li>
+                                        <li>
+                                            <strong>High-Recall Retrieval:</strong> 
+                                            Casts a “wide net” across the database. The system executes all <em>N</em> queries at once through parallel search. This maximizes recall by covering more embedding space, retrieving context that a single vector might overlook.
+                                        </li>
                                     </ol>
                                 </div>
                             </details>
                             <details class="nested-accordion">
-                                <summary>RERANKING WORKFLOW</summary>
+                                <summary>RERANKING WORKFLOW (PRECISION)</summary>
                                 <div class="nested-content">
-                                    <p>Transforms a broad list of potential matches into a prioritized list of guaranteed context.</p>
+                                    <p>Reranking transforms a broad list of "potential" matches into a prioritized list of "guaranteed" context.</p>
+                                    <ol>
+                                        <li>
+                                            <strong>Over-Retrieval (The Wide Net):</strong> 
+                                            To ensure the best answer isn't missed, the system retrieves more documents than needed (e.g., fetching the top 100 results when the final requirement is only 5).
+                                        </li>
+                                        <li>
+                                            <strong>Cross-Encoder Scoring (Deep Reasoning):</strong> 
+                                            The query and each retrieved document are passed into a Cross-Encoder as a pair: <code>[Query][SEP][Document]</code>. Unlike bi-encoders, this allows for <strong>joint attention</strong>, identifying nuanced relationships and specific relevance.
+                                        </li>
+                                        <li>
+                                            <strong>Re-Ordering and Selection:</strong> 
+                                            Documents are sorted based on high-precision scores. The most accurate answer—regardless of its initial vector rank—is moved to the top, while the irrelevant "tail" is discarded to keep only the top $K$ results.
+                                        </li>
+                                    </ol>
+                                </div>
+                            </details>
+                            
+                            
+                            
+                            <details class="nested-accordion">
+                                <summary>FILTERED VECTOR SEARCH WORKFLOW (LOGIC)</summary>
+                                <div class="nested-content">
+                                    <p>Acts as a strict gatekeeper, ensuring the system respects logical boundaries before exploring semantic meanings.</p>
                                     <ul>
-                                        <li><strong>Over-Retrieval:</strong> Fetch more docs than needed (e.g., top 100) to compensate for noise.</li>
-                                        <li><strong>Cross-Encoder Scoring:</strong> Feed [Query][SEP][DOC] for joint attention and precision scoring.</li>
-                                        <li><strong>Re-Ordering:</strong> Promotes niche relevant documents based on high-precision scores.</li>
+                                        <li>
+                                            <strong>Metadata Ingestion:</strong> 
+                                            During indexing, documents are tagged with structured info (department, date, clearance). This prevents the database from being "blind" to everything except word similarity.
+                                        </li>
+                                        <li>
+                                            <strong>Query-to-Filter Translation (Self-Querying):</strong> 
+                                            The system uses an LLM to extract constraints from the user. Asking for "2023 reports" triggers a mandatory <code>year == 2023</code> metadata filter, converting fuzzy requests into hard technical instructions.
+                                        </li>
+                                        <li>
+                                            <strong>Pre-Filter Execution:</strong> 
+                                            The system physically ignores documents that don't match criteria. This makes retrieval faster and immune to "noise" from irrelevant categories.
+                                        </li>
+                                        <li>
+                                            <strong>Similarity Retrieval:</strong> 
+                                            Only after narrowing the field does the system perform vector search. This ensures the "best match" is both <strong>semantically relevant</strong> and <strong>logically valid</strong>.
+                                        </li>
                                     </ul>
                                 </div>
                             </details>
