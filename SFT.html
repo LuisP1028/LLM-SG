@@ -315,14 +315,14 @@
         <details class="nested-accordion">
             <summary>Data Augmentation (Evol-Instruct)</summary>
             <div class="accordion-content">
-                <p>In this context, <strong>data augmentation</strong> focuses on the <strong>Input</strong> side: upgrading simple prompts into complex training signals to ensure the model isn't just learning simple patterns.</p>
+                <p>In this context, <strong>data augmentation</strong> focuses on the <strong>Input</strong> side: upgrading simple prompts into complex training signals.</p>
                 
                 <hr>
                 
                 <details class="nested-accordion">
                     <summary>1. Evol-Instruct (Upgrading the Prompt)</summary>
                     <div class="accordion-content">
-                        <p><strong>Evol-Instruct</strong> focuses on the <strong>Question</strong>. It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
+                        <p>It rewrites simple prompts into complex ones to force the model to think harder or broaden its scope.</p>
                         
                         <h5>Evolution Strategies:</h5>
                         <ul>
@@ -391,10 +391,10 @@
         <details class="nested-accordion">
             <summary>Data Curation: Rule-Based Filtering</summary>
             <div class="accordion-content">
-                <p><strong>Rule-based filtering</strong> is a quality control method that uses explicit, pre-set rules to automatically keep or remove data samples. It aims to maintain high standards by strictly enforcing specific criteria. Its speed and efficiency allow for rapid application to large volumes of data, making it highly scalable.</p>
+                <p><strong>Rule-based filtering</strong> is a quality control method that uses explicit, pre-set rules to automatically keep or remove data samples. Its speed and efficiency allow for rapid application to large volumes of data, making it highly scalable.</p>
                 <ul>
-                    <li><strong>Length filtering:</strong> This rule manages data quality by setting minimum and maximum size limits. It removes responses that are too short to be meaningful or too long and repetitive, though the specific limits depend on the task (e.g., a summary vs. a detailed explanation).</li>
-                    <li><strong>Keyword exclusion:</strong> This rule filters data based on specific content. It scans for and removes samples containing banned words—such as profanity, spam, or slang—to ensure the data matches the intended tone and creates a safe environment.</li>
+                    <li><strong>Length filtering:</strong> This rule manages data quality by setting minimum and maximum size limits. It removes responses that are too short to be meaningful or too long and repetitive.</li>
+                    <li><strong>Keyword exclusion:</strong> This rule filters data based on specific content.</li>
                     <li><strong>Format checking:</strong> This rule validates the structure of the data. It ensures that samples, particularly technical ones like computer code or JSON, follow specific formatting requirements so they remain consistent and usable.</li>
                 </ul>
             </div>
