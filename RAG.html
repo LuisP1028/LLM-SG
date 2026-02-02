@@ -395,7 +395,7 @@
                         <summary>Semantic Chunking</summary>
                         <div class="nested-content">
                             <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/semantic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-                            <p>Semantic chunking splits text into sentences and converts them to embeddings to assess similarity (usually via cosine). Chunks grow as long as sentences stay semantically close; once distance exceeds a threshold, a new chunk starts. This linear process preserves document order and context for accurate retrieval.</p>
+                            <p>Semantic chunking splits text into sentences and converts them to embeddings to assess similarity (usually via cosine). Chunks grow as long as sentences stay semantically close; once distance exceeds a threshold, a new chunk starts.</p>
                             <ul>
                                 <li><em>Example:</em> A transcript moves from discussing "Weather" to "Stocks." The system detects the topic shift via embeddings and cuts the chunk exactly there.</li>
                                 <li><em>When to use:</em> Best for RAG systems requiring high precision. It ensures a chunk contains only one distinct concept, reducing noise for the LLM.</li>
@@ -406,65 +406,73 @@
             </div>
         </details>
 
-        <details class="section">
-            <summary>4. RAG: Embedding</summary>
-            <div class="section-content">
-                <div class="tree-root">
-                    <details class="nested-accordion">
-                        <summary>Dense Embeddings (Bi-Encoders)</summary>
-                        <div class="nested-content">
-                            <p>Foundation for semantic search. Captures abstract meaning by collapsing an entire sequence [inputs, e.g document, sentence, paragraph] into a single "summary" vector.</p>
-                            <p><strong>When to use:</strong> Use this when the intent matters more than specific words. It bridges the gap between synonyms and related concepts by mapping them to the same mathematical space, making it the bedrock of modern semantic search, though it may lose granular word-level nuance.</p>
-                            
-                            <div class="tree-root">
-                                <details class="nested-accordion">
-                                    <summary>How: Pooling Mechanisms</summary>
-                                    <div class="nested-content">
-                                        <div class="tree-root">
-                                            <details class="nested-accordion">
-                                                <summary>The Practical Workflow</summary>
-                                                <div class="nested-content">
-                                                    <p><strong>Contextual Encoding:</strong> Each token in your sequence (e.g., "The," "cat," "sat") starts as a raw vector. The Transformer uses Self-Attention to update these vectors based on their neighbors. By the final layer, the vector for "cat" isn't just "cat"—it contains numerical "traces" of "The" and "sat."</p>
-                                                    <p><strong>The Accumulation (Pooling):</strong> Since you can’t compare a 5-word sentence to a 500-word document directly, you must reduce them to the same dimensions. This is done via:</p>
-                                                    <ul>
-                                                        <li><strong>CLS Pooling:</strong> Taking the vector of the special [CLS] (classification) token, which was designed to attend to every other token in the sequence.</li>
-                                                        <li><strong>Mean/Max Pooling:</strong> Mathematically averaging all individual token vectors into one "centroid" vector.</li>
-                                                    </ul>
-                                                    <p><strong>The Resulting Vector:</strong> This single array of numbers (e.g., 768 dimensions) represents the "average" semantic direction of the sequence.</p>
-                                                    <p><strong>Why Meaning is Lost:</strong> Because you are averaging (Mean Pooling) or selecting a representative (CLS), you lose positional granularity. You know the "flavor" of the sequence is about felines and posture, but the specific syntax—who did what to whom—gets blurred into a single mathematical coordinate.</p>
-                                                </div>
-                                            </details>
+        <div class="tree-root">
+            <details class="nested-accordion">
+                <summary>The Practical Workflow</summary>
+                <div class="nested-content">
+                    <p><strong>Contextual Encoding:</strong> Each token in your sequence (e.g., "The," "cat," "sat") starts as a raw vector. The Transformer uses Self-Attention to update these vectors based on their neighbors. By the final layer, the vector for "cat" isn't just "cat"—it contains numerical "traces" of "The" and "sat."</p>
+                    <p><strong>The Accumulation (Pooling):</strong> Since you can’t compare a 5-word sentence to a 500-word document directly, you must reduce them to the same dimensions. This is done via:</p>
+                    <ul>
+                        <li><strong>CLS Pooling:</strong> Taking the vector of the special [CLS] (classification) token, which was designed to attend to every other token in the sequence.</li>
+                        <li><strong>Mean/Max Pooling:</strong> Mathematically averaging all individual token vectors into one "centroid" vector.</li>
+                    </ul>
+                    <p><strong>The Resulting Vector:</strong> This single array of numbers (e.g., 768 dimensions) represents the "average" semantic direction of the sequence.</p>
+                    <p><strong>Why Meaning is Lost:</strong> Because you are averaging (Mean Pooling) or selecting a representative (CLS), you lose positional granularity. You know the "flavor" of the sequence is about felines and posture, but the specific syntax—who did what to whom—gets blurred into a single mathematical coordinate.</p>
+                </div>
+            </details>
 
-                                            <details class="nested-accordion">
-                                                <summary>1. [CLS] Pooling</summary>
-                                                <div class="nested-content">
-                                                    <p>A "dummy" token prepended to the sequence. Through self-attention, it acts as a designated note-taker, aggregating global context from every other token. By the final layer, this single vector serves as the complete embedding, forced by training to represent the entire sequence's semantics.</p>
-                                                    
-                                                </div>
-                                            </details>
+            <details class="nested-accordion">
+                <summary>1. [CLS] Pooling
+                    <button class="eye-btn" onclick="
+                        const viewport = document.querySelector('.retro-viewport');
+                        const iframe = viewport.querySelector('iframe');
+                        iframe.src = 'RAG/cls.html';
+                        viewport.classList.add('active');
+                    ">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </summary>
+                <div class="nested-content">
+                    <p>A "dummy" token prepended to the sequence. Through self-attention, it acts as a designated note-taker, aggregating global context from every other token. By the final layer, this single vector serves as the complete embedding, forced by training to represent the entire sequence's semantics.</p>
+                    
+                </div>
+            </details>
 
-                                            <details class="nested-accordion">
-                                                <summary>2. Mean Pooling</summary>
-                                                <div class="nested-content">
-                                                    <p>The model calculates the element-wise average of all token vectors in the final layer. 
-                                                    $$\vec{v}_{mean} = \frac{1}{n} \sum_{i=1}^{n} \vec{h}_i$$
-                                                    This creates a "centroid" of the sequence. While excellent for capturing the overall topic, the averaging process can blur specific syntax and "who did what" details.</p>
-                                                    
-                                                </div>
-                                            </details>
+            <details class="nested-accordion">
+                <summary>2. Mean Pooling
+                    <button class="eye-btn" onclick="
+                        const viewport = document.querySelector('.retro-viewport');
+                        const iframe = viewport.querySelector('iframe');
+                        iframe.src = 'RAG/mean_pooling.html';
+                        viewport.classList.add('active');
+                    ">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </summary>
+                <div class="nested-content">
+                    <p>The model calculates the element-wise average of all token vectors in the final layer. 
+                    $$\vec{v}_{mean} = \frac{1}{n} \sum_{i=1}^{n} \vec{h}_i$$
+                    This creates a "centroid" of the sequence. While excellent for capturing the overall topic, the averaging process can blur specific syntax and "who did what" details.</p>
+                    
+                </div>
+            </details>
 
-                                            <details class="nested-accordion">
-                                                <summary>3. Max Pooling</summary>
-                                                <div class="nested-content">
-                                                    <p>Condenses information into a fixed-size embedding, losing the individual identity of specific words to favor a global gist. The model selects the maximum value across each dimension from all token vectors. This strategy ignores the "noise" of filler words to isolate the strongest signals or most prominent features. It is highly effective at identifying the presence of specific, high-impact keywords in a sequence.</p>
-                                                </div>
-                                            </details>
-                                        </div>
-                                    </div>
-                                </details>
-                            </div>
-                        </div>
-                    </details>
+            <details class="nested-accordion">
+                <summary>3. Max Pooling
+                    <button class="eye-btn" onclick="
+                        const viewport = document.querySelector('.retro-viewport');
+                        const iframe = viewport.querySelector('iframe');
+                        iframe.src = 'RAG/max_pool.html';
+                        viewport.classList.add('active');
+                    ">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    </button>
+                </summary>
+                <div class="nested-content">
+                    <p>Condenses information into a fixed-size embedding, losing the individual identity of specific words to favor a global gist. The model selects the maximum value across each dimension from all token vectors. This strategy ignores the "noise" of filler words to isolate the strongest signals or most prominent features. It is highly effective at identifying the presence of specific, high-impact keywords in a sequence.</p>
+                </div>
+            </details>
+        </div>
 
                     <details class="nested-accordion">
                         <summary>Sparse Embeddings</summary>
