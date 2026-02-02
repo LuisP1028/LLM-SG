@@ -307,7 +307,7 @@
         <details class="section">
             <summary>1. RAG Overview & Modules</summary>
             <div class="section-content">
-                <p><strong>RAG:</strong> Pulling new, updated, tailored information from a vector store to concatenate as context to a user prompt, before feeding a foundational model.</p>
+                <p><strong>RAG:</strong> Pulling updated, tailored information from a vector store to concatenate as context to a user prompt, before feeding a foundational model.</p>
                 <p><strong>A RAG system is composed of three main modules:</strong></p>
                 <ul>
                     <li>Ingestion pipeline: A batch or streaming pipeline used to populate the vector DB</li>
@@ -380,7 +380,7 @@
                     </details>
 
                     <details class="nested-accordion">
-                        <summary>Content-aware / Syntactic Chunking</summary>
+                        <summary>Syntactic Chunking</summary>
                         <div class="nested-content">
                             <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/Syntactic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
                             <p>Leverages the distinct formatting logic of the source file to define boundaries. For code, it splits by functions or classes; for Markdown or HTML, it splits by headers or tags.</p>

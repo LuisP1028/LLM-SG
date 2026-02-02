@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manhattan Distance // Ditherpunk Telemetry</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        canvas {
+            display: block;
+            /* Crisp pixel scaling for that retro look */
+            image-rendering: pixelated; 
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00FF00;
+            pointer-events: none;
+            mix-blend-mode: difference;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
+            background: #00FF00;
+            color: #000;
+            display: inline-block;
+            padding: 2px 5px;
+        }
+
+        .readout {
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 1.4em;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>SAT_OP // MANHATTAN_DRIFT</h1>
+        <div class="readout" id="status-text">
+            SYSTEM: NOMINAL<br>
+            METRIC: L1 (TAXICAB)<br>
+            DIMENSIONS: INDEPENDENT
+        </div>
+    </div>
+
+    <canvas id="mainCanvas"></canvas>
+
+<script>
+/**
+ * CONFIGURATION
+ */
+const RENDER_WIDTH = 320; // Internal resolution (Low-res for chunky dither)
+const RENDER_HEIGHT = 180; 
+const COLOR_ON = [0, 255, 0]; // Green
+const COLOR_OFF = [10, 10, 10]; // Dark Grey (not pure black for CRT feel)
+const SENSOR_COUNT = 5;
+const LABELS = ["TEMP", "VOLT", "GYRO", "LINK", "PRES"];
+
+/**
+ * STATE MANAGEMENT
+ */
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+// Offscreen buffer for drawing the "clean" image before dithering
+const bufferCanvas = document.createElement('canvas');
+bufferCanvas.width = RENDER_WIDTH;
+bufferCanvas.height = RENDER_HEIGHT;
+const bctx = bufferCanvas.getContext('2d');
+
+let time = 0;
+let sensors = [];
+let totalDistance = 0;
+let globalMode = 'NOMINAL'; // NOMINAL, SPIKE, DRIFT
+let modeTimer = 0;
+
+// Setup Sensors
+for(let i=0; i<SENSOR_COUNT; i++) {
+    sensors.push({
+        label: LABELS[i],
+        val: 0,
+        target: 0,
+        history: new Array(40).fill(0),
+        yPos: (i + 1) * (RENDER_HEIGHT / (SENSOR_COUNT + 1.5))
+    });
+}
+
+// Window Resize Handling
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // We keep bufferCanvas fixed res to maintain the dither aesthetic style
+}
+window.addEventListener('resize', resize);
+resize();
+
+/**
+ * UTILS
+ */
+function lerp(start, end, amt) {
+    return (1 - amt) * start + amt * end;
+}
+
+function drawLine(x1, y1, x2, y2, context) {
+    context.beginPath();
+    context.moveTo(Math.floor(x1), Math.floor(y1));
+    context.lineTo(Math.floor(x2), Math.floor(y2));
+    context.stroke();
+}
+
+/**
+ * LOGIC LOOP
+ */
+function update() {
+    time++;
+    modeTimer++;
+
+    // 1. ANOMALY SCHEDULING
+    if (modeTimer > 200 && globalMode === 'NOMINAL') {
+        // Switch to Spike
+        globalMode = 'SPIKE';
+        modeTimer = 0;
+        document.getElementById('status-text').innerHTML = 
+            `SYSTEM: <span style="background:#00FF00; color:black">ANOMALY DETECTED</span><br>` + 
+            `TYPE: SINGLE DIMENSION SPIKE<br>` + 
+            `NOTE: INDEPENDENT SENSITIVITY`;
+    } 
+    else if (modeTimer > 150 && globalMode === 'SPIKE') {
+        globalMode = 'RECOVERY';
+        modeTimer = 0;
+        document.getElementById('status-text').innerHTML = `SYSTEM: RECOVERING...`;
+    }
+    else if (modeTimer > 50 && globalMode === 'RECOVERY') {
+        globalMode = 'DRIFT';
+        modeTimer = 0;
+        document.getElementById('status-text').innerHTML = 
+            `SYSTEM: <span style="background:#00FF00; color:black">ANOMALY DETECTED</span><br>` + 
+            `TYPE: CUMULATIVE DRIFT<br>` + 
+            `NOTE: SUM OF SMALL ERRORS`;
+    }
+    else if (modeTimer > 150 && globalMode === 'DRIFT') {
+        globalMode = 'NOMINAL';
+        modeTimer = 0;
+        document.getElementById('status-text').innerHTML = 
+            `SYSTEM: NOMINAL<br>METRIC: L1 (TAXICAB)<br>DIMENSIONS: INDEPENDENT`;
+    }
+
+    // 2. SENSOR UPDATE
+    totalDistance = 0;
+    
+    sensors.forEach((s, i) => {
+        let noise = (Math.sin(time * 0.1 + i) * 2) + (Math.random() - 0.5);
+        let spike = 0;
+
+        if (globalMode === 'SPIKE' && i === 1) { // Sensor 1 spikes
+            spike = 30 * Math.sin(modeTimer * 0.1); 
+            if(spike < 0) spike = 0;
+        }
+
+        if (globalMode === 'DRIFT') { // All sensors drift slightly
+            spike = 6 + Math.sin(time * 0.2 + i)*2; 
+        }
+
+        s.target = noise + spike;
+        s.val = lerp(s.val, s.target, 0.1);
+        
+        // Update History
+        if (time % 2 === 0) {
+            s.history.push(s.val);
+            s.history.shift();
+        }
+
+        // Manhattan Accumulation: |x - y|
+        // Baseline is 0, so simply abs(val)
+        totalDistance += Math.abs(s.val);
+    });
+}
+
+/**
+ * DRAWING LOOP (THE BUFFER)
+ */
+function drawScene() {
+    // Fill Background
+    bctx.fillStyle = "#000";
+    bctx.fillRect(0, 0, RENDER_WIDTH, RENDER_HEIGHT);
+
+    // Styling
+    bctx.strokeStyle = "#fff"; // We draw in white, dither will make it green
+    bctx.lineWidth = 1;
+    bctx.font = "8px monospace";
+    bctx.textBaseline = "middle";
+
+    // 1. DRAW SENSORS (Left Side)
+    let leftMargin = 30;
+    let gridWidth = 140;
+
+    sensors.forEach(s => {
+        let baseY = Math.floor(s.yPos);
+        
+        // Draw Label
+        bctx.fillStyle = "#fff";
+        bctx.fillText(s.label, 2, baseY);
+
+        // Draw Baseline
+        bctx.strokeStyle = "#444";
+        bctx.setLineDash([2, 2]);
+        drawLine(leftMargin, baseY, leftMargin + gridWidth, baseY, bctx);
+        bctx.setLineDash([]);
+
+        // Draw History Path
+        bctx.strokeStyle = "#fff";
+        bctx.beginPath();
+        for(let j=0; j<s.history.length; j++) {
+            let hx = leftMargin + (j * (gridWidth / s.history.length));
+            let hy = baseY - s.history[j]; // minus because Y is down
+            if(j===0) bctx.moveTo(hx, hy);
+            else bctx.lineTo(hx, hy);
+        }
+        bctx.stroke();
+
+        // Draw The Delta (Manhattan vertical error)
+        let cx = leftMargin + gridWidth;
+        let cy = baseY - s.val;
+        
+        // The "Current Value" dot
+        bctx.fillStyle = "#fff";
+        bctx.fillRect(cx - 1, cy - 1, 3, 3);
+
+        // The ERROR LINE (Thick vertical bar from baseline to point)
+        // This visualizes the Manhattan component
+        if (Math.abs(s.val) > 1) {
+            bctx.lineWidth = 3;
+            drawLine(cx, baseY, cx, cy, bctx);
+            bctx.lineWidth = 1;
+
+            // Draw "Pulse" travelling to accumulator (L-Shape)
+            // Visual trick: Draw a dot somewhere between sensor and accumulator based on time
+            let distToAcc = RENDER_WIDTH - 40 - cx;
+            let travelAmt = (time * 2 + s.yPos) % distToAcc;
+            
+            // X-move then Y-move (Manhattan path)
+            let particleX = cx + travelAmt;
+            let particleY = baseY; 
+            
+            // Simple horizontal flow for this demo to keep it readable
+            bctx.fillStyle = "#fff";
+            if(Math.random() > 0.5) bctx.fillRect(particleX, particleY, 2, 1);
+        }
+    });
+
+    // 2. DRAW MANHATTAN ACCUMULATOR (Right Side)
+    let accX = RENDER_WIDTH - 30;
+    let accBaseY = RENDER_HEIGHT - 20;
+    let maxDist = 100; // Scaling factor
+    let barHeight = (totalDistance / maxDist) * (RENDER_HEIGHT - 40);
+
+    // Draw Gauge housing
+    bctx.strokeStyle = "#444";
+    bctx.strokeRect(accX, 20, 10, RENDER_HEIGHT - 40);
+
+    // Draw Total Distance Bar
+    bctx.fillStyle = "#fff";
+    let fillY = accBaseY - barHeight;
+    // Clamp
+    if(fillY < 20) fillY = 20;
+    
+    // Dotted fill effect
+    for(let y = accBaseY; y > fillY; y-=2) {
+        bctx.fillRect(accX + 2, y, 6, 1);
+    }
+
+    // Label
+    bctx.save();
+    bctx.translate(accX + 20, RENDER_HEIGHT/2);
+    bctx.rotate(Math.PI/2);
+    bctx.fillText("TOTAL DISTANCE", 0, 0);
+    bctx.restore();
+}
+
+/**
+ * ATKINSON DITHERING (Post-Process)
+ * We process the pixel buffer from 'bufferCanvas' and draw to 'canvas'
+ */
+function applyDither() {
+    let imgData = bctx.getImageData(0, 0, RENDER_WIDTH, RENDER_HEIGHT);
+    let data = imgData.data;
+    let w = RENDER_WIDTH;
+
+    for (let y = 0; y < RENDER_HEIGHT; y++) {
+        for (let x = 0; x < w; x++) {
+            let i = (y * w + x) * 4;
+            
+            // Convert to grayscale (avg of RGB)
+            let oldPixel = (data[i] + data[i+1] + data[i+2]) / 3;
+            
+            // Threshold (1-bit)
+            let newPixel = oldPixel > 100 ? 255 : 0;
+            
+            // Quantization Error
+            let quantError = oldPixel - newPixel;
+
+            // Set current pixel to Green or Black
+            if (newPixel === 255) {
+                data[i] = COLOR_ON[0];
+                data[i+1] = COLOR_ON[1];
+                data[i+2] = COLOR_ON[2];
+            } else {
+                data[i] = COLOR_OFF[0];
+                data[i+1] = COLOR_OFF[1];
+                data[i+2] = COLOR_OFF[2];
+            }
+            // Alpha full
+            data[i+3] = 255;
+
+            // Distribute Error (Atkinson Algo)
+            //       X   1/8   1/8
+            // 1/8  1/8  1/8
+            //      1/8
+
+            if (x + 1 < w)           data[((y) * w + x + 1) * 4] += quantError / 8;
+            if (x + 2 < w)           data[((y) * w + x + 2) * 4] += quantError / 8;
+            if (y + 1 < RENDER_HEIGHT) {
+                if (x - 1 > 0)       data[((y + 1) * w + x - 1) * 4] += quantError / 8;
+                                     data[((y + 1) * w + x) * 4]     += quantError / 8;
+                if (x + 1 < w)       data[((y + 1) * w + x + 1) * 4] += quantError / 8;
+            }
+            if (y + 2 < RENDER_HEIGHT) {
+                                     data[((y + 2) * w + x) * 4]     += quantError / 8;
+            }
+        }
+    }
+
+    // Put image back to buffer then draw scaled to main canvas
+    bctx.putImageData(imgData, 0, 0);
+    
+    // Draw CRT Scanlines over the top
+    bctx.fillStyle = "rgba(0,0,0,0.3)";
+    for(let y=0; y<RENDER_HEIGHT; y+=2) {
+        bctx.fillRect(0, y, RENDER_WIDTH, 1);
+    }
+
+    // Final Draw to Screen
+    ctx.drawImage(bufferCanvas, 0, 0, canvas.width, canvas.height);
+}
+
+/**
+ * MAIN LOOP
+ */
+function loop() {
+    update();
+    drawScene();
+    applyDither();
+    requestAnimationFrame(loop);
+}
+
+// Start
+loop();
+
+</script>
+</body>
+</html>
