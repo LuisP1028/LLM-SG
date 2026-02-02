@@ -617,11 +617,11 @@
                         </summary>
                         <div class="accordion-content">
                             <div class="subsection">
-                                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA keeps the original pre-trained weights ($W$) frozen.</p>
+                                <p>Instead of retraining a model’s entire massive web of parameters—which requires immense computational power—LoRA "nudges" the base model's weights.</p>
                                 
                                 <p><strong>1. Base Model Preparation:</strong> Load your pre-trained model (the "Base Model") in a quantized format (e.g., 4-bit) to save memory. You must "freeze" the model, ensuring no original parameters will be updated during training.</p>
                                 
-                                <p><strong>2. Configuration (The Ontology):</strong> You must define a <code>LoraConfig</code> object to dictate how the adaptation works:</p>
+                                <p><strong>2. Configuration:</strong> You must define a <code>LoraConfig</code> object to dictate how the adaptation works:</p>
                                 <ul>
                                     <li><strong>r (Rank):</strong> Set the dimension of the low-rank matrices ($A$ and $B$). Start with 8 or 16. Higher ranks allow for more complex learning but increase VRAM usage.</li>
                                     <li><strong>lora_alpha (Alpha):</strong> The scaling factor. A standard heuristic is $\alpha = 2 \times r$.</li>
@@ -633,7 +633,7 @@
                                                 
                                                 <div class="subsection">
                                                     <span class="subsection-title">Query (q_proj) & Key (k_proj)</span>
-                                                    <p>These define the "Search & Match" logic. The Query asks a question ("Is there a subject here?"), and the Key provides the answer ("I am the subject").</p>
+                                                    <p>These define the "Search & Match" logic.</p>
                                                     <p><strong>When to Tweak:</strong> Use these when the model struggles with <strong>contextual logic</strong> or <strong>instruction following</strong>. If the model loses the thread in long-form RAG prompts or fails to identify specific entities you've defined, updating $Q$ and $K$ improves its "navigational" accuracy within the text.</p>
                                                 </div>
                                     
