@@ -654,7 +654,7 @@
                                                 
                                                 <div class="subsection">
                                                     <span class="subsection-title">Gate (gate_proj) & Up (up_proj)</span>
-                                                    <p>These act as the "Filter & Expand" mechanism (specifically in SwiGLU architectures like Llama). They determine which features of a token are important and project them into a higher-dimensional space for processing.</p>
+                                                    <p>These act as the "Filter & Expand" mechanism. They determine which features of a token are important and project them into a higher-dimensional space for processing.</p>
                                                     <p><strong>When to Tweak:</strong> Tweak these when you are performing <strong>Domain Adaptation</strong>. If you are introducing the model to "Core deep learning methods for CNNs" or specific "Bayesian Modeling" concepts that weren't in the base training, these layers act as the "empty shelves" where new factual associations are stored.</p>
                                                 </div>
                                     
@@ -664,7 +664,7 @@
                                                     <p><strong>When to Tweak:</strong> This is crucial for <strong>high-density technical learning</strong>. It helps the model "compress" new, complex domain knowledge into its existing architecture without causing "catastrophic forgetting."</p>
                                                 </div>
                                     
-                                                <p><strong>The Selection Rule:</strong> If you are teaching the model <strong>new facts, specialized jargon, or complex data relationships</strong> (like your work in Distributed Learning), you <em>must</em> include MLP layers. While Attention handles the "vibe," the MLP handles the "substance."</p>
+                                                <p><strong>The Selection Rule:</strong> If you are teaching the model <strong>new facts, specialized jargon, or complex data relationships</strong>, you <em>must</em> include MLP layers.</p>
                                             </div>
                                         </details>
                                     </li>
@@ -773,7 +773,8 @@
             <details class="nested-accordion">
                 <summary>Preference Alignment (DPO)</summary>
                 <div class="accordion-content">
-                    <p>Preference alignment addresses the shortcomings of SFT by incorporating direct human or AI feedback into the training process. If SFT is the foundation of competence (getting the answer right), preference data is the layer of alignment (getting the answer right for the specific user, context, or value system).</p>
+                    <p>Incorporating direct human or AI feedback into the training process.</p>
+                    <p>If SFT is the foundation of competence (getting the answer right), preference data is the layer of alignment (getting the answer right for the specific user, context, or value system).</p></p>
                     
                     <div class="subsection">
                         <span class="subsection-title">Direct Preference Optimization (DPO)</span>
