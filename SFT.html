@@ -252,9 +252,9 @@
             <summary>Essential Dimensions of Data</summary>
             <div class="accordion-content">
                 <ul>
-                    <li><strong>Accuracy:</strong> Accuracy ensures that the data is factually correct and directly answers the user's specific instruction. It is crucial for building trust, as the model must learn to provide reliable, true information rather than incorrect facts or irrelevant responses.</li>
-                    <li><strong>Diversity:</strong> Diversity means the dataset must cover a wide variety of topics, writing styles, and lengths. It should represent the many different ways people will actually use the model. This variety helps the AI become flexible enough to handle new situations and valid requests.</li>
-                    <li><strong>Complexity:</strong> Complexity avoids easy or trivial examples that do not challenge the model. Instead, the data should include difficult tasks and multi-step reasoning problems. Training on harder material pushes the AI to develop the logic needed to solve real-world problems.</li>
+                    <li><strong>Accuracy:</strong> Accuracy ensures that the data is factually correct and directly answers the user's specific instruction. </li>
+                    <li><strong>Diversity:</strong> Diversity means the dataset must cover a wide variety of topics, writing styles, and lengths. It should represent the many different ways people will actually use the model. </li>
+                    <li><strong>Complexity:</strong> Complexity avoids easy or trivial examples that do not challenge the model. Instead, the data should include difficult tasks and multi-step reasoning problems.</li>
                     <li><strong>Data Quantity:</strong> The Hugging Face Hub contains numerous instruction datasets, which can be general-purpose or designed for particular tasks or domains.</li>
                 </ul>
             </div>
@@ -264,7 +264,7 @@
             <summary>Task vs. Domain Specific Models</summary>
             <div class="accordion-content">
                 <p><strong>Task-specific</strong> models focus on performing a single action, such as translation or summarization, often requiring less data and smaller model sizes. For task-specific models, data curation often involves <strong>collecting examples of the desired task from existing datasets or creating new ones.</strong></p>
-                <p><strong>Domain-specific</strong> models, however, focus on mastering a specific industry, like law or medicine. They <strong>prioritize specialized knowledge and vocabulary</strong>, with data needs varying based on the field's complexity. Domains that are well-represented in the original training data may require less fine-tuning, while those that are more specialized or underrepresented may need more extensive datasets.</p>
+                <p><strong>Domain-specific</strong> models, however, focus on mastering a specific industry. They <strong>prioritize specialized knowledge and vocabulary</strong>, with data needs varying based on the field's complexity. Domains that are well-represented in the original training data may require less fine-tuning, while those that are more specialized or underrepresented may need more extensive datasets.</p>
             </div>
         </details>
 
@@ -281,8 +281,8 @@
                 <p>When available instruction datasets are not sufficient, custom data creation is necessary. </p>
                 <p><strong>How It Works:</strong> Data generation builds custom datasets starting with a <strong>taxonomy</strong>.</p>
                 <ul>
-                    <li><strong>Taxonomy (The "What"):</strong> The organized map of skills—breaking a broad domain into specific sub-capabilities to ensure full coverage (e.g., coding → debugging → loops).</li>
-                    <li><strong>Seed (The "How"):</strong> The specific seed instructions (prompt templates) used to generate the data.</li>
+                    <li><strong>Taxonomy (The "What"):</strong> Breaking a broad domain into specific sub-capabilities to ensure full coverage (e.g., coding → debugging → loops).</li>
+                    <li><strong>Seed (The "How"):</strong> The specific prompt templates used to generate the data.</li>
                 </ul>
                 <p>These elements combined aid in the generation of massive instruction-response pairs.</p>
         
