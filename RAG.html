@@ -700,12 +700,17 @@
             <div class="section-content">
                 <p>This module covers advanced techniques to optimize vector search for either precision (Metadata Filtering) or recall (Expansion & Reranking).</p>
                 <details class="nested-accordion">
-                    <summary>A. Self-Querying / Filtered Vector Search</summary>
+                    <summary>
+                        A. Self-Querying / Filtered Vector Search
+                        <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/self_query.html'; v.classList.add('active');">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </summary>
                     <div class="nested-content">
                         <span class="tag">Focus: Precision</span>
-                        <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/self_query.html'; v.classList.add('active');">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        </button>
                         <p><em>Best for finding "x" with strict constraints "y".</em></p>
                         <div class="tree-root">
                             <details class="nested-accordion">
@@ -734,7 +739,15 @@
                     </div>
                 </details>
                 <details class="nested-accordion">
-                    <summary>B. Query Expansion / Reranking</summary>
+                    <summary>
+                        B. Query Expansion / Reranking
+                        <button class="eye-btn" onclick="const viewport = document.querySelector('.retro-viewport'); viewport.querySelector('iframe').src = 'RAG/query_expansion.html'; viewport.classList.add('active');">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </summary>
                     <div class="nested-content">
                         <span class="tag">Focus: Recall</span>
                         <p><em>Best for finding "x" and synonyms.</em></p>
@@ -746,7 +759,7 @@
                                     <ol>
                                         <li>
                                             <strong>Initiation and Configuration:</strong> 
-                                            The process begins by defining the scope of expansion. You configure how many alternate perspectives are required for your specific task. The system validates these parameters and, if in a testing phase, uses "mocking" to simulate the flow.
+                                            You configure how many alternate perspectives are required for your specific task. The system validates these parameters and, if in a testing phase, uses "mocking" to simulate the flow.
                                         </li>
                                         <li>
                                             <strong>Persona and Context Injection:</strong> 
@@ -797,7 +810,7 @@
                                     <ul>
                                         <li>
                                             <strong>Metadata Ingestion:</strong> 
-                                            During indexing, documents are tagged with structured info (department, date, clearance). This prevents the database from being "blind" to everything except word similarity.
+                                            During indexing, documents are tagged with structured info (e.g. department, date, clearance). This prevents the database from being "blind" to everything except word similarity.
                                         </li>
                                         <li>
                                             <strong>Query-to-Filter Translation (Self-Querying):</strong> 
