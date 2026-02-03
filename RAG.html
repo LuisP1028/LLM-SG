@@ -383,7 +383,7 @@
                         <summary>Syntactic Chunking</summary>
                         <div class="nested-content">
                             <button class="eye-btn" onclick="const v=document.querySelector('.retro-viewport'); v.querySelector('iframe').src='RAG/Syntactic_chunker.html'; v.classList.add('active');"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-eye"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
-                            <p>Leverages the distinct formatting logic of the source file to define boundaries. For code, it splits by functions or classes; for Markdown or HTML, it splits by headers or tags.</p>
+                            <p>Leverages the distinct formatting logic of the source file to define boundaries.</p>
                             <ul>
                                 <li><em>Example:</em> Splitting a Python script by <code>def</code> blocks or an HTML file by <code>&lt;div&gt;</code> tags, ensuring no function is cut in half.</li>
                                 <li><em>When to use:</em> Essential for structured documents like Code, Markdown, or JSON. It prevents breaking syntax, ensuring the retrieved chunk is valid and executable.</li>
@@ -467,7 +467,7 @@
                                                 <div class="nested-content">
                                                     <p>The model calculates the element-wise [individual numerical values across the vector dimensions] average of all token vectors in the final layer. 
                                                     $$\vec{v}_{mean} = \frac{1}{n} \sum_{i=1}^{n} \vec{h}_i$$
-                                                    This creates a "centroid" of the sequence. While excellent for capturing the overall topic, the averaging process can blur specific syntax and "who did what" details.</p>
+                                                    This creates a "centroid" of the sequence. While <strong>excellent for capturing the overall topic</strong>, the averaging process can blur specific syntax and "who did what" details.</p>
                                                     <p>The Result: A single vector where each index is the arithmetic mean of that specific position across all tokens in the sequence.</p>
                                                     <p>Choose this for Semantic Search (RAG) or clustering; it’s more robust at capturing the overall "flavor" of the text.</p>
                                                 </div>
@@ -586,10 +586,17 @@
                                             </details>
                                             
                                             <details class="nested-accordion">
-                                                <summary>2. Positional Encoding</summary>
+                                                <summary>
+                                                    2. Positional Encoding
+                                                    <button class="eye-btn" onclick="const viewport = document.querySelector('.retro-viewport'); viewport.querySelector('iframe').src='RAG/pos_encoding'; viewport.classList.add('active');">
+                                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                            <circle cx="12" cy="12" r="3"></circle>
+                                                        </svg>
+                                                    </button>
+                                                </summary>
                                                 <div class="nested-content">
                                                     <p>Infuses word order data into the vectors, allowing the model to distinguish meaning based on structural placement.</p>
-                                                    
                                                 </div>
                                             </details>
                                             
