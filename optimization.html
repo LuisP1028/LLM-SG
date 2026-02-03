@@ -502,7 +502,7 @@ Step 3: [3, 1, hidden_dim]
             </details>
 
             <details class="nested-entry">
-                <summary><strong>Absmax Quantization</strong></summary>
+                <summary><strong>Absmax Quantization</strong><button class="eye-btn" onclick="const vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src = 'INF_O/absmax.html'; vp.classList.add('active');"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button></summary>
                 <div class="nested-content">
                     <p>This is a symmetric scaling method. You find the absolute maximum value in a tensor and use it to map everything into the <strong>[-127, 127]</strong> range.</p>
                     <p><strong>The Problem:</strong> It assumes the data is centered around zero. If your weights are skewed (e.g., all positive), you waste half of your available "buckets," leading to higher rounding errors.</p>
@@ -510,7 +510,7 @@ Step 3: [3, 1, hidden_dim]
             </details>
 
             <details class="nested-entry">
-                <summary><strong>Zero-Point Quantization</strong></summary>
+                <summary><strong>Zero-Point Quantization</strong><button class="eye-btn" onclick="const vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src = 'INF_O/zero_point.html'; vp.classList.add('active');"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button></summary>
                 <div class="nested-content">
                     <p>Handles data that isn’t centered at zero. If your weights range from 2.0 to 10.0, Absmax wastes half the “slots” because it forces a symmetric range (e.g., −10 to 10) even when negative values don’t exist.</p>
                     <p><strong>The Goal:</strong> Map your actual minimum (e.g., 2.0) to −128 and your actual maximum (e.g., 10.0) to 127. This ensures the entire 8-bit “budget” is used for your specific data.</p>
@@ -575,7 +575,7 @@ Step 3: [3, 1, hidden_dim]
             </details>
 
             <details class="nested-entry">
-                <summary><strong>FlashAttention2: Basic Definitions</strong></summary>
+                <summary><strong>FlashAttention2: Basic Definitions</strong><button class="eye-btn" onclick="const vp = document.querySelector('.retro-viewport'); vp.querySelector('iframe').src = 'INF_O/flashattn2.html'; vp.classList.add('active');"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></button></summary>
                 <div class="nested-content">
                     <ul>
                         <li><strong>HBM (High Bandwidth Memory):</strong> Think of <strong>HBM</strong> as the GPU's "warehouse." It is massive (e.g., 80GB on an H100) and stores all your model weights and long-term data. However, moving data from HBM to the processor is slow.</li>
