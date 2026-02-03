@@ -497,7 +497,7 @@
                     </details>
 
                     <details class="nested-accordion">
-                        <summary>Sparse Embeddings</summary>
+                        <summary>Sparse Embeddings (Bi-Encoder Architecture)</summary>
                         <div class="nested-content">
                             <p>Foundation for lexical search. High-dimensional vectors mapping to specific tokens. Essential for exact keyword matching.</p>
                             <p><strong>When to use:</strong> Use this for precision-heavy tasks where exact keyword matching is non-negotiable.</p>
@@ -557,7 +557,7 @@
                     </details>
 
                     <details class="nested-accordion">
-                        <summary>Contextualized Token Embeddings (Late Interaction)</summary>
+                        <summary>Contextualized Token Embeddings (Cross-Encoder Architecture)</summary>
                         <div class="nested-content">
                             <p>Foundation for fine-grained matching (e.g., BERT, ColBERT). Unlike dense summaries, this generates separate, unique vectors for every token based on its neighbors.</p>
                             <p><strong>Example:</strong> Distinguishing between "bank" in "river bank" vs. "investment bank."</p>
@@ -630,7 +630,7 @@
                     </details>
 
                     <details class="nested-accordion">
-                        <summary>Cross-Encoders (Architectural Overview)</summary>
+                        <summary>Cross-Encoders (Deep Relevance Scoring)</summary>
                         <div class="nested-content">
                             <p>Foundation for deep relevance. Unlike bi-encoders that collapse text into independent "summary" vectors, this architecture processes a query and document pair simultaneously. By concatenating both into a single input sequence, it enables the <strong>Self-Attention</strong> mechanism to perform exhaustive, token-to-token comparisons.</p>
                             <p><strong>Example:</strong> For the query "Is caffeine good for sleep?", the model's attention heads identify specific relationships—detecting if the text claims caffeine helps or hinders rest, rather than just matching keywords.</p>
