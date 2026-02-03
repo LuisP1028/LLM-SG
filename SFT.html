@@ -263,8 +263,9 @@
         <details class="nested-accordion">
             <summary>Task vs. Domain Specific Models</summary>
             <div class="accordion-content">
-                <p><strong>Task-specific</strong> models focus on performing a single action, such as translation or summarization, often requiring less data and smaller model sizes. For task-specific models, data curation often involves <strong>collecting examples of the desired task from existing datasets or creating new ones.</strong></p>
-                <p><strong>Domain-specific</strong> models, however, focus on mastering a specific industry. They <strong>prioritize specialized knowledge and vocabulary</strong>, with data needs varying based on the field's complexity. Domains that are well-represented in the original training data may require less fine-tuning, while those that are more specialized or underrepresented may need more extensive datasets.</p>
+                <p><strong>Task-specific</strong> models focus on performing a single action, often requiring less data and smaller model sizes. For task-specific models, data curation often involves <strong>collecting examples of the desired task from existing datasets or creating new ones.</strong></p>
+                <p><strong>Domain-specific</strong> models, however, focus on mastering a specific industry. They <strong>prioritize specialized knowledge and vocabulary</strong>, with data needs varying based on the field's complexity.</p> 
+                <p>Domains that are well-represented in the original training data may require less fine-tuning, while those that are more specialized or underrepresented may need more extensive datasets.</p>
             </div>
         </details>
 
@@ -573,7 +574,8 @@
     <details class="section">
         <summary>3. Dataset Construction</summary>
         <div class="section-content">
-            <p>Packaging the curated data into machine-readable formats for training.</p>
+            <p>Instruction datasets are for defining how interactions with the model will be structured.</p>
+            <p>Chat templates provide formatting for the model to parse, distinguishing between system prompts, user, and model responses</p>
             
             <div class="subsection">
                 <span class="subsection-title">Instruction Dataset Formats</span>

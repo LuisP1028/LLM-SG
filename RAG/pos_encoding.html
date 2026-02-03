@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Positional Encoding // DITHERPUNK</title>
+    
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        :root {
+            --bg: #000000;
+            --fg: #00FF00;
+            --dim: #003300;
+            --border-width: 1px; /* Thinner border for tighter feel */
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 12px;
+            background: var(--bg);
+            border-left: 1px solid var(--dim);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--fg);
+            border: 2px solid var(--bg); /* Creates a 'blocky' pixel look */
+            box-shadow: inset 1px 1px 0px var(--bg);
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+            background-image: radial-gradient(var(--dim) 1px, transparent 1px);
+            background-size: 4px 4px;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--fg);
+            font-family: "Courier New", Courier, monospace;
+            margin: 0;
+            padding: 10px; /* Reduced padding */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        /* CRT Scanline Overlay */
+        body::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 10;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        h1 {
+            text-transform: uppercase;
+            border-bottom: var(--border-width) solid var(--fg);
+            padding-bottom: 5px;
+            letter-spacing: 2px;
+            font-size: clamp(1rem, 3vw, 1.8rem);
+            margin-bottom: 15px; /* Reduced margin */
+            text-align: center;
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Reduced gap between sections */
+            position: relative;
+            z-index: 1;
+        }
+
+        .section {
+            border: 1px solid var(--dim);
+            padding: 8px 12px; /* Tighter padding */
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .label {
+            font-size: clamp(0.6rem, 2vw, 0.8rem);
+            text-transform: uppercase;
+            background: var(--bg);
+            display: inline-block;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        canvas {
+            width: 100%;
+            height: clamp(30px, 6vh, 60px); /* Slightly more compact height */
+            image-rendering: pixelated;
+            display: block;
+            background: var(--dim);
+            border: 1px solid var(--fg);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid var(--fg);
+            padding: 10px;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 5px 0;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 12px;
+            background: var(--fg);
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 1px 1px 1px #000;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: var(--dim);
+            border: 1px solid var(--fg);
+        }
+
+        .readout {
+            display: flex;
+            justify-content: space-between;
+            font-size: clamp(0.7rem, 2.5vw, 0.9rem);
+            font-weight: bold;
+        }
+
+        .math-symbol {
+            text-align: center;
+            font-size: clamp(1.2rem, 3vw, 2rem);
+            font-weight: bold;
+            margin: -10px 0; /* Tighter negative margin */
+            opacity: 0.7;
+            user-select: none;
+            line-height: 1;
+        }
+        
+        .explanation {
+            font-size: clamp(0.6rem, 1.8vw, 0.75rem); /* Smaller font for densitiy */
+            line-height: 1.2;
+            color: #88aa88;
+        }
+
+        mjx-container {
+            color: var(--fg) !important;
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem) !important;
+            margin: 0 !important;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Positional Encoding</h1>
+
+    <div class="container">
+        
+        <div class="controls">
+            <div class="readout">
+                <span>POSITION ($pos$)</span>
+                <span id="posValue">0</span>
+            </div>
+            <input type="range" id="posSlider" min="0" max="100" value="0" step="1">
+            <div class="explanation">
+                Drag slider to shift the temporal "timestamp".
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="label">Input A: Semantic Token</div>
+            <canvas id="canvasToken"></canvas>
+            <div class="explanation">Static vector ("BANK"). Random noise = abstract features.</div>
+        </div>
+
+        <div class="math-symbol">+</div>
+
+        <div class="section">
+            <div class="label">Input B: Positional Signal</div>
+            <canvas id="canvasPos"></canvas>
+            <div class="explanation">
+                $$PE_{(pos, 2i)} = \sin\left(\frac{pos}{10000^{2i/d_{model}}}\right)$$
+            </div>
+        </div>
+
+        <div class="math-symbol">=</div>
+
+        <div class="section">
+            <div class="label">Output: Contextualized Vector</div>
+            <canvas id="canvasOut"></canvas>
+            <div class="explanation">Token + Position. Texture changes, meaning stays.</div>
+        </div>
+
+    </div>
+
+<script>
+    /**
+     * DITHERPUNK VISUALIZER (COMPACT)
+     */
+    
+    // Config
+    let dModel = 200; 
+    let canvasWidth = 800;
+    let canvasHeight = 60;
+    
+    // State
+    let posIndex = 0;
+    let tokenVector = [];
+
+    // References
+    const cToken = document.getElementById('canvasToken');
+    const cPos = document.getElementById('canvasPos');
+    const cOut = document.getElementById('canvasOut');
+    
+    const ctxToken = cToken.getContext('2d');
+    const ctxPos = cPos.getContext('2d');
+    const ctxOut = cOut.getContext('2d');
+
+    const slider = document.getElementById('posSlider');
+    const readout = document.getElementById('posValue');
+
+    function generateTokenVector(length) {
+        const vec = new Float32Array(length);
+        for(let i = 0; i < length; i++) {
+            vec[i] = Math.random(); 
+        }
+        return vec;
+    }
+
+    function resizeCanvas() {
+        // Dynamic resizing logic
+        const newWidth = cToken.parentElement.clientWidth - 24; // Adjusted for padding
+        const newHeight = parseInt(getComputedStyle(cToken).height);
+
+        [cToken, cPos, cOut].forEach(c => {
+            c.width = newWidth;
+            c.height = newHeight;
+        });
+
+        canvasWidth = newWidth;
+        canvasHeight = newHeight;
+        dModel = canvasWidth * 0.4; 
+
+        tokenVector = generateTokenVector(canvasWidth * canvasHeight);
+        draw();
+    }
+
+    slider.addEventListener('input', (e) => {
+        posIndex = parseInt(e.target.value);
+        readout.innerText = posIndex;
+        draw();
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    function dither(value) {
+        return Math.random() < value; 
+    }
+
+    function getPEValue(pos, dimIndex, maxDim) {
+        const i = Math.floor(dimIndex / 2); 
+        const frequency = 1 / Math.pow(10000, (2 * i) / maxDim);
+        
+        let val;
+        if (dimIndex % 2 === 0) {
+            val = Math.sin(pos * frequency);
+        } else {
+            val = Math.cos(pos * frequency);
+        }
+        return (val + 1) / 2;
+    }
+
+    function draw() {
+        if (canvasWidth === 0) return;
+
+        const tokenImg = ctxToken.createImageData(canvasWidth, canvasHeight);
+        const posImg = ctxPos.createImageData(canvasWidth, canvasHeight);
+        const outImg = ctxOut.createImageData(canvasWidth, canvasHeight);
+
+        for (let y = 0; y < canvasHeight; y++) {
+            for (let x = 0; x < canvasWidth; x++) {
+                
+                const index = (y * canvasWidth + x) * 4; 
+
+                // A. TOKEN
+                const tokenVal = tokenVector[y * canvasWidth + x];
+                const isTokenPixelOn = dither(tokenVal);
+                
+                tokenImg.data[index] = 0;     
+                tokenImg.data[index + 1] = isTokenPixelOn ? 255 : 0; 
+                tokenImg.data[index + 2] = 0; 
+                tokenImg.data[index + 3] = 255; 
+
+                // B. POSITION
+                const peVal = getPEValue(posIndex, x * (dModel/canvasWidth), dModel);
+                const isPosPixelOn = dither(peVal);
+
+                posImg.data[index] = 0;
+                posImg.data[index + 1] = isPosPixelOn ? 255 : 0;
+                posImg.data[index + 2] = 0;
+                posImg.data[index + 3] = 255;
+
+                // C. OUTPUT
+                const combinedVal = (tokenVal + peVal) / 2;
+                const isOutPixelOn = dither(combinedVal);
+
+                outImg.data[index] = 0;
+                outImg.data[index + 1] = isOutPixelOn ? 255 : 0;
+                outImg.data[index + 2] = 0;
+                outImg.data[index + 3] = 255;
+            }
+        }
+
+        ctxToken.putImageData(tokenImg, 0, 0);
+        ctxPos.putImageData(posImg, 0, 0);
+        ctxOut.putImageData(outImg, 0, 0);
+    }
+
+    setTimeout(resizeCanvas, 50);
+
+</script>
+</body>
+</html>
