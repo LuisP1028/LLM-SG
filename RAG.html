@@ -719,6 +719,7 @@
                     <div class="nested-content">
                         <span class="tag">Focus: Precision</span>
                         <p><em>Best for finding "x" with strict constraints "y".</em></p>
+                        <p><em>Filtered retrieval.</em></p>
                         <div class="tree-root">
                             <details class="nested-accordion">
                                 <summary>PROCESS</summary>
@@ -730,6 +731,30 @@
                                         <li><strong>Query Enrichment:</strong> Generates a Semantic Vector alongside Metadata Filters.</li>
                                         <li><strong>Filtered Retrieval:</strong> DB applies filters first, then calculates similarity only against compliant documents.</li>
                                     </ol>
+                                </div>
+                            </details>
+                            <details class="nested-accordion">
+                                <summary>FILTERED VECTOR SEARCH WORKFLOW (LOGIC)</summary>
+                                <div class="nested-content">
+                                    <p>Acts as a strict gatekeeper, ensuring the system respects logical boundaries before exploring semantic meanings.</p>
+                                    <ul>
+                                        <li>
+                                            <strong>Metadata Ingestion:</strong> 
+                                            During indexing, documents are tagged with structured info (e.g. department, date, clearance). This prevents the database from being "blind" to everything except word similarity.
+                                        </li>
+                                        <li>
+                                            <strong>Query-to-Filter Translation (Self-Querying):</strong> 
+                                            The system uses an LLM to extract constraints from the user. Asking for "2023 reports" triggers a mandatory <code>year == 2023</code> metadata filter, converting fuzzy requests into hard technical instructions.
+                                        </li>
+                                        <li>
+                                            <strong>Pre-Filter Execution:</strong> 
+                                            The system physically ignores documents that don't match criteria. This makes retrieval faster and immune to "noise" from irrelevant categories.
+                                        </li>
+                                        <li>
+                                            <strong>Similarity Retrieval:</strong> 
+                                            Only after narrowing the field does the system perform vector search. This ensures the "best match" is both <strong>semantically relevant</strong> and <strong>logically valid</strong>.
+                                        </li>
+                                    </ul>
                                 </div>
                             </details>
                             <details class="nested-accordion">
@@ -809,31 +834,7 @@
                             </details>
                             
                             
-                            
-                            <details class="nested-accordion">
-                                <summary>FILTERED VECTOR SEARCH WORKFLOW (LOGIC)</summary>
-                                <div class="nested-content">
-                                    <p>Acts as a strict gatekeeper, ensuring the system respects logical boundaries before exploring semantic meanings.</p>
-                                    <ul>
-                                        <li>
-                                            <strong>Metadata Ingestion:</strong> 
-                                            During indexing, documents are tagged with structured info (e.g. department, date, clearance). This prevents the database from being "blind" to everything except word similarity.
-                                        </li>
-                                        <li>
-                                            <strong>Query-to-Filter Translation (Self-Querying):</strong> 
-                                            The system uses an LLM to extract constraints from the user. Asking for "2023 reports" triggers a mandatory <code>year == 2023</code> metadata filter, converting fuzzy requests into hard technical instructions.
-                                        </li>
-                                        <li>
-                                            <strong>Pre-Filter Execution:</strong> 
-                                            The system physically ignores documents that don't match criteria. This makes retrieval faster and immune to "noise" from irrelevant categories.
-                                        </li>
-                                        <li>
-                                            <strong>Similarity Retrieval:</strong> 
-                                            Only after narrowing the field does the system perform vector search. This ensures the "best match" is both <strong>semantically relevant</strong> and <strong>logically valid</strong>.
-                                        </li>
-                                    </ul>
-                                </div>
-                            </details>
+                        
                         </div>
                     </div>
                 </details>
