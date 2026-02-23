@@ -682,7 +682,7 @@
                             <p>
                                 <strong>Compresses</strong> high-dimensional vectors by breaking them into smaller <strong>sub-parts</strong> and mapping each part to its nearest "representative" value, or <strong>centroid</strong>. Instead of storing massive raw numbers, a <strong>Signature Matrix</strong> stores compact IDs, drastically lowering the <strong>RAM footprint</strong>.
                                 <br><br>
-                                <strong>When to use:</strong> Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.
+                                <strong>When to use:</strong> Use PQ when your database is too big for your RAM. Focused on <strong>Lossy Compression</strong>. Use this when you need to manage a massive RAM footprint; it reduces the precision of the values rather than the number of dimensions to shrink the index size.
                             </p>
                         </div>
                     </details>
@@ -695,7 +695,7 @@
                                 </svg>
                             </button>
                             <p><strong>Reduces dimensionality</strong> by multiplying vectors with a fixed random matrix. Maps data to lower-dimensional space while preserving relative distances.</p>
-                            <p><strong>When to use:</strong> Focused on <strong>Dimensionality Reduction</strong>. Use this to manage computational complexity; it preserves the "topology" (relative distances) while making data mathematically simpler to handle before you begin the indexing process.</p>
+                            <p><strong>When to use:</strong> Use RP when your search is too slow for your CPU. Focused on <strong>Dimensionality Reduction</strong>. Use this to manage computational complexity; it preserves the "topology" (relative distances) while making data mathematically simpler to handle before you begin the indexing process.</p>
                         </div>
                     </details>
                 </div>
